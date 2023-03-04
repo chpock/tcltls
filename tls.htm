@@ -409,6 +409,12 @@ It may be removed from future releases.
 </em>
 </p>
 
+<h3><a name="DEBUG">DEBUG</a></h3>
+
+TLS key logging can be enabled by setting the environment variable
+<b>SSLKEYLOGFILE</b> to the name of the file to log to. Then whenever TLS
+key material is generated or received it will be logged to the file.
+
 <h3><a name="HTTPS EXAMPLE">HTTPS EXAMPLE</a></h3>
 
 <p>This example uses a sample server.pem provided with the TLS release,
