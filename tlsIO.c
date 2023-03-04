@@ -27,6 +27,7 @@ static int  TlsCloseProc _ANSI_ARGS_((ClientData instanceData, Tcl_Interp *inter
 static int  TlsInputProc _ANSI_ARGS_((ClientData instanceData, char *buf, int bufSize, int *errorCodePtr));
 static int  TlsOutputProc _ANSI_ARGS_((ClientData instanceData, CONST char *buf, int toWrite, int *errorCodePtr));
 static int  TlsGetOptionProc _ANSI_ARGS_((ClientData instanceData, Tcl_Interp *interp, CONST84 char *optionName, Tcl_DString *dsPtr));
+static int  TlsSetOptionProc _ANSI_ARGS_((ClientData instanceData, Tcl_Interp *interp, CONST84 char *optionName, CONST84 char *optionValue));
 static void TlsWatchProc _ANSI_ARGS_((ClientData instanceData, int mask));
 static int  TlsGetHandleProc _ANSI_ARGS_((ClientData instanceData, int direction, ClientData *handlePtr));
 static int  TlsNotifyProc _ANSI_ARGS_((ClientData instanceData, int mask));
@@ -92,6 +93,7 @@ Tcl_ChannelType *Tls_ChannelType(void) {
 		tlsChannelType->inputProc	= TlsInputProc;
 		tlsChannelType->outputProc	= TlsOutputProc;
 		tlsChannelType->getOptionProc	= TlsGetOptionProc;
+		tlsChannelType->setOptionProc	= TlsSetOptionProc;
 		tlsChannelType->watchProc	= TlsWatchProc;
 		tlsChannelType->getHandleProc	= TlsGetHandleProc;
 
@@ -297,13 +299,13 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 				dprintf("EOF reached")
 				*errorCodePtr = ECONNRESET;
 			} else if (backingError == 0 && err == -1) {
-				dprintf("I/O error occured (errno = %lu)", (unsigned long) Tcl_GetErrno());
+				dprintf("I/O error occurred (errno = %lu)", (unsigned long) Tcl_GetErrno());
 				*errorCodePtr = Tcl_GetErrno();
 				if (*errorCodePtr == ECONNRESET) {
 					*errorCodePtr = ECONNABORTED;
 				}
 			} else {
-				dprintf("I/O error occured (backingError = %lu)", backingError);
+				dprintf("I/O error occurred (backingError = %lu)", backingError);
 				*errorCodePtr = backingError;
 				if (*errorCodePtr == ECONNRESET) {
 					*errorCodePtr = ECONNABORTED;
@@ -452,11 +454,11 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 				*errorCodePtr = 0;
 				bytesRead = 0;
 			} else if (backingError == 0 && bytesRead == -1) {
-				dprintf("I/O error occured (errno = %lu)", (unsigned long) Tcl_GetErrno());
+				dprintf("I/O error occurred (errno = %lu)", (unsigned long) Tcl_GetErrno());
 				*errorCodePtr = Tcl_GetErrno();
 				bytesRead = -1;
 			} else {
-				dprintf("I/O error occured (backingError = %lu)", backingError);
+				dprintf("I/O error occurred (backingError = %lu)", backingError);
 				*errorCodePtr = backingError;
 				bytesRead = -1;
 			}
@@ -598,11 +600,11 @@ static int TlsOutputProc(ClientData instanceData, CONST char *buf, int toWrite, 
 				*errorCodePtr = 0;
 				written = 0;
 			} else if (backingError == 0 && written == -1) {
-				dprintf("I/O error occured (errno = %lu)", (unsigned long) Tcl_GetErrno());
+				dprintf("I/O error occurred (errno = %lu)", (unsigned long) Tcl_GetErrno());
 				*errorCodePtr = Tcl_GetErrno();
 				written = -1;
 			} else {
-				dprintf("I/O error occured (backingError = %lu)", backingError);
+				dprintf("I/O error occurred (backingError = %lu)", backingError);
 				*errorCodePtr = backingError;
 				written = -1;
 			}
@@ -620,6 +622,49 @@ static int TlsOutputProc(ClientData instanceData, CONST char *buf, int toWrite, 
 
 	dprintf("Output(%d) -> %d", toWrite, written);
 	return(written);
+}
+
+/*
+ *-------------------------------------------------------------------
+ *
+ * TlsSetOptionProc --
+ *
+ *	Sets an option value for a SSL socket based channel.
+ *
+ * Results:
+ *	A standard Tcl result.
+ *
+ * Side effects:
+ *	None.
+ *
+ *-------------------------------------------------------------------
+ */
+static int
+TlsSetOptionProc(ClientData instanceData,	/* Socket state. */
+	Tcl_Interp *interp,		/* For errors - can be NULL. */
+	CONST84 char *optionName,	/* Name of the option to
+					 * set the value for, or
+					 * NULL to get all options. */
+	CONST84 char *optionValue)	/* Value for option. */
+{
+    State *statePtr = (State *) instanceData;
+
+    Tcl_Channel downChan = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
+    Tcl_DriverSetOptionProc *setOptionProc;
+
+    setOptionProc = Tcl_ChannelSetOptionProc(Tcl_GetChannelType(downChan));
+    if (setOptionProc != NULL) {
+	return (*setOptionProc)(Tcl_GetChannelInstanceData(downChan), interp, optionName, optionValue);
+    } else if (optionName == (char*) NULL) {
+	/*
+	 * Request is query for all options, this is ok.
+	 */
+	return TCL_OK;
+    }
+    /*
+     * Request for a specific option has to fail, we don't have any.
+     */
+    return TCL_ERROR;
 }
 
 /*
@@ -652,8 +697,8 @@ TlsGetOptionProc(ClientData instanceData,	/* Socket state. */
 {
     State *statePtr = (State *) instanceData;
 
-   Tcl_Channel downChan = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
-   Tcl_DriverGetOptionProc *getOptionProc;
+    Tcl_Channel downChan = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
+    Tcl_DriverGetOptionProc *getOptionProc;
 
     getOptionProc = Tcl_ChannelGetOptionProc(Tcl_GetChannelType(downChan));
     if (getOptionProc != NULL) {
@@ -800,7 +845,7 @@ static int TlsNotifyProc(ClientData instanceData, int mask) {
 	int errorCode;
 
 	/*
-	 * An event occured in the underlying channel.  This
+	 * An event occurred in the underlying channel.  This
 	 * transformation doesn't process such events thus returns the
 	 * incoming mask unchanged.
 	 */
