@@ -226,7 +226,7 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
 
 	chan = Tls_GetParent((State *) BIO_get_data(bio), 0);
 
-	dprintf("BioCtrl(%p, 0x%x, 0x%x, %p)", (void *) bio, (unsigned int) cmd, (unsigned int) num, (void *) ptr);
+	dprintf("BioCtrl(%p, 0x%x, 0x%lx, %p)", (void *) bio, cmd, num, ptr);
 
 	switch (cmd) {
 		case BIO_CTRL_RESET:
