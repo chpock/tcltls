@@ -1487,8 +1487,10 @@ StatusObjCmd(clientData, interp, objc, objv)
 		channelName = Tcl_GetStringFromObj(objv[2], NULL);
 		break;
 	    }
-	    /* else fall... */
+	    /* else fall-through ... */
+#if defined(__GNUC__)
 	    __attribute__((fallthrough));
+#endif
 	default:
 	    Tcl_WrongNumArgs(interp, 1, objv, "?-local? channel");
 	    return TCL_ERROR;
