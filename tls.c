@@ -1605,8 +1605,9 @@ MiscObjCmd(clientData, interp, objc, objv)
     Tcl_Obj	*CONST objv[];
 {
     static CONST84 char *commands [] = { "req", NULL };
-    enum command { C_REQ, C_DUMMY };
-    int cmd;
+    enum command { C_REQ, C_STRREQ, C_DUMMY };
+    int cmd, isStr;
+    char buffer[16384];
 
     dprintf("Called");
 
@@ -1619,8 +1620,10 @@ MiscObjCmd(clientData, interp, objc, objv)
 	return TCL_ERROR;
     }
 
+    isStr = (cmd == C_STRREQ);
     switch ((enum command) cmd) {
-	case C_REQ: {
+	case C_REQ:
+	case C_STRREQ: {
 	    EVP_PKEY *pkey=NULL;
 	    X509 *cert=NULL;
 	    X509_NAME *name=NULL;
@@ -1643,6 +1646,10 @@ MiscObjCmd(clientData, interp, objc, objv)
 	    }
 	    keyout=Tcl_GetString(objv[3]);
 	    pemout=Tcl_GetString(objv[4]);
+	    if (isStr) {
+		Tcl_SetVar(interp,keyout,"",0);
+		Tcl_SetVar(interp,pemout,"",0);
+	    }
 
 	    if (objc>=6) {
 		if (Tcl_ListObjGetElements(interp, objv[5],
@@ -1658,9 +1665,6 @@ MiscObjCmd(clientData, interp, objc, objv)
 		    str=Tcl_GetString(listv[i]);
 		    if (strcmp(str,"days")==0) {
 			if (Tcl_GetIntFromObj(interp,listv[i+1],&days)!=TCL_OK)
-			    return TCL_ERROR;
-		    } else if (strcmp(str,"serial")==0) {
-			if (Tcl_GetIntFromObj(interp,listv[i+1],&serial)!=TCL_OK)
 			    return TCL_ERROR;
 		    } else if (strcmp(str,"serial")==0) {
 			if (Tcl_GetIntFromObj(interp,listv[i+1],&serial)!=TCL_OK)
@@ -1692,10 +1696,22 @@ MiscObjCmd(clientData, interp, objc, objv)
 		    EVP_PKEY_free(pkey);
 		    return TCL_ERROR;
 		}
-		out=BIO_new(BIO_s_file());
-		BIO_write_filename(out,keyout);
-		PEM_write_bio_PrivateKey(out,pkey,NULL,NULL,0,NULL,NULL);
-		BIO_free_all(out);
+
+		if (isStr) {
+		    out=BIO_new(BIO_s_mem());
+		    PEM_write_bio_PrivateKey(out,pkey,NULL,NULL,0,NULL,NULL);
+		    i=BIO_read(out,buffer,sizeof(buffer)-1);
+		    i=(i<0) ? 0 : i;
+		    buffer[i]='\0';
+		    Tcl_SetVar(interp,keyout,buffer,0);
+		    BIO_flush(out);
+		    BIO_free(out);
+		} else {
+		    out=BIO_new(BIO_s_file());
+		    BIO_write_filename(out,keyout);
+		    PEM_write_bio_PrivateKey(out,pkey,NULL,NULL,0,NULL,NULL);
+		    BIO_free_all(out);
+		}
 
 		if ((cert=X509_new())==NULL) {
 		    Tcl_SetResult(interp,"Error generating certificate request",NULL);
@@ -1721,18 +1737,28 @@ MiscObjCmd(clientData, interp, objc, objv)
 
 		X509_set_subject_name(cert,name);
 
-		if (!X509_sign(cert,pkey,EVP_md5())) {
+		if (!X509_sign(cert,pkey,EVP_sha1())) {
 		    X509_free(cert);
 		    EVP_PKEY_free(pkey);
 		    Tcl_SetResult(interp,"Error signing certificate",NULL);
 		    return TCL_ERROR;
 		}
 
-		out=BIO_new(BIO_s_file());
-		BIO_write_filename(out,pemout);
-
-		PEM_write_bio_X509(out,cert);
-		BIO_free_all(out);
+		if (isStr) {
+		    out=BIO_new(BIO_s_mem());
+		    PEM_write_bio_X509(out,cert);
+		    i=BIO_read(out,buffer,sizeof(buffer)-1);
+		    i=(i<0) ? 0 : i;
+		    buffer[i]='\0';
+		    Tcl_SetVar(interp,pemout,buffer,0);
+		    BIO_flush(out);
+		    BIO_free(out);
+		} else {
+		    out=BIO_new(BIO_s_file());
+		    BIO_write_filename(out,pemout);
+		    PEM_write_bio_X509(out,cert);
+		    BIO_free_all(out);
+		}
 
 		X509_free(cert);
 		EVP_PKEY_free(pkey);
