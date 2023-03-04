@@ -541,58 +541,59 @@ CiphersObjCmd(clientData, interp, objc, objv)
     switch ((enum protocol)index) {
     case TLS_SSL2:
 #if defined(NO_SSL2)
-		Tcl_AppendResult(interp, "protocol not supported", NULL);
+		Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(SSLv2_method()); break;
 #endif
     case TLS_SSL3:
 #if defined(NO_SSL3)
-		Tcl_AppendResult(interp, "protocol not supported", NULL);
+		Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(SSLv3_method()); break;
 #endif
     case TLS_TLS1:
 #if defined(NO_TLS1)
-		Tcl_AppendResult(interp, "protocol not supported", NULL);
+		Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(TLSv1_method()); break;
 #endif
     case TLS_TLS1_1:
 #if defined(NO_TLS1_1)
-		Tcl_AppendResult(interp, "protocol not supported", NULL);
+		Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(TLSv1_1_method()); break;
 #endif
     case TLS_TLS1_2:
 #if defined(NO_TLS1_2)
-		Tcl_AppendResult(interp, "protocol not supported", NULL);
+		Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(TLSv1_2_method()); break;
 #endif
     case TLS_TLS1_3:
 #if defined(NO_TLS1_3)
-		Tcl_AppendResult(interp, "protocol not supported", NULL);
+		Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 		return TCL_ERROR;
 #else
-		ctx = SSL_CTX_new(TLS_method()); break;
+		ctx = SSL_CTX_new(TLS_method());
                 SSL_CTX_set_min_proto_version (ctx, TLS1_3_VERSION);
                 SSL_CTX_set_max_proto_version (ctx, TLS1_3_VERSION);
+		break;
 #endif
     default:
 		break;
     }
     if (ctx == NULL) {
-	Tcl_AppendResult(interp, REASON(), (char *) NULL);
+	Tcl_AppendResult(interp, REASON(), NULL);
 	return TCL_ERROR;
     }
     ssl = SSL_new(ctx);
     if (ssl == NULL) {
-	Tcl_AppendResult(interp, REASON(), (char *) NULL);
+	Tcl_AppendResult(interp, REASON(), NULL);
 	SSL_CTX_free(ctx);
 	return TCL_ERROR;
     }
@@ -834,8 +835,8 @@ ImportObjCmd(clientData, interp, objc, objv)
 	OPTBOOL( "-tls1.1", tls1_1);
 	OPTBOOL( "-tls1.2", tls1_2);
 	OPTBOOL( "-tls1.3", tls1_3);
-  OPTBYTE("-cert", cert, cert_len);
-  OPTBYTE("-key", key, key_len);
+	OPTBYTE( "-cert", cert, cert_len);
+	OPTBYTE( "-key", key, key_len);
 
 	OPTBAD( "option", "-alpn, -cadir, -cafile, -cert, -certfile, -cipher, -command, -dhparams, -key, -keyfile, -model, -password, -require, -request, -server, -servername, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, or tls1.3");
 
@@ -843,7 +844,7 @@ ImportObjCmd(clientData, interp, objc, objv)
     }
     if (request)	    verify |= SSL_VERIFY_CLIENT_ONCE | SSL_VERIFY_PEER;
     if (request && require) verify |= SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
-    if (verify == 0)	verify = SSL_VERIFY_NONE;
+    if (verify == 0)        verify = SSL_VERIFY_NONE;
 
     proto |= (ssl2 ? TLS_PROTO_SSL2 : 0);
     proto |= (ssl3 ? TLS_PROTO_SSL3 : 0);
@@ -910,9 +911,8 @@ ImportObjCmd(clientData, interp, objc, objv)
 	}
 	ctx = ((State *)Tcl_GetChannelInstanceData(chan))->ctx;
     } else {
-	if ((ctx = CTX_Init(statePtr, server, proto, keyfile, certfile, key,
-    cert, key_len, cert_len, CAdir, CAfile, ciphers,
-    DHparams)) == (SSL_CTX*)0) {
+	if ((ctx = CTX_Init(statePtr, server, proto, keyfile, certfile, key, cert,
+	    key_len, cert_len, CAdir, CAfile, ciphers, DHparams)) == (SSL_CTX*)0) {
 	    Tls_Free((char *) statePtr);
 	    return TCL_ERROR;
 	}
@@ -1155,37 +1155,37 @@ CTX_Init(statePtr, isServer, proto, keyfile, certfile, key, cert,
     /* create SSL context */
 #if defined(NO_SSL2)
     if (ENABLED(proto, TLS_PROTO_SSL2)) {
-	Tcl_AppendResult(interp, "protocol not supported", NULL);
+	Tcl_AppendResult(interp, "SSL2 protocol not supported", NULL);
 	return (SSL_CTX *)0;
     }
 #endif
 #if defined(NO_SSL3)
     if (ENABLED(proto, TLS_PROTO_SSL3)) {
-	Tcl_AppendResult(interp, "protocol not supported", NULL);
+	Tcl_AppendResult(interp, "SSL3 protocol not supported", NULL);
 	return (SSL_CTX *)0;
     }
 #endif
 #if defined(NO_TLS1)
     if (ENABLED(proto, TLS_PROTO_TLS1)) {
-	Tcl_AppendResult(interp, "protocol not supported", NULL);
+	Tcl_AppendResult(interp, "TLS 1.0 protocol not supported", NULL);
 	return (SSL_CTX *)0;
     }
 #endif
 #if defined(NO_TLS1_1)
     if (ENABLED(proto, TLS_PROTO_TLS1_1)) {
-	Tcl_AppendResult(interp, "protocol not supported", NULL);
+	Tcl_AppendResult(interp, "TLS 1.1 protocol not supported", NULL);
 	return (SSL_CTX *)0;
     }
 #endif
 #if defined(NO_TLS1_2)
     if (ENABLED(proto, TLS_PROTO_TLS1_2)) {
-	Tcl_AppendResult(interp, "protocol not supported", NULL);
+	Tcl_AppendResult(interp, "TLS 1.2 protocol not supported", NULL);
 	return (SSL_CTX *)0;
     }
 #endif
 #if defined(NO_TLS1_3)
     if (ENABLED(proto, TLS_PROTO_TLS1_3)) {
-	Tcl_AppendResult(interp, "protocol not supported", NULL);
+	Tcl_AppendResult(interp, "TLS 1.3 protocol not supported", NULL);
 	return (SSL_CTX *)0;
     }
 #endif
