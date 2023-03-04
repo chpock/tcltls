@@ -720,41 +720,40 @@ TlsWatchProc(ClientData instanceData,	/* The socket state. */
         return;
     }
 
-	statePtr->watchMask = mask;
+    statePtr->watchMask = mask;
 
-	/* No channel handlers any more. We will be notified automatically
-	 * about events on the channel below via a call to our
-	 * 'TransformNotifyProc'. But we have to pass the interest down now.
-	 * We are allowed to add additional 'interest' to the mask if we want
-	 * to. But this transformation has no such interest. It just passes
-	 * the request down, unchanged.
-	 */
+    /* No channel handlers any more. We will be notified automatically
+     * about events on the channel below via a call to our
+     * 'TransformNotifyProc'. But we have to pass the interest down now.
+     * We are allowed to add additional 'interest' to the mask if we want
+     * to. But this transformation has no such interest. It just passes
+     * the request down, unchanged.
+     */
 
 
-        dprintf("Registering our interest in the lower channel (chan=%p)", (void *) downChan);
-	(Tcl_GetChannelType(downChan))
-	    ->watchProc(Tcl_GetChannelInstanceData(downChan), mask);
+	dprintf("Registering our interest in the lower channel (chan=%p)", (void *) downChan);
+    (Tcl_GetChannelType(downChan))
+	->watchProc(Tcl_GetChannelInstanceData(downChan), mask);
 
+    /*
+     * Management of the internal timer.
+     */
+
+    if (statePtr->timer != (Tcl_TimerToken) NULL) {
+	    dprintf("A timer was found, deleting it");
+	Tcl_DeleteTimerHandler(statePtr->timer);
+	statePtr->timer = (Tcl_TimerToken) NULL;
+    }
+
+    if ((mask & TCL_READABLE) &&
+	((Tcl_InputBuffered(statePtr->self) > 0) || (BIO_ctrl_pending(statePtr->bio) > 0))) {
 	/*
-	 * Management of the internal timer.
+	 * There is interest in readable events and we actually have
+	 * data waiting, so generate a timer to flush that.
 	 */
-
-	if (statePtr->timer != (Tcl_TimerToken) NULL) {
-            dprintf("A timer was found, deleting it");
-	    Tcl_DeleteTimerHandler(statePtr->timer);
-	    statePtr->timer = (Tcl_TimerToken) NULL;
-	}
-
-	if (mask & TCL_READABLE) {
-		if (Tcl_InputBuffered(statePtr->self) > 0 || BIO_ctrl_pending(statePtr->bio) > 0) {
-			/*
-			 * There is interest in readable events and we actually have
-			 * data waiting, so generate a timer to flush that.
-			 */
-			dprintf("Creating a new timer since data appears to be waiting");
-			statePtr->timer = Tcl_CreateTimerHandler(TLS_TCL_DELAY, TlsChannelHandlerTimer, (ClientData) statePtr);
-		}
-	}
+	dprintf("Creating a new timer since data appears to be waiting");
+	statePtr->timer = Tcl_CreateTimerHandler(TLS_TCL_DELAY, TlsChannelHandlerTimer, (ClientData) statePtr);
+    }
 }
 
 /*

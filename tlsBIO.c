@@ -260,11 +260,11 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
 			break;
 		case BIO_CTRL_EOF:
 			dprintf("Got BIO_CTRL_EOF");
-			ret = Tcl_Eof(chan);
+			ret = ((chan) ? Tcl_Eof(chan) : 1);
 			break;
 		case BIO_CTRL_PENDING:
 			dprintf("Got BIO_CTRL_PENDING");
-			ret = ((chan) ? Tcl_InputBuffered(chan) : 0);
+			ret = ((chan) ? ((Tcl_InputBuffered(chan) ? 1 : 0)) : 0);
 			dprintf("BIO_CTRL_PENDING(%d)", (int) ret);
 			break;
 		case BIO_CTRL_WPENDING:
@@ -276,7 +276,7 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
 			break;
 		case BIO_CTRL_FLUSH:
 			dprintf("Got BIO_CTRL_FLUSH");
-			ret = ((Tcl_WriteRaw(chan, "", 0) >= 0) ? 1 : -1);
+			ret = ((chan) && (Tcl_WriteRaw(chan, "", 0) >= 0) ? 1 : -1);
 			dprintf("BIO_CTRL_FLUSH returning value %li", ret);
 			break;
 		default:
