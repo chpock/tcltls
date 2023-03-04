@@ -103,12 +103,14 @@ Tls_NewX509Obj( interp, cert)
     char certStr[CERT_STR_SIZE], *certStr_p;
     int certStr_len, toRead;
 #ifndef NO_SSL_SHA
-    int shai;
-    char sha_hash_ascii[SHA_DIGEST_LENGTH * 2 + 1];
-    unsigned char sha_hash_binary[SHA_DIGEST_LENGTH];
+    char sha1_hash_ascii[SHA_DIGEST_LENGTH * 2 + 1];
+    unsigned char sha1_hash_binary[SHA_DIGEST_LENGTH];
+    char sha256_hash_ascii[SHA256_DIGEST_LENGTH*2+1];
+    unsigned char sha256_hash_binary[SHA256_DIGEST_LENGTH];
     const char *shachars="0123456789ABCDEF";
 
-    sha_hash_ascii[SHA_DIGEST_LENGTH * 2] = '\0';
+    sha1_hash_ascii[SHA_DIGEST_LENGTH * 2] = '\0';
+    sha256_hash_ascii[SHA256_DIGEST_LENGTH * 2] = '\0';
 #endif
 
     certStr[0] = 0;
@@ -166,44 +168,41 @@ Tls_NewX509Obj( interp, cert)
     strcpy( notAfter, ASN1_UTCTIME_tostr( X509_get_notAfter(cert) ));
 
 #ifndef NO_SSL_SHA
-    X509_digest(cert, EVP_sha1(), sha_hash_binary, NULL);
-    for (shai = 0; shai < SHA_DIGEST_LENGTH; shai++) {
-        sha_hash_ascii[shai * 2]     = shachars[(sha_hash_binary[shai] & 0xF0) >> 4];
-        sha_hash_ascii[shai * 2 + 1] = shachars[(sha_hash_binary[shai] & 0x0F)];
+    /* SHA1 */
+    X509_digest(cert, EVP_sha1(), sha1_hash_binary, NULL);
+    for (int n = 0; n < SHA_DIGEST_LENGTH; n++) {
+        sha1_hash_ascii[n * 2]     = shachars[(sha1_hash_binary[n] & 0xF0) >> 4];
+        sha1_hash_ascii[n * 2 + 1] = shachars[(sha1_hash_binary[n] & 0x0F)];
     }
     Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj("sha1_hash", -1) );
-    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj(sha_hash_ascii, SHA_DIGEST_LENGTH * 2) );
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj(sha1_hash_ascii, SHA_DIGEST_LENGTH * 2) );
 
+    /* SHA256 */
+    X509_digest(cert, EVP_sha256(), sha256_hash_binary, NULL);
+    for (int n = 0; n < SHA256_DIGEST_LENGTH; n++) {
+	sha256_hash_ascii[n*2]   = shachars[(sha256_hash_binary[n] & 0xF0) >> 4];
+	sha256_hash_ascii[n*2+1] = shachars[(sha256_hash_binary[n] & 0x0F)];
+    }
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( "sha256_hash", -1) );
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( sha256_hash_ascii, SHA256_DIGEST_LENGTH * 2) );
 #endif
-    Tcl_ListObjAppendElement( interp, certPtr,
-	    Tcl_NewStringObj( "subject", -1) );
-    Tcl_ListObjAppendElement( interp, certPtr,
-	    Tcl_NewStringObj( subject, -1) );
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( "subject", -1) );
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( subject, -1) );
 
-    Tcl_ListObjAppendElement( interp, certPtr,
-	    Tcl_NewStringObj( "issuer", -1) );
-    Tcl_ListObjAppendElement( interp, certPtr,
-	    Tcl_NewStringObj( issuer, -1) );
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( "issuer", -1) );
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( issuer, -1) );
 
-    Tcl_ListObjAppendElement( interp, certPtr,
-	    Tcl_NewStringObj( "notBefore", -1) );
-    Tcl_ListObjAppendElement( interp, certPtr,
-	    Tcl_NewStringObj( notBefore, -1) );
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( "notBefore", -1) );
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( notBefore, -1) );
 
-    Tcl_ListObjAppendElement( interp, certPtr,
-	    Tcl_NewStringObj( "notAfter", -1) );
-    Tcl_ListObjAppendElement( interp, certPtr,
-	    Tcl_NewStringObj( notAfter, -1) );
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( "notAfter", -1) );
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( notAfter, -1) );
 
-    Tcl_ListObjAppendElement( interp, certPtr,
-	    Tcl_NewStringObj( "serial", -1) );
-    Tcl_ListObjAppendElement( interp, certPtr,
-	    Tcl_NewStringObj( serial, -1) );
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( "serial", -1) );
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( serial, -1) );
 
-    Tcl_ListObjAppendElement( interp, certPtr,
-	    Tcl_NewStringObj( "certificate", -1) );
-    Tcl_ListObjAppendElement( interp, certPtr,
-	    Tcl_NewStringObj( certStr, -1) );
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( "certificate", -1) );
+    Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( certStr, -1) );
 
     return certPtr;
 }
