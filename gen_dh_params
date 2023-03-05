@@ -14,13 +14,10 @@ for arg in "$@"; do
 done
 
 openssl_dhparam() {
-	if [ -x "`which openssl 2>/dev/null`" ]; then
-		o_output="`openssl dhparam -C "$@" 2>/dev/null`" || return 1
-		o_output="`echo "${o_output}" | sed 's/get_dh[0-9][0-9]*/get_dhParams/'`" || return 1
-		o_output="`echo "${o_output}" | sed '/^-----BEGIN DH PARAMETERS-----$/,/^-----END DH PARAMETERS-----$/ d;/^#/ d'`" || return 1
-
-		echo "${o_output}"
-
+	if openssl dhparam -C "$@" | sed	\
+	    -e 's/^\(static \)*DH \*get_dh[0-9]*/static DH *get_dhParams/'	\
+	    -e '/^-----BEGIN DH PARAMETERS-----$/,/^-----END DH PARAMETERS-----$/ d;/^#/ d'
+	then
 		return 0
 	fi
 
@@ -271,8 +268,11 @@ echo "*****************************" >&2
 echo "** Generating DH Primes.   **" >&2
 echo "** This will take a while. **" >&2
 echo "*****************************" >&2
+echo "Use OpenSSL" >&2
 gen_dh_params_openssl && exit 0
+echo "Use Remote" >&2
 gen_dh_params_remote && exit 0
+echo "Use fallback" >&2
 gen_dh_params_fallback && exit 0
 
 echo "Unable to generate parameters for DH of ${bits} bits" >&2
