@@ -176,11 +176,16 @@ used directly.</p>
         <dd>List of protocols to offer during Application-Layer
 	    Protocol Negotiation (ALPN). For example: h2, http/1.1, etc.</dd>
         <dt><strong>-cadir</strong> <em>dir</em></dt>
-        <dd>Provide the directory containing the CA certificates.</dd>
+        <dd>Provide the directory containing the CA certificates. The
+	default directory is platform specific and can be set at
+	compile time. This can be overridden via the <b>SSL_CERT_DIR</b>
+	environment variable.</dd>
         <dt><strong>-cafile </strong><em>filename</em></dt>
         <dd>Provide the CA file.</dd>
         <dt><strong>-certfile</strong> <em>filename</em></dt>
-        <dd>Provide the name of a file containing certificate to use.</dd>
+        <dd>Provide the name of a file containing certificate to use.
+	The default name is cert.pem. This can be overridden via the
+	<b>SSL_CERT_FILE</b> environment variable.</dd>
         <dt><strong>-cert</strong> <em>filename</em></dt>
         <dd>Provide the contents of a certificate to use, as a DER encoded binary value (X.509 DER).</dd>
         <dt><strong>-cipher </strong><em>string</em></dt>
