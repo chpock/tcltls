@@ -283,9 +283,25 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
 			ret = ((chan) && (Tcl_WriteRaw(chan, "", 0) >= 0) ? 1 : -1);
 			dprintf("BIO_CTRL_FLUSH returning value %li", ret);
 			break;
+		case BIO_CTRL_PUSH:
+			dprintf("Got BIO_CTRL_PUSH");
+			ret = 0;
+			break;
+		case BIO_CTRL_POP:
+			dprintf("Got BIO_CTRL_POP");
+			ret = 0;
+			break;
+		case BIO_CTRL_SET:
+			dprintf("Got BIO_CTRL_SET");
+			ret = 0;
+			break;
+		case BIO_CTRL_GET :
+			dprintf("Got BIO_CTRL_GET ");
+			ret = 0;
+			break;
 		default:
 			dprintf("Got unknown control command (%i)", cmd);
-			ret = -2;
+			ret = 0;
 			break;
 	}
 
