@@ -16,9 +16,9 @@
 
 /* XXX: This assumes the variable being assigned to is BioMethods */
 #define BIO_meth_new(type_, name_)       (BIO_METHOD *)Tcl_Alloc(sizeof(BIO_METHOD)); \
-                                         memset(BioMethods, 0, sizeof(BIO_METHOD)); \
-                                         BioMethods->type = type_; \
-                                         BioMethods->name = name_;
+					 memset(BioMethods, 0, sizeof(BIO_METHOD)); \
+					 BioMethods->type = type_; \
+					 BioMethods->name = name_;
 #define BIO_meth_set_write(bio, val)     (bio)->bwrite = val;
 #define BIO_meth_set_read(bio, val)      (bio)->bread = val;
 #define BIO_meth_set_puts(bio, val)      (bio)->bputs = val;
@@ -27,90 +27,7 @@
 #define BIO_meth_set_destroy(bio, val)   (bio)->destroy = val;
 #endif
 
-/*
- * Forward declarations
- */
-
-static int BioWrite _ANSI_ARGS_((BIO *h, CONST char *buf, int num));
-static int BioRead  _ANSI_ARGS_((BIO *h, char *buf, int num));
-static int BioPuts  _ANSI_ARGS_((BIO *h, CONST char *str));
-static long BioCtrl _ANSI_ARGS_((BIO *h, int cmd, long arg1, void *ptr));
-static int BioNew   _ANSI_ARGS_((BIO *h));
-static int BioFree  _ANSI_ARGS_((BIO *h));
-
-BIO *BIO_new_tcl(State *statePtr, int flags) {
-	BIO *bio;
-	static BIO_METHOD *BioMethods = NULL;
-#ifdef TCLTLS_SSL_USE_FASTPATH
-	Tcl_Channel parentChannel;
-	const Tcl_ChannelType *parentChannelType;
-	void *parentChannelFdIn_p, *parentChannelFdOut_p;
-	int parentChannelFdIn, parentChannelFdOut, parentChannelFd;
-	int validParentChannelFd;
-	int tclGetChannelHandleRet;
-#endif
-
-	dprintf("BIO_new_tcl() called");
-
-	if (BioMethods == NULL) {
-		BioMethods = BIO_meth_new(BIO_TYPE_TCL, "tcl");
-		BIO_meth_set_write(BioMethods, BioWrite);
-		BIO_meth_set_read(BioMethods, BioRead);
-		BIO_meth_set_puts(BioMethods, BioPuts);
-		BIO_meth_set_ctrl(BioMethods, BioCtrl);
-		BIO_meth_set_create(BioMethods, BioNew);
-		BIO_meth_set_destroy(BioMethods, BioFree);
-	}
-
-	if (statePtr == NULL) {
-		dprintf("Asked to setup a NULL state, just creating the initial configuration");
-
-		return(NULL);
-	}
-
-#ifdef TCLTLS_SSL_USE_FASTPATH
-	/*
-	 * If the channel can be mapped back to a file descriptor, just use the file descriptor
-	 * with the SSL library since it will likely be optimized for this.
-	 */
-	parentChannel = Tls_GetParent(statePtr, 0);
-	parentChannelType = Tcl_GetChannelType(parentChannel);
-
-	validParentChannelFd = 0;
-	if (strcmp(parentChannelType->typeName, "tcp") == 0) {
-		tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_READABLE, (ClientData) &parentChannelFdIn_p);
-		if (tclGetChannelHandleRet == TCL_OK) {
-			tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_WRITABLE, (ClientData) &parentChannelFdOut_p);
-			if (tclGetChannelHandleRet == TCL_OK) {
-				parentChannelFdIn = PTR2INT(parentChannelFdIn_p);
-				parentChannelFdOut = PTR2INT(parentChannelFdOut_p);
-				if (parentChannelFdIn == parentChannelFdOut) {
-					parentChannelFd = parentChannelFdIn;
-					validParentChannelFd = 1;
-				}
-			}
-		}
-	}
-
-	if (validParentChannelFd) {
-		dprintf("We found a shortcut, this channel is backed by a socket: %i", parentChannelFdIn);
-		bio = BIO_new_socket(parentChannelFd, flags);
-		statePtr->flags |= TLS_TCL_FASTPATH;
-		return(bio);
-	}
-
-	dprintf("Falling back to Tcl I/O for this channel");
-#endif
-
-	bio = BIO_new(BioMethods);
-	BIO_set_data(bio, statePtr);
-	BIO_set_shutdown(bio, flags);
-	BIO_set_init(bio, 1);
-
-	return(bio);
-}
-
-static int BioWrite(BIO *bio, CONST char *buf, int bufLen) {
+static int BioWrite(BIO *bio, const char *buf, int bufLen) {
 	Tcl_Channel chan;
 	int ret;
 	int tclEofChan, tclErrno;
@@ -214,7 +131,7 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
 	return(ret);
 }
 
-static int BioPuts(BIO *bio, CONST char *str) {
+static int BioPuts(BIO *bio, const char *str) {
 	dprintf("BioPuts(%p, <string:%p>) called", bio, str);
 
 	return BioWrite(bio, str, (int) strlen(str));
@@ -336,4 +253,76 @@ static int BioFree(BIO *bio) {
 	}
 
 	return(1);
+}
+
+BIO *BIO_new_tcl(State *statePtr, int flags) {
+	BIO *bio;
+	static BIO_METHOD *BioMethods = NULL;
+#ifdef TCLTLS_SSL_USE_FASTPATH
+	Tcl_Channel parentChannel;
+	const Tcl_ChannelType *parentChannelType;
+	void *parentChannelFdIn_p, *parentChannelFdOut_p;
+	int parentChannelFdIn, parentChannelFdOut, parentChannelFd;
+	int validParentChannelFd;
+	int tclGetChannelHandleRet;
+#endif
+
+	dprintf("BIO_new_tcl() called");
+
+	if (BioMethods == NULL) {
+		BioMethods = BIO_meth_new(BIO_TYPE_TCL, "tcl");
+		BIO_meth_set_write(BioMethods, BioWrite);
+		BIO_meth_set_read(BioMethods, BioRead);
+		BIO_meth_set_puts(BioMethods, BioPuts);
+		BIO_meth_set_ctrl(BioMethods, BioCtrl);
+		BIO_meth_set_create(BioMethods, BioNew);
+		BIO_meth_set_destroy(BioMethods, BioFree);
+	}
+
+	if (statePtr == NULL) {
+		dprintf("Asked to setup a NULL state, just creating the initial configuration");
+
+		return(NULL);
+	}
+
+#ifdef TCLTLS_SSL_USE_FASTPATH
+	/*
+	 * If the channel can be mapped back to a file descriptor, just use the file descriptor
+	 * with the SSL library since it will likely be optimized for this.
+	 */
+	parentChannel = Tls_GetParent(statePtr, 0);
+	parentChannelType = Tcl_GetChannelType(parentChannel);
+
+	validParentChannelFd = 0;
+	if (strcmp(parentChannelType->typeName, "tcp") == 0) {
+		tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_READABLE, (ClientData) &parentChannelFdIn_p);
+		if (tclGetChannelHandleRet == TCL_OK) {
+			tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_WRITABLE, (ClientData) &parentChannelFdOut_p);
+			if (tclGetChannelHandleRet == TCL_OK) {
+				parentChannelFdIn = PTR2INT(parentChannelFdIn_p);
+				parentChannelFdOut = PTR2INT(parentChannelFdOut_p);
+				if (parentChannelFdIn == parentChannelFdOut) {
+					parentChannelFd = parentChannelFdIn;
+					validParentChannelFd = 1;
+				}
+			}
+		}
+	}
+
+	if (validParentChannelFd) {
+		dprintf("We found a shortcut, this channel is backed by a socket: %i", parentChannelFdIn);
+		bio = BIO_new_socket(parentChannelFd, flags);
+		statePtr->flags |= TLS_TCL_FASTPATH;
+		return(bio);
+	}
+
+	dprintf("Falling back to Tcl I/O for this channel");
+#endif
+
+	bio = BIO_new(BioMethods);
+	BIO_set_data(bio, statePtr);
+	BIO_set_shutdown(bio, flags);
+	BIO_set_init(bio, 1);
+
+	return(bio);
 }

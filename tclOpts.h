@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1997-2000 Matt Newman <matt@novadigm.com>
  *
- * Stylized option processing - requires consitent
+ * Stylized option processing - requires consistent
  * external vars: opt, idx, objc, objv
  */
 #ifndef _TCL_OPTS_H

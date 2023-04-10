@@ -23,15 +23,15 @@
 #include <string.h>
 #include <stdint.h>
 
-#ifdef __WIN32__
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <wincrypt.h> /* OpenSSL needs this on Windows */
 #endif
 
-/* Handle tcl8.3->tcl8.4 CONST changes */
-#ifndef CONST84
-#define CONST84
+/* Handle TCL 8.6 CONST changes */
+#ifndef CONST86
+#define CONST86
 #endif
 
 #ifdef NO_PATENTS
