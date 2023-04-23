@@ -1,11 +1,20 @@
 # call nmake with additional parameter SSL_INSTALL_FOLDER= with the
-# OpenSSL instalation folder following.
+# OpenSSL installation folder following.
 
 PROJECT=tls
 DOTVERSION = 1.7.22
 
-PRJ_INCLUDES	= -I"$(SSL_INSTALL_FOLDER)\include"
-PRJ_DEFINES =  -D NO_SSL2 -D NO_SSL3 -D _CRT_SECURE_NO_WARNINGS
+PRJ_INCLUDES = -I"$(SSL_INSTALL_FOLDER)\include" -I"$(OPENSSL_INSTALL_DIR)\include"
+PRJ_DEFINES = -D NO_SSL2 -D NO_SSL3 -D _CRT_SECURE_NO_WARNINGS
+ 
+# SSL Libs:
+#    1. ${LIBCRYPTO}.dll
+#    2. ${LIBSSL}.dll
+# Where LIBCRYPTO (#1.) and LIBSSL (#2.) are defined as follows:
+#    v1.1: libcrypto-1.1-x64.dll and libssl-1.1-x64.dll
+#    v3: libcrypto-3-x64.dll and libssl-3-x64.dll
+# On *nix libcrypto.so.* and libssl.so.* (where suffix is a version indicator).
+#
 
 PRJ_LIBS = \
 	"$(SSL_INSTALL_FOLDER)\lib\libssl.lib" \
