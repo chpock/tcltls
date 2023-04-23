@@ -1242,6 +1242,10 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     if (proto == TLS_PROTO_TLS1_3) {
         SSL_CTX_set_min_proto_version (ctx, TLS1_3_VERSION);
         SSL_CTX_set_max_proto_version (ctx, TLS1_3_VERSION);
+
+	if (!isServer) {
+	    SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
+	}
     }
 #endif
     
