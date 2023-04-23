@@ -145,7 +145,7 @@ proc tls::initlib {dir dll} {
 	# the tls dll. We choose to make them siblings of the executable.
 	package require starkit
 	set dst [file nativename [file dirname $starkit::topdir]]
-	foreach sdll [glob -nocomplain -directory $dir -tails *eay32.dll] {
+	foreach sdll [glob -nocomplain -directory $dir -tails libssl32.dll libcrypto*.dll libssl*.dll libssp*.dll] {
 	    catch {file delete -force            $dst/$sdll}
 	    catch {file copy   -force $dir/$sdll $dst/$sdll}
 	}
