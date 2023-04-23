@@ -16,9 +16,9 @@
 
 /* XXX: This assumes the variable being assigned to is BioMethods */
 #define BIO_meth_new(type_, name_)       (BIO_METHOD *)Tcl_Alloc(sizeof(BIO_METHOD)); \
-					 memset(BioMethods, 0, sizeof(BIO_METHOD)); \
-					 BioMethods->type = type_; \
-					 BioMethods->name = name_;
+                                         memset(BioMethods, 0, sizeof(BIO_METHOD)); \
+                                         BioMethods->type = type_; \
+                                         BioMethods->name = name_;
 #define BIO_meth_set_write(bio, val)     (bio)->bwrite = val;
 #define BIO_meth_set_read(bio, val)      (bio)->bread = val;
 #define BIO_meth_set_puts(bio, val)      (bio)->bputs = val;

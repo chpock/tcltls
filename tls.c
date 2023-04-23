@@ -23,7 +23,9 @@
 
 #include "tlsInt.h"
 #include "tclOpts.h"
+#include <stdio.h>
 #include <stdlib.h>
+#include <openssl/rsa.h>
 
 /*
  * External functions
@@ -39,9 +41,9 @@
 #define REASON()	ERR_reason_error_string(ERR_get_error())
 
 static SSL_CTX *CTX_Init(State *statePtr, int isServer, int proto, char *key,
-	char *certfile, unsigned char *key_asn1, unsigned char *cert_asn1,
-	int key_asn1_len, int cert_asn1_len, char *CAdir, char *CAfile,
-	char *ciphers, char *DHparams);
+			char *certfile, unsigned char *key_asn1, unsigned char *cert_asn1,
+			int key_asn1_len, int cert_asn1_len, char *CAdir, char *CAfile,
+      char *ciphers, char *DHparams);
 
 static int	TlsLibInit(int uninitialize);
 
@@ -92,6 +94,8 @@ static int	TlsLibInit(int uninitialize);
 
 #ifdef OPENSSL_THREADS
 #include <openssl/crypto.h>
+/* Added */
+#include <openssl/ssl.h>
 
 /*
  * Threaded operation requires locking callbacks
@@ -101,6 +105,8 @@ static int	TlsLibInit(int uninitialize);
 static Tcl_Mutex *locks = NULL;
 static int locksCount = 0;
 static Tcl_Mutex init_mx;
+
+# if OPENSSL_VERSION_NUMBER < 0x10100000L
 
 void CryptoThreadLockCallback(int mode, int n, const char *file, int line) {
 
@@ -131,6 +137,7 @@ unsigned long CryptoThreadIdCallback(void) {
 
 	return(ret);
 }
+#endif
 #endif /* OPENSSL_THREADS */
 #endif /* TCL_THREADS */
 
@@ -430,7 +437,7 @@ void KeyLogCallback(const SSL *ssl, const char *line) {
 static int
 PasswordCallback(char *buf, int size, int verify) {
     return -1;
-	buf = buf;
+    	buf = buf;
 	size = size;
 	verify = verify;
 }
@@ -476,11 +483,11 @@ PasswordCallback(char *buf, int size, int verify, void *udata) {
     if (code == TCL_OK) {
 	char *ret = (char *) Tcl_GetStringResult(interp);
 	if (strlen(ret) < size - 1) {
-	    strncpy(buf, ret, (size_t) size);
+	strncpy(buf, ret, (size_t) size);
 	    Tcl_Release((ClientData) interp);
-	    return (int)strlen(ret);
+	return (int)strlen(ret);
 	}
-     }
+    }
     Tcl_Release((ClientData) interp);
     return -1;
 }
@@ -519,7 +526,7 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 
     dprintf("Called");
 
-    if (objc < 2 || objc > 3) {
+    if ((objc < 2) || (objc > 3)) {
 	Tcl_WrongNumArgs(interp, 1, objv, "protocol ?verbose?");
 	return TCL_ERROR;
     }
@@ -527,54 +534,54 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 	&index) != TCL_OK) {
 	return TCL_ERROR;
     }
-    if (objc > 2 && Tcl_GetBooleanFromObj( interp, objv[2],
+    if ((objc > 2) && Tcl_GetBooleanFromObj( interp, objv[2],
 	&verbose) != TCL_OK) {
 	return TCL_ERROR;
     }
     switch ((enum protocol)index) {
     case TLS_SSL2:
-#if defined(NO_SSL2)
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L || defined(NO_SSL2) || defined(OPENSSL_NO_SSL2)
 		Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(SSLv2_method()); break;
 #endif
     case TLS_SSL3:
-#if defined(NO_SSL3)
+#if defined(NO_SSL3) || defined(OPENSSL_NO_SSL3)
 		Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(SSLv3_method()); break;
 #endif
     case TLS_TLS1:
-#if defined(NO_TLS1)
+#if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1)
 		Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(TLSv1_method()); break;
 #endif
     case TLS_TLS1_1:
-#if defined(NO_TLS1_1)
+#if defined(NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1)
 		Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(TLSv1_1_method()); break;
 #endif
     case TLS_TLS1_2:
-#if defined(NO_TLS1_2)
+#if defined(NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2)
 		Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(TLSv1_2_method()); break;
 #endif
     case TLS_TLS1_3:
-#if defined(NO_TLS1_3)
+#if defined(NO_TLS1_3) || defined(OPENSSL_NO_TLS1_3)
 		Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(TLS_method());
                 SSL_CTX_set_min_proto_version (ctx, TLS1_3_VERSION);
-		SSL_CTX_set_max_proto_version (ctx, TLS1_3_VERSION);
+                SSL_CTX_set_max_proto_version (ctx, TLS1_3_VERSION);
 		break;
 #endif
     default:
@@ -607,8 +614,8 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 	    SSL_CIPHER_description( sk_SSL_CIPHER_value( sk, index),
 				    buf, sizeof(buf));
 	    for (i = strlen(buf) - 1; i ; i--) {
-		if (buf[i] == ' ' || buf[i] == '\n' ||
-		    buf[i] == '\r' || buf[i] == '\t') {
+		if ((buf[i] == ' ') || (buf[i] == '\n') ||
+		    (buf[i] == '\r') || (buf[i] == '\t')) {
 		    buf[i] = '\0';
 		} else {
 		    break;
@@ -623,7 +630,7 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 
     Tcl_SetObjResult( interp, objPtr);
     return TCL_OK;
-	clientData = clientData;
+    	clientData = clientData;
 }
 
 /*
@@ -684,7 +691,7 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 		Tcl_ResetResult(interp);
 		Tcl_SetErrno(err);
 
-		if (!errStr || *errStr == 0) {
+		if (!errStr || (*errStr == 0)) {
 			errStr = Tcl_PosixError(interp);
 		}
 
@@ -703,7 +710,7 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 	Tcl_SetObjResult(interp, Tcl_NewIntObj(ret));
 	return(TCL_OK);
 
-	clientData = clientData;
+    	clientData = clientData;
 }
 
 /*
@@ -757,22 +764,22 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
     dprintf("Called");
 
-#if defined(NO_TLS1) && defined(NO_TLS1_1) && defined(NO_TLS1_2) && defined(NO_SSL3) && !defined(NO_SSL2)
+#if OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(OPENSSL_NO_SSL2) && defined(NO_TLS1) && defined(NO_TLS1_1) && defined(NO_TLS1_2) && defined(NO_TLS1_3) && defined(NO_SSL3) && !defined(NO_SSL2)
     ssl2 = 1;
 #endif
-#if defined(NO_TLS1) && defined(NO_TLS1_1) && defined(NO_TLS1_2) && defined(NO_SSL2) && !defined(NO_SSL3)
+#if !defined(OPENSSL_NO_SSL3) && defined(NO_TLS1) && defined(NO_TLS1_1) && defined(NO_TLS1_2) && defined(NO_TLS1_3) && defined(NO_SSL2) && !defined(NO_SSL3)
     ssl3 = 1;
 #endif
-#if defined(NO_TLS1)
+#if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1)
     tls1 = 0;
 #endif
-#if defined(NO_TLS1_1)
+#if defined(NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1)
     tls1_1 = 0;
 #endif
-#if defined(NO_TLS1_2)
+#if defined(NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2)
     tls1_2 = 0;
 #endif
-#if defined(NO_TLS1_3)
+#if defined(NO_TLS1_3) || defined(OPENSSL_NO_TLS1_3)
     tls1_3 = 0;
 #endif
 
@@ -810,7 +817,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTBOOL( "-request", request);
 	OPTBOOL( "-server", server);
 #ifndef OPENSSL_NO_TLSEXT
-	OPTSTR( "-servername", servername);
+        OPTSTR( "-servername", servername);
 	OPTOBJ( "-alpn", alpn);
 #endif
 
@@ -823,7 +830,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
   OPTBYTE("-cert", cert, cert_len);
   OPTBYTE("-key", key, key_len);
 
-	OPTBAD( "option", "-alpn, -cadir, -cafile, -cert, -certfile, -cipher, -command, -dhparams, -key, -keyfile, -model, -password, -require, -request, -server, -servername, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, or tls1.3");
+	OPTBAD( "option", "-alpn, -cadir, -cafile, -cert, -certfile, -cipher, -command, -dhparams, -key, -keyfile, -model, -password, -require, -request, -server, -servername, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, or -tls1.3");
 
 	return TCL_ERROR;
     }
@@ -884,10 +891,10 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	    return TCL_ERROR;
 	}
 
-	/*
-	 * Make sure to operate on the topmost channel
-	 */
-	chan = Tcl_GetTopChannel(chan);
+        /*
+         * Make sure to operate on the topmost channel
+         */
+        chan = Tcl_GetTopChannel(chan);
 	if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	    Tcl_AppendResult(interp, "bad channel \"",
 		    Tcl_GetChannelName(chan), "\": not a TLS channel", NULL);
@@ -952,12 +959,12 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
 #ifndef OPENSSL_NO_TLSEXT
     if (servername) {
-	if (!SSL_set_tlsext_host_name(statePtr->ssl, servername) && require) {
-	    Tcl_AppendResult(interp, "setting TLS host name extension failed",
-		(char *) NULL);
-	    Tls_Free((char *) statePtr);
-	    return TCL_ERROR;
-	}
+        if (!SSL_set_tlsext_host_name(statePtr->ssl, servername) && require) {
+            Tcl_AppendResult(interp, "setting TLS host name extension failed",
+                (char *) NULL);
+            Tls_Free((char *) statePtr);
+            return TCL_ERROR;
+        }
     }
     if (alpn) {
 	/* Convert a Tcl list into a protocol-list in wire-format */
@@ -1032,7 +1039,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     Tcl_SetResult(interp, (char *) Tcl_GetChannelName(statePtr->self),
 	    TCL_VOLATILE);
     return TCL_OK;
-	clientData = clientData;
+    	clientData = clientData;
 }
 
 /*
@@ -1083,7 +1090,7 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
     }
 
     return TCL_OK;
-	clientData = clientData;
+    	clientData = clientData;
 }
 
 /*
@@ -1120,37 +1127,37 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     }
 
     /* create SSL context */
-#if defined(NO_SSL2)
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L || defined(NO_SSL2) || defined(OPENSSL_NO_SSL2)
     if (ENABLED(proto, TLS_PROTO_SSL2)) {
 	Tcl_AppendResult(interp, "SSL2 protocol not supported", NULL);
 	return (SSL_CTX *)0;
     }
 #endif
-#if defined(NO_SSL3)
+#if defined(NO_SSL3) || defined(OPENSSL_NO_SSL3)
     if (ENABLED(proto, TLS_PROTO_SSL3)) {
 	Tcl_AppendResult(interp, "SSL3 protocol not supported", NULL);
 	return (SSL_CTX *)0;
     }
 #endif
-#if defined(NO_TLS1)
+#if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1)
     if (ENABLED(proto, TLS_PROTO_TLS1)) {
 	Tcl_AppendResult(interp, "TLS 1.0 protocol not supported", NULL);
 	return (SSL_CTX *)0;
     }
 #endif
-#if defined(NO_TLS1_1)
+#if defined(NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1)
     if (ENABLED(proto, TLS_PROTO_TLS1_1)) {
 	Tcl_AppendResult(interp, "TLS 1.1 protocol not supported", NULL);
 	return (SSL_CTX *)0;
     }
 #endif
-#if defined(NO_TLS1_2)
+#if defined(NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2)
     if (ENABLED(proto, TLS_PROTO_TLS1_2)) {
 	Tcl_AppendResult(interp, "TLS 1.2 protocol not supported", NULL);
 	return (SSL_CTX *)0;
     }
 #endif
-#if defined(NO_TLS1_3)
+#if defined(NO_TLS1_3) || defined(OPENSSL_NO_TLS1_3)
     if (ENABLED(proto, TLS_PROTO_TLS1_3)) {
 	Tcl_AppendResult(interp, "TLS 1.3 protocol not supported", NULL);
 	return (SSL_CTX *)0;
@@ -1158,63 +1165,64 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 #endif
 
     switch (proto) {
-#if !defined(NO_SSL2)
+#if OPENSSL_VERSION_NUMBER < 0x10101000L && !defined(NO_SSL2) && !defined(OPENSSL_NO_SSL2)
     case TLS_PROTO_SSL2:
 	method = SSLv2_method();
 	break;
 #endif
-#if !defined(NO_SSL3)
+#if !defined(NO_SSL3) && !defined(OPENSSL_NO_SSL3)
     case TLS_PROTO_SSL3:
 	method = SSLv3_method();
 	break;
 #endif
-#if !defined(NO_TLS1)
+#if !defined(NO_TLS1) && !defined(OPENSSL_NO_TLS1)
     case TLS_PROTO_TLS1:
 	method = TLSv1_method();
 	break;
 #endif
-#if !defined(NO_TLS1_1)
+#if !defined(NO_TLS1_1) && !defined(OPENSSL_NO_TLS1_1)
     case TLS_PROTO_TLS1_1:
 	method = TLSv1_1_method();
 	break;
 #endif
-#if !defined(NO_TLS1_2)
+#if !defined(NO_TLS1_2) && !defined(OPENSSL_NO_TLS1_2)
     case TLS_PROTO_TLS1_2:
 	method = TLSv1_2_method();
 	break;
 #endif
-#if !defined(NO_TLS1_3)
+#if !defined(NO_TLS1_3) && !defined(OPENSSL_NO_TLS1_3)
     case TLS_PROTO_TLS1_3:
-	/*
-	 * The version range is constrained below,
-	 * after the context is created.  Use the
-	 * generic method here.
-	 */
+        /*
+         * The version range is constrained below,
+         * after the context is created.  Use the
+         * generic method here.
+         */
 	method = TLS_method();
 	break;
 #endif
     default:
-#ifdef HAVE_TLS_METHOD
-	method = TLS_method();
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	/* Negotiate highest available SSL/TLS version */
+        method = TLS_method();
 #else
-	method = SSLv23_method();
+        method = SSLv23_method();
 #endif
-#if !defined(NO_SSL2)
+#if OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(NO_SSL2) && !defined(OPENSSL_NO_SSL2)
 	off |= (ENABLED(proto, TLS_PROTO_SSL2)   ? 0 : SSL_OP_NO_SSLv2);
 #endif
-#if !defined(NO_SSL3)
+#if !defined(NO_SSL3) && !defined(OPENSSL_NO_SSL3)
 	off |= (ENABLED(proto, TLS_PROTO_SSL3)   ? 0 : SSL_OP_NO_SSLv3);
 #endif
-#if !defined(NO_TLS1)
+#if !defined(NO_TLS1) && !defined(OPENSSL_NO_TLS1)
 	off |= (ENABLED(proto, TLS_PROTO_TLS1)   ? 0 : SSL_OP_NO_TLSv1);
 #endif
-#if !defined(NO_TLS1_1)
+#if !defined(NO_TLS1_1) && !defined(OPENSSL_NO_TLS1_1)
 	off |= (ENABLED(proto, TLS_PROTO_TLS1_1) ? 0 : SSL_OP_NO_TLSv1_1);
 #endif
-#if !defined(NO_TLS1_2)
+#if !defined(NO_TLS1_2) && !defined(OPENSSL_NO_TLS1_2)
 	off |= (ENABLED(proto, TLS_PROTO_TLS1_2) ? 0 : SSL_OP_NO_TLSv1_2);
 #endif
-#if !defined(NO_TLS1_3)
+#if !defined(NO_TLS1_3) && !defined(OPENSSL_NO_TLS1_3)
 	off |= (ENABLED(proto, TLS_PROTO_TLS1_3) ? 0 : SSL_OP_NO_TLSv1_3);
 #endif
 	break;
@@ -1223,23 +1231,26 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     ctx = SSL_CTX_new(method);
 
     if (!ctx) {
-	return(NULL);
+        return(NULL);
     }
 
     if (getenv(SSLKEYLOGFILE)) {
 	SSL_CTX_set_keylog_callback(ctx, KeyLogCallback);
     }
 
-#if !defined(NO_TLS1_3)
+#if !defined(NO_TLS1_3) && !defined(OPENSSL_NO_TLS1_3)
     if (proto == TLS_PROTO_TLS1_3) {
-	SSL_CTX_set_min_proto_version (ctx, TLS1_3_VERSION);
-	SSL_CTX_set_max_proto_version (ctx, TLS1_3_VERSION);
+        SSL_CTX_set_min_proto_version(ctx, TLS1_3_VERSION);
+        SSL_CTX_set_max_proto_version(ctx, TLS1_3_VERSION);
     }
 #endif
     
     SSL_CTX_set_app_data( ctx, (void*)interp);	/* remember the interpreter */
     SSL_CTX_set_options( ctx, SSL_OP_ALL);	/* all SSL bug workarounds */
     SSL_CTX_set_options( ctx, off);	/* all SSL bug workarounds */
+#if OPENSSL_VERSION_NUMBER < 0x10101000L
+    SSL_CTX_set_mode(ctx, SSL_MODE_AUTO_RETRY);	/* handle new handshakes in background */
+#endif
     SSL_CTX_sess_set_cache_size( ctx, 128);
 
     if (ciphers != NULL)
@@ -1400,7 +1411,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     /* https://sourceforge.net/p/tls/bugs/57/ */
     /* XXX:TODO: Let the user supply values here instead of something that exists on the filesystem */
     if ( CAfile != NULL ) {
-	STACK_OF(X509_NAME) *certNames = SSL_load_client_CA_file( F2N(CAfile, &ds) );
+        STACK_OF(X509_NAME) *certNames = SSL_load_client_CA_file( F2N(CAfile, &ds) );
 	if ( certNames != NULL ) { 
 	    SSL_CTX_set_client_CA_list(ctx, certNames );
 	}
@@ -1490,7 +1501,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	    Tcl_NewIntObj (SSL_get_cipher_bits (statePtr->ssl, NULL)));
 
     ciphers = (char*)SSL_get_cipher(statePtr->ssl);
-    if (ciphers != NULL && strcmp(ciphers, "(NONE)")!=0) {
+    if ((ciphers != NULL) && (strcmp(ciphers, "(NONE)") != 0)) {
 	Tcl_ListObjAppendElement(interp, objPtr,
 		Tcl_NewStringObj("cipher", -1));
 	Tcl_ListObjAppendElement(interp, objPtr,
@@ -1512,7 +1523,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
     Tcl_SetObjResult( interp, objPtr);
     return TCL_OK;
-	clientData = clientData;
+    	clientData = clientData;
 }
 
 /*
@@ -1538,9 +1549,9 @@ VersionObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
-	clientData = clientData;
-	objc = objc;
-	objv = objv;
+    	clientData = clientData;
+    	objc = objc;
+    	objv = objv;
 }
 
 /*
@@ -1588,6 +1599,15 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
 	    char *k_C="",*k_ST="",*k_L="",*k_O="",*k_OU="",*k_CN="",*k_Email="";
 	    char *keyout,*pemout,*str;
 	    int keysize,serial=0,days=365;
+
+#if OPENSSL_VERSION_NUMBER <= 0x10100000L
+	    RSA *rsa = NULL;
+#elif OPENSSL_VERSION_NUMBER < 0x30000000L
+	    BIGNUM *bne = NULL;
+	    RSA *rsa = NULL;
+#else
+	    EVP_PKEY_CTX *ctx = NULL;    
+#endif
 
 	    if ((objc<5) || (objc>6)) {
 		Tcl_WrongNumArgs(interp, 2, objv, "keysize keyfile certfile ?info?");
@@ -1642,14 +1662,33 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
 		    }
 		}
 	    }
-	    if ((pkey = EVP_PKEY_new()) != NULL) {
-		if (!EVP_PKEY_assign_RSA(pkey,
-			RSA_generate_key(keysize, 0x10001, NULL, NULL))) {
-		    Tcl_SetResult(interp,"Error generating private key",NULL);
-		    EVP_PKEY_free(pkey);
-		    return TCL_ERROR;
-		}
 
+#if OPENSSL_VERSION_NUMBER <= 0x10100000L
+	    pkey = EVP_PKEY_new();
+	    rsa = RSA_generate_key(keysize, 0x10001, NULL, NULL);
+	    if (pkey == NULL || rsa == NULL || !EVP_PKEY_assign_RSA(pkey, rsa)) {
+		EVP_PKEY_free(pkey);
+		/* RSA_free(rsa); freed by EVP_PKEY_free */
+#elif OPENSSL_VERSION_NUMBER < 0x30000000L
+	    bne = BN_new();
+	    rsa = RSA_new();
+	    pkey = EVP_PKEY_new();
+	    if (bne == NULL || rsa == NULL || pkey == NULL || !BN_set_word(bne,RSA_F4) || 
+		!RSA_generate_key_ex(rsa, keysize, bne, NULL) || !EVP_PKEY_assign_RSA(pkey, rsa)) {
+		EVP_PKEY_free(pkey);
+		/* RSA_free(rsa); freed by EVP_PKEY_free */
+		BN_free(bne);
+#else
+	    pkey = EVP_RSA_gen((unsigned int) keysize);
+	    ctx = EVP_PKEY_CTX_new(pkey,NULL);
+	    if (pkey == NULL || ctx == NULL || !EVP_PKEY_keygen_init(ctx) || 
+		!EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, keysize) || !EVP_PKEY_keygen(ctx, &pkey)) {
+		EVP_PKEY_free(pkey);
+		EVP_PKEY_CTX_free(ctx);
+#endif
+		Tcl_SetResult(interp,"Error generating private key",NULL);
+		return TCL_ERROR;
+	    } else {
 		if (isStr) {
 		    out=BIO_new(BIO_s_mem());
 		    PEM_write_bio_PrivateKey(out,pkey,NULL,NULL,0,NULL,NULL);
@@ -1663,19 +1702,28 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
 		    out=BIO_new(BIO_s_file());
 		    BIO_write_filename(out,keyout);
 		    PEM_write_bio_PrivateKey(out,pkey,NULL,NULL,0,NULL,NULL);
+		    /* PEM_write_bio_RSAPrivateKey(out, rsa, NULL, NULL, 0, NULL, NULL); */
 		    BIO_free_all(out);
-		}
+	 	}
 
 		if ((cert=X509_new())==NULL) {
 		    Tcl_SetResult(interp,"Error generating certificate request",NULL);
 		    EVP_PKEY_free(pkey);
+#if OPENSSL_VERSION_NUMBER > 0x10100000L && OPENSSL_VERSION_NUMBER < 0x30000000L
+		    BN_free(bne);
+#endif
 		    return(TCL_ERROR);
 		}
 
 		X509_set_version(cert,2);
 		ASN1_INTEGER_set(X509_get_serialNumber(cert),serial);
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 		X509_gmtime_adj(X509_get_notBefore(cert),0);
 		X509_gmtime_adj(X509_get_notAfter(cert),(long)60*60*24*days);
+#else
+		X509_gmtime_adj(X509_getm_notBefore(cert),0);
+		X509_gmtime_adj(X509_getm_notAfter(cert),(long)60*60*24*days);
+#endif
 		X509_set_pubkey(cert,pkey);
 		
 		name=X509_get_subject_name(cert);
@@ -1690,9 +1738,12 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
 
 		X509_set_subject_name(cert,name);
 
-		if (!X509_sign(cert,pkey,EVP_sha1())) {
+		if (!X509_sign(cert,pkey,EVP_sha256())) {
 		    X509_free(cert);
 		    EVP_PKEY_free(pkey);
+#if OPENSSL_VERSION_NUMBER > 0x10100000L && OPENSSL_VERSION_NUMBER < 0x30000000L
+		    BN_free(bne);
+#endif
 		    Tcl_SetResult(interp,"Error signing certificate",NULL);
 		    return TCL_ERROR;
 		}
@@ -1715,9 +1766,9 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
 
 		X509_free(cert);
 		EVP_PKEY_free(pkey);
-	    } else {
-		Tcl_SetResult(interp,"Error generating private key",NULL);
-		return TCL_ERROR;
+#if OPENSSL_VERSION_NUMBER > 0x10100000L && OPENSSL_VERSION_NUMBER < 0x30000000L
+		BN_free(bne);
+#endif
 	    }
 	}
 	break;
@@ -1830,10 +1881,10 @@ void Tls_Clean(State *statePtr) {
 DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
 	const char tlsTclInitScript[] = {
 #include "tls.tcl.h"
-	    0x00
+            0x00
 	};
 
-	dprintf("Called");
+        dprintf("Called");
 
 	/*
 	 * We only support Tcl 8.4 or newer
@@ -1928,8 +1979,13 @@ static int TlsLibInit(int uninitialize) {
 #if defined(OPENSSL_THREADS) && defined(TCL_THREADS)
 		Tcl_MutexLock(&init_mx);
 
+#if OPENSSL_VERSION_NUMBER < 0x10000000L
 		CRYPTO_set_locking_callback(NULL);
 		CRYPTO_set_id_callback(NULL);
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L
+		CRYPTO_set_locking_callback(NULL);
+		CRYPTO_THREADID_set_callback(NULL)
+#endif
 
 		if (locks) {
 			free(locks);
@@ -1959,22 +2015,42 @@ static int TlsLibInit(int uninitialize) {
 	initialized = 1;
 
 #if defined(OPENSSL_THREADS) && defined(TCL_THREADS)
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 	num_locks = CRYPTO_num_locks();
-	locksCount = num_locks;
+#else
+	num_locks = 1;
+#endif
+	locksCount = (int) num_locks;
 	locks = malloc(sizeof(*locks) * num_locks);
 	memset(locks, 0, sizeof(*locks) * num_locks);
 
+#if OPENSSL_VERSION_NUMBER < 0x10000000L
 	CRYPTO_set_locking_callback(CryptoThreadLockCallback);
 	CRYPTO_set_id_callback(CryptoThreadIdCallback);
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L
+	CRYPTO_set_locking_callback(CryptoThreadLockCallback);
+	CRYPTO_THREADID_set_callback(CryptoThreadIdCallback)
+#endif
 #endif
 
+# if OPENSSL_VERSION_NUMBER < 0x10100000L
 	if (SSL_library_init() != 1) {
 		status = TCL_ERROR;
 		goto done;
 	}
+#else
+	/* Initialize BOTH libcrypto and libssl. */
+	OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS | OPENSSL_INIT_LOAD_CRYPTO_STRINGS
+	    | OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
+#endif
 
+# if OPENSSL_VERSION_NUMBER < 0x10100000L
 	SSL_load_error_strings();
 	ERR_load_crypto_strings();
+#else
+	/* Only initialize libcrypto  */
+	OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
+#endif
 
 	BIO_new_tcl(NULL, 0);
 
@@ -2003,7 +2079,9 @@ static int TlsLibInit(int uninitialize) {
     } while (RAND_status() != 1);
 #endif
 
+# if OPENSSL_VERSION_NUMBER < 0x10100000L
 done:
+#endif
 #if defined(OPENSSL_THREADS) && defined(TCL_THREADS)
 	Tcl_MutexUnlock(&init_mx);
 #endif

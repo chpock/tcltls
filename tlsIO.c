@@ -619,12 +619,12 @@ TlsGetOptionProc(ClientData instanceData,	/* Socket state. */
 
     getOptionProc = Tcl_ChannelGetOptionProc(Tcl_GetChannelType(downChan));
     if (getOptionProc != NULL) {
-	return (*getOptionProc)(Tcl_GetChannelInstanceData(downChan), interp, optionName, dsPtr);
+        return (*getOptionProc)(Tcl_GetChannelInstanceData(downChan), interp, optionName, dsPtr);
     } else if (optionName == (char*) NULL) {
-	/*
-	 * Request is query for all options, this is ok.
-	 */
-	 return TCL_OK;
+        /*
+         * Request is query for all options, this is ok.
+         */
+         return TCL_OK;
     }
     /*
      * Request for a specific option has to fail, we don't have any.
@@ -662,8 +662,8 @@ TlsWatchProc(ClientData instanceData,	/* The socket state. */
     /* Pretend to be dead as long as the verify callback is running. 
      * Otherwise that callback could be invoked recursively. */
     if (statePtr->flags & TLS_TCL_CALLBACK) {
-	dprintf("Callback is on-going, doing nothing");
-	return;
+        dprintf("Callback is on-going, doing nothing");
+        return;
     }
 
     dprintFlags(statePtr);
@@ -671,40 +671,40 @@ TlsWatchProc(ClientData instanceData,	/* The socket state. */
     downChan = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
 
     if (statePtr->flags & TLS_TCL_HANDSHAKE_FAILED) {
-	dprintf("Asked to watch a socket with a failed handshake -- nothing can happen here");
+        dprintf("Asked to watch a socket with a failed handshake -- nothing can happen here");
 
 	dprintf("Unregistering interest in the lower channel");
 	(Tcl_GetChannelType(downChan))->watchProc(Tcl_GetChannelInstanceData(downChan), 0);
 
 	statePtr->watchMask = 0;
 
-	return;
+        return;
     }
 
-    statePtr->watchMask = mask;
+	statePtr->watchMask = mask;
 
-    /* No channel handlers any more. We will be notified automatically
-     * about events on the channel below via a call to our
-     * 'TransformNotifyProc'. But we have to pass the interest down now.
-     * We are allowed to add additional 'interest' to the mask if we want
-     * to. But this transformation has no such interest. It just passes
-     * the request down, unchanged.
-     */
+	/* No channel handlers any more. We will be notified automatically
+	 * about events on the channel below via a call to our
+	 * 'TransformNotifyProc'. But we have to pass the interest down now.
+	 * We are allowed to add additional 'interest' to the mask if we want
+	 * to. But this transformation has no such interest. It just passes
+	 * the request down, unchanged.
+	 */
 
 
-    dprintf("Registering our interest in the lower channel (chan=%p)", (void *) downChan);
-    (Tcl_GetChannelType(downChan))
-	->watchProc(Tcl_GetChannelInstanceData(downChan), mask);
+        dprintf("Registering our interest in the lower channel (chan=%p)", (void *) downChan);
+	(Tcl_GetChannelType(downChan))
+	    ->watchProc(Tcl_GetChannelInstanceData(downChan), mask);
 
-    /*
-     * Management of the internal timer.
-     */
+	/*
+	 * Management of the internal timer.
+	 */
 
-    if (statePtr->timer != (Tcl_TimerToken) NULL) {
-	dprintf("A timer was found, deleting it");
-	Tcl_DeleteTimerHandler(statePtr->timer);
-	statePtr->timer = (Tcl_TimerToken) NULL;
-    }
+	if (statePtr->timer != (Tcl_TimerToken) NULL) {
+            dprintf("A timer was found, deleting it");
+	    Tcl_DeleteTimerHandler(statePtr->timer);
+	    statePtr->timer = (Tcl_TimerToken) NULL;
+	}
 
     if ((mask & TCL_READABLE) &&
 	((Tcl_InputBuffered(statePtr->self) > 0) || (BIO_ctrl_pending(statePtr->bio) > 0))) {
