@@ -1240,8 +1240,8 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 
 #if !defined(NO_TLS1_3) && !defined(OPENSSL_NO_TLS1_3)
     if (proto == TLS_PROTO_TLS1_3) {
-        SSL_CTX_set_min_proto_version(ctx, TLS1_3_VERSION);
-        SSL_CTX_set_max_proto_version(ctx, TLS1_3_VERSION);
+        SSL_CTX_set_min_proto_version (ctx, TLS1_3_VERSION);
+        SSL_CTX_set_max_proto_version (ctx, TLS1_3_VERSION);
     }
 #endif
     
@@ -1515,7 +1515,6 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     Tcl_ListObjAppendElement(interp, objPtr,
       Tcl_NewStringObj((char *)proto, (int)len));
 #endif
-
     Tcl_ListObjAppendElement(interp, objPtr,
 	Tcl_NewStringObj("version", -1));
     Tcl_ListObjAppendElement(interp, objPtr,
@@ -1673,7 +1672,7 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
 	    bne = BN_new();
 	    rsa = RSA_new();
 	    pkey = EVP_PKEY_new();
-	    if (bne == NULL || rsa == NULL || pkey == NULL || !BN_set_word(bne,RSA_F4) || 
+	    if (bne == NULL || rsa == NULL || pkey == NULL || !BN_set_word(bne,RSA_F4) ||
 		!RSA_generate_key_ex(rsa, keysize, bne, NULL) || !EVP_PKEY_assign_RSA(pkey, rsa)) {
 		EVP_PKEY_free(pkey);
 		/* RSA_free(rsa); freed by EVP_PKEY_free */
@@ -1681,7 +1680,7 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
 #else
 	    pkey = EVP_RSA_gen((unsigned int) keysize);
 	    ctx = EVP_PKEY_CTX_new(pkey,NULL);
-	    if (pkey == NULL || ctx == NULL || !EVP_PKEY_keygen_init(ctx) || 
+	    if (pkey == NULL || ctx == NULL || !EVP_PKEY_keygen_init(ctx) ||
 		!EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, keysize) || !EVP_PKEY_keygen(ctx, &pkey)) {
 		EVP_PKEY_free(pkey);
 		EVP_PKEY_CTX_free(ctx);

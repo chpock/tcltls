@@ -216,6 +216,18 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
 			dprintf("Got BIO_CTRL_GET ");
 			ret = 0;
 			break;
+#ifdef BIO_CTRL_GET_KTLS_SEND
+		case BIO_CTRL_GET_KTLS_SEND:
+			dprintf("Got BIO_CTRL_GET_KTLS_SEND");
+			ret = 0;
+			break;
+#endif
+#ifdef BIO_CTRL_GET_KTLS_RECV
+		case BIO_CTRL_GET_KTLS_RECV:
+			dprintf("Got BIO_CTRL_GET_KTLS_RECV");
+			ret = 0;
+			break;
+#endif
 		default:
 			dprintf("Got unknown control command (%i)", cmd);
 			ret = 0;
