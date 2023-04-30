@@ -12,7 +12,7 @@ on any platform as it uses a generic mechanism for layering on SSL and Tcl.
 Full filevent sematics should also be intact - see tests directory for
 blocking and non-blocking examples.
 
-The current release is TLS 1.6, with binaries built against OpenSSL 0.9.8g.
+The current release is TLS 1.7, with binaries built against OpenSSL 1.1.1.
 For best security and function, always compile from source with the latest
 official release of OpenSSL (http://www.openssl.org/).
 
