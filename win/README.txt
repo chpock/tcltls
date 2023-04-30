@@ -10,58 +10,70 @@ Note: Visual C++ 6 does not build OpenSSL (long long syntax error)
 - OpenSSL statically linked to TCLTLS DLL.
 Note: Dynamic linking also works but results in a DLL dependency on OPENSSL DLL's
 
+-----------------------------
+
 1) Build OpenSSL static libraries:
 
+set SSLBUILD=\path\to\build\dir
+set SSLINSTALL=\path\to\install\dir
+set SSLCOMMON=\path\to\common\dir
+
 (1a) Get OpenSSL
+
   https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1t/openssl-1.1.1t.tar.gz
 
-  OpenSSL source distribution unpacked in:
-  C:\Users\Brian\Documents\Source\Build\openssl-1.1.1t
+  Unpack OpenSSL source distribution to %SSLBUILD%
 
 (1b) Install Perl from https://strawberryperl.com/
+
   https://strawberryperl.com/download/5.32.1.1/strawberry-perl-5.32.1.1-64bit.msi
-  to C:\Strawberry\perl
-  (ActivePerl failed due to missing 32 bit console module)
+  Install to C:\Strawberry\perl
 
 (1c) Install NASM Assembler from https://www.nasm.us/
-  https://www.nasm.us/pub/nasm/releasebuilds/2.16.01/win64/nasm-2.16.01-installer-x64.exe
-  to C:\Program Files\NASM
 
-(1d)
-- Configure
+  https://www.nasm.us/pub/nasm/releasebuilds/2.16.01/win64/nasm-2.16.01-installer-x64.exe
+  Install to: C:\Program Files\NASM
+
+(1d) Configure
+
   At Visual Studio x86 native prompt:
 
-set Path=%PATH%;C:\Program Files\NASM;C:\Strawberry\perl\bin
+  set Path=%PATH%;C:\Program Files\NASM;C:\Strawberry\perl\bin
+  perl ..\Configure VC-WIN64A no-shared no-filenames threads no-ssl2 no-ssl3 --api=1.1.0 --prefix="%SSLINSTALL%" --openssldir="%SSLCOMMON%" -DOPENSSL_NO_DEPRECATED
+  # Not used options: no-asm no-zlib no-comp no-ui-console no-autoload-config
 
-perl Configure VC-WIN32 --prefix=c:\test\tcltls\openssl --openssldir=c:\test\tcltls\openssldir no-shared no-filenames threads
-perl ..\Configure VC-WIN64A no-asm no-ssl3 no-zlib no-comp no-ui-console no-autoload-config --api=1.1.0 --prefix="%installdir%" --openssldir="%commoninstalldir%" -DOPENSSL_NO_DEPRECATED
+(1e) Build OpenSSL
 
+  nmake
+  nmake test
+  nmake install
 
-nmake
-nmake test
-nmake install
+-----------------------------
 
-2) Build TCLTLS
+2) Build TclTLS
 
-2a) Unzip distribution in:
-C:\Users\Brian\Documents\Source\Build\tcltls-b5c41cdeb6
+set BUILDDIR=\path\to\build\dir
+set TCLINSTALL=\path\to\tcl\dir
+
+2a) Unzip distribution to %BUILDDIR%
 
 2b) Start BASH shell (MinGW62 Git shell)
 
-cd /c/Users/Brian/Documents/Source/Build/tcltls-b5c41cdeb6
+cd %BUILDDIR%
 ./gen_dh_params > dh_params.h
 
-od -A n -v -t xC < 'tls.tcl' > tls.tcl.h.new.1
-sed 's@[^0-9A-Fa-f]@@g;s@..@0x&, @g' < tls.tcl.h.new.1 > tls.tcl.h
+od -A n -v -t xC < 'library/tls.tcl' > tls.tcl.h.new.1
+sed 's@[^0-9A-Fa-f]@@g;s@..@0x&, @g' < tls.tcl.h.new.1 > generic/tls.tcl.h
 rm -f tls.tcl.h.new.1
 
 2c) Start Visual Studio shell
 
-cd C:\Users\Brian\Documents\Source\Build\tcltls-b5c41cdeb6\win
+cd %BUILDDIR%\win
 
-nmake -f makefile.vc TCLDIR=c:\test\tcl8610 SSL_INSTALL_FOLDER=C:\test\tcltls\openssl
+nmake -f makefile.vc TCLDIR=%TCLINSTALL% SSL_INSTALL_FOLDER=%SSLINSTALL%
+nmake -f makefile.vc install TCLDIR=c:\test\tcl8610 INSTALLDIR=%TCLINSTALL% SSL_INSTALL_FOLDER=%SSLINSTALL%
 
-nmake -f makefile.vc install TCLDIR=c:\test\tcl8610 INSTALLDIR=c:\test\tcltls SSL_INSTALL_FOLDER=C:\test\tcltls\openssl
+-----------------------------
 
 3) Test
 

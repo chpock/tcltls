@@ -5,6 +5,7 @@ PROJECT=tls
 DOTVERSION = 1.7.22
 
 PRJ_INCLUDES = -I"$(SSL_INSTALL_FOLDER)\include" -I"$(OPENSSL_INSTALL_DIR)\include"
+
 PRJ_DEFINES = -D NO_SSL2 -D NO_SSL3 -D _CRT_SECURE_NO_WARNINGS
  
 # SSL Libs:
@@ -29,5 +30,8 @@ PRJ_OBJS = $(TMP_DIR)\tls.obj \
 !include "rules-ext.vc"
 !include "targets.vc"
 
-pkgindex: default-pkgindex
+# Project specific targets
 
+pkgindex: default-pkgindex
+install: default-pkgindex-tea default-install default-install-docs-html
+test: default-test
