@@ -1,8 +1,12 @@
-dnl $1 = Name of variable
-dnl $2 = Name of function to check for
-dnl $3 = Name of protocol
-dnl $4 = Name of CPP macro to define
-dnl $5 = Name of CPP macro to check for instead of a function
+#
+# Include the TEA standard macro set
+#
+
+builtin(include,tclconfig/tcl.m4)
+
+#
+# Add here whatever m4 macros you want to define for your package
+#
 AC_DEFUN([TCLTLS_SSL_OPENSSL_CHECK_PROTO_VER], [
 	dnl Determine if particular SSL version is enabled
 	if test "[$]$1" = "true" -o "[$]$1" = "force"; then
@@ -50,14 +54,6 @@ int x = $5;
 AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	openssldir=''
 	opensslpkgconfigdir=''
-	AC_ARG_WITH([ssl-dir],
-		AS_HELP_STRING(
-			[--with-ssl-dir=<dir>],
-			[deprecated, use --with-openssl-dir -- currently has the same meaning]
-		), [
-			openssldir="$withval"
-		]
-	)
 	AC_ARG_WITH([openssl-dir],
 		AS_HELP_STRING(
 			[--with-openssl-dir=<dir>],
@@ -168,9 +164,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	AC_LINK_IFELSE([AC_LANG_PROGRAM([
 #include <openssl/ssl.h>
 #include <openssl/opensslv.h>
-#if (SSLEAY_VERSION_NUMBER >= 0x0907000L)
-# include <openssl/conf.h>
-#endif
+#include <openssl/conf.h>
 		], [
   SSL_library_init();
   SSL_load_error_strings();
@@ -195,9 +189,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		AC_MSG_CHECKING([for SSL_set_tlsext_host_name])
 		AC_LINK_IFELSE([AC_LANG_PROGRAM([
 #include <openssl/ssl.h>
-#if (SSLEAY_VERSION_NUMBER >= 0x0907000L)
-# include <openssl/conf.h>
-#endif
+#include <openssl/conf.h>
 			], [
   (void)SSL_set_tlsext_host_name((void *) 0, (void *) 0);
 			])], [

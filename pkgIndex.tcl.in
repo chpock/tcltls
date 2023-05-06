@@ -1,16 +1,22 @@
-if {[package vsatisfies [package present Tcl] 8.5-]} {
-	package ifneeded tls @PACKAGE_VERSION@ [list apply {{dir} {
+# -*- tcl -*-
+# Tcl package index file, version 1.1
+#
+if {[package vsatisfies [package provide Tcl] 9.0-]} {
+    package ifneeded @PACKAGE_NAME@ @PACKAGE_VERSION@ \
+	    [list load [file join $dir @PKG_LIB_FILE9@] [string totitle @PACKAGE_NAME@]]
+} elseif {[package vsatisfies [package present Tcl] 8.5-]} {
+	package ifneeded @PACKAGE_NAME@ @PACKAGE_VERSION@ [list apply {{dir} {
 		if {{@TCLEXT_BUILD@} eq "static"} {
-			load {} Tls
+			load {} [string totitle @PACKAGE_NAME@]
 		} else {
-			load [file join $dir @EXTENSION_TARGET@] Tls
+			load [file join $dir @PKG_LIB_FILE8@] [string totitle @PACKAGE_NAME@]
 		}
 
-		set tlsTclInitScript [file join $dir tls.tcl]
-		if {[file exists $tlsTclInitScript]} {
-			source $tlsTclInitScript
+		set initScript [file join $dir @PACKAGE_NAME@.tcl]
+		if {[file exists $initScript]} {
+			source $initScript
 		}
 	}} $dir]
 } elseif {[package vsatisfies [package present Tcl] 8.4]} {
-	package ifneeded tls @PACKAGE_VERSION@ [list load [file join $dir @EXTENSION_TARGET@] Tls]
+	package ifneeded @PACKAGE_NAME@ @PACKAGE_VERSION@ [list load [file join $dir @PKG_LIB_FILE8@] [string totitle @PACKAGE_NAME@]]
 }

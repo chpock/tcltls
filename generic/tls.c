@@ -1989,6 +1989,7 @@ static int TlsLibInit(int uninitialize) {
     SSL_load_error_strings();
     ERR_load_crypto_strings();
 #else
+    /* Only initialize libcrypto  */
     OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
 #endif
 
