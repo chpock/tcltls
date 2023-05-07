@@ -648,14 +648,10 @@ ac_header_c_list=
 ac_subst_vars='LTLIBOBJS
 GEN_DH_PARAMS_ARGS
 TCLSH_PROG
-SSL_LIB_DIR_NATIVE
-SSL_INCLUDE_DIR_NATIVE
-SSL_INCLUDE_DIR
-SSL_LIB_DIR
-SSL_DIR
 TCLTLS_SSL_CPPFLAGS
 TCLTLS_SSL_CFLAGS
 TCLTLS_SSL_LIBS
+PKGCONFIG
 VC_MANIFEST_EMBED_EXE
 VC_MANIFEST_EMBED_DLL
 RANLIB_STUB
@@ -9131,18 +9127,6 @@ printf "%s\n" "cant" >&6; }
 		fi
 	fi
 
-	SSL_DIR="/usr"
-	SSL_LIB_DIR=${SSL_DIR}/lib64
-	SSL_INCLUDE_DIR=${SSL_DIR}/include/openssl
-
-
-
-
-
-    SSL_INCLUDE_DIR_NATIVE=\"`${CYGPATH} ${SSL_INCLUDE_DIR}`\"
-    SSL_LIB_DIR_NATIVE=\"`${CYGPATH} ${SSL_LIB_DIR}`\"
-
-
 
 #--------------------------------------------------------------------
 # Shared libraries and static libraries have different names.
@@ -9154,33 +9138,18 @@ printf "%s\n" "cant" >&6; }
 if test "${TEA_PLATFORM}" = "windows" ; then
     if test "$GCC" = "yes"; then
 
-    vars="-I${SSL_INCLUDE_DIR_NATIVE}"
+    PKG_CFLAGS="$PKG_CFLAGS ${TCLTLS_SSL_CFLAGS}"
+
+
+
+    vars="${TCLTLS_SSL_CPPFLAGS}"
     for i in $vars; do
 	PKG_INCLUDES="$PKG_INCLUDES $i"
     done
 
 
 
-    vars="-L${SSL_LIB_DIR_NATIVE}"
-    for i in $vars; do
-	if test "${TEA_PLATFORM}" = "windows" -a "$GCC" = "yes" ; then
-	    # Convert foo.lib to -lfoo for GCC.  No-op if not *.lib
-	    i=`echo "$i" | sed -e 's/^\([^-].*\)\.[lL][iI][bB]$/-l\1/'`
-	fi
-	PKG_LIBS="$PKG_LIBS $i"
-    done
-
-
-    else
-
-    vars="-include:${SSL_INCLUDE_DIR_NATIVE}"
-    for i in $vars; do
-	PKG_INCLUDES="$PKG_INCLUDES $i"
-    done
-
-
-
-    vars="-libpath:${SSL_LIB_DIR_NATIVE}"
+    vars="${TCLTLS_SSL_LIBS}"
     for i in $vars; do
 	if test "${TEA_PLATFORM}" = "windows" -a "$GCC" = "yes" ; then
 	    # Convert foo.lib to -lfoo for GCC.  No-op if not *.lib
@@ -9191,30 +9160,20 @@ if test "${TEA_PLATFORM}" = "windows" ; then
 
 
     fi
-
-    vars="libcrypto.lib libssl.lib"
-    for i in $vars; do
-	if test "${TEA_PLATFORM}" = "windows" -a "$GCC" = "yes" ; then
-	    # Convert foo.lib to -lfoo for GCC.  No-op if not *.lib
-	    i=`echo "$i" | sed -e 's/^\([^-].*\)\.[lL][iI][bB]$/-l\1/'`
-	fi
-	PKG_LIBS="$PKG_LIBS $i"
-    done
-
-
 else
-    # Subst runtime dir here, use -R and -L where necessary. [Bug 1742859]
-    LIB_RUNTIME_DIR=${SSL_LIB_DIR}
-    eval "LD_SEARCH_FLAGS=\"${LD_SEARCH_FLAGS}\""
 
-    vars="-I${SSL_INCLUDE_DIR}"
+    PKG_CFLAGS="$PKG_CFLAGS ${TCLTLS_SSL_CFLAGS}"
+
+
+
+    vars="${TCLTLS_SSL_CPPFLAGS}"
     for i in $vars; do
 	PKG_INCLUDES="$PKG_INCLUDES $i"
     done
 
 
 
-    vars="${LD_SEARCH_FLAGS} -L${SSL_LIB_DIR} -lssl -lcrypto ${GCCPATH} ${GCCLIB}"
+    vars="${TCLTLS_SSL_LIBS}"
     for i in $vars; do
 	if test "${TEA_PLATFORM}" = "windows" -a "$GCC" = "yes" ; then
 	    # Convert foo.lib to -lfoo for GCC.  No-op if not *.lib

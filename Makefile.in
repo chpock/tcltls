@@ -53,16 +53,6 @@ PKG_TCL_SOURCES = @PKG_TCL_SOURCES@
 PKG_HEADERS	= @PKG_HEADERS@
 
 #========================================================================
-# SSL
-#========================================================================
-
-SSL_DIR			= @SSL_DIR@
-SSL_LIB_DIR 		= @SSL_LIB_DIR@
-SSL_INCLUDE_DIR 	= @SSL_INCLUDE_DIR@
-SSL_INCLUDE_DIR_NATIVE	= @SSL_INCLUDE_DIR_NATIVE@
-SSL_INCLUDES 		= -I$(SSL_INCLUDE_DIR_NATIVE)
-
-#========================================================================
 # "PKG_LIB_FILE" refers to the library (dynamic or static as per
 # configuration options) composed of the named objects.
 #========================================================================

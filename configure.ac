@@ -168,20 +168,6 @@ TEA_MAKE_LIB
 
 TCLTLS_SSL_OPENSSL
 
-# Temp work-around
-SSL_DIR="/usr"
-SSL_LIB_DIR=${SSL_DIR}/lib64
-SSL_INCLUDE_DIR=${SSL_DIR}/include/openssl
-
-AC_SUBST(SSL_DIR)
-AC_SUBST(SSL_LIB_DIR)
-AC_SUBST(SSL_INCLUDE_DIR)
-
-SSL_INCLUDE_DIR_NATIVE=\"`${CYGPATH} ${SSL_INCLUDE_DIR}`\"
-SSL_LIB_DIR_NATIVE=\"`${CYGPATH} ${SSL_LIB_DIR}`\"
-AC_SUBST(SSL_INCLUDE_DIR_NATIVE)
-AC_SUBST(SSL_LIB_DIR_NATIVE)
-
 #--------------------------------------------------------------------
 # Shared libraries and static libraries have different names.
 # Also, windows libraries and unix libraries have different names.
@@ -191,19 +177,14 @@ AC_SUBST(SSL_LIB_DIR_NATIVE)
 
 if test "${TEA_PLATFORM}" = "windows" ; then
     if test "$GCC" = "yes"; then
-	TEA_ADD_INCLUDES([-I${SSL_INCLUDE_DIR_NATIVE}])
-	TEA_ADD_LIBS([-L${SSL_LIB_DIR_NATIVE}])
-    else
-	TEA_ADD_INCLUDES([-include:${SSL_INCLUDE_DIR_NATIVE}])
-	TEA_ADD_LIBS([-libpath:${SSL_LIB_DIR_NATIVE}])
+	TEA_ADD_CFLAGS([${TCLTLS_SSL_CFLAGS}])
+	TEA_ADD_INCLUDES([${TCLTLS_SSL_CPPFLAGS}])
+	TEA_ADD_LIBS([${TCLTLS_SSL_LIBS}])
     fi
-    TEA_ADD_LIBS([libcrypto.lib libssl.lib])
 else
-    # Subst runtime dir here, use -R and -L where necessary. [Bug 1742859]
-    LIB_RUNTIME_DIR=${SSL_LIB_DIR}
-    eval "LD_SEARCH_FLAGS=\"${LD_SEARCH_FLAGS}\""
-    TEA_ADD_INCLUDES([-I${SSL_INCLUDE_DIR}])
-    TEA_ADD_LIBS([${LD_SEARCH_FLAGS} -L${SSL_LIB_DIR} -lssl -lcrypto ${GCCPATH} ${GCCLIB}])
+	TEA_ADD_CFLAGS([${TCLTLS_SSL_CFLAGS}])
+	TEA_ADD_INCLUDES([${TCLTLS_SSL_CPPFLAGS}])
+	TEA_ADD_LIBS([${TCLTLS_SSL_LIBS}])
 fi
 
 #--------------------------------------------------------------------
