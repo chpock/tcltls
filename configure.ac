@@ -219,12 +219,6 @@ else
     fi
 fi
 
-if test "${SHARED_BUILD}" = "1" ; then
-    AC_SUBST(TCLEXT_BUILD,"shared")
-else
-    AC_SUBST(TCLEXT_BUILD,"static")
-fi
-
 #--------------------------------------------------------------------
 # Determine the name of the tclsh and/or wish executables in the
 # Tcl and Tk build directories or the location they were installed

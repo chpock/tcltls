@@ -648,7 +648,6 @@ ac_header_c_list=
 ac_subst_vars='LTLIBOBJS
 GEN_DH_PARAMS_ARGS
 TCLSH_PROG
-TCLEXT_BUILD
 SSL_LIB_DIR_NATIVE
 SSL_INCLUDE_DIR_NATIVE
 SSL_INCLUDE_DIR
@@ -8983,7 +8982,7 @@ printf "%s\n" X"$openssldir" |
 	fi
 
 	pkgConfigExtraArgs=''
-	if test "$TCLEXT_BUILD" = "static" -o "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
+	if test "${SHARED_BUILD}" != "1" -o "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
 		pkgConfigExtraArgs='--static'
 	fi
 
@@ -9011,13 +9010,13 @@ printf "%s\n" X"$openssldir" |
 	fi
 	PKG_CONFIG_PATH="${PKG_CONFIG_PATH_SAVE}"
 
-	if test "$TCLEXT_BUILD" = "static"; then
+	if test "${SHARED_BUILD}" != "1"; then
 				rm -f tcltls.${AREXT}.linkadd
 		printf "%s\n" "$TCLTLS_SSL_LIBS" > tcltls.${AREXT}.linkadd
 	fi
 
 		if test "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
-				if test "$TCLEXT_BUILD" != "static"; then
+				if test "${SHARED_BUILD}" = "1"; then
 						new_TCLTLS_SSL_LIBS_normal=''
 			new_TCLTLS_SSL_LIBS_static=''
 			for arg in $TCLTLS_SSL_LIBS; do
@@ -9137,11 +9136,6 @@ printf "%s\n" "cant" >&6; }
 		fi
 	fi
 
-#TLS_CHECK_SSL
-
-#AC_CHECK_LIB(crypto, main, [LIBS="$LIBS -lcrypto"])
-#AC_CHECK_LIB(ssl, main, [LIBS="$LIBS -lssl"])
-
 	SSL_DIR="/usr"
 	SSL_LIB_DIR=${SSL_DIR}/lib64
 	SSL_INCLUDE_DIR=${SSL_DIR}/include/openssl
@@ -9244,14 +9238,6 @@ else
     fi
 fi
 
-if test "${SHARED_BUILD}" = "1" ; then
-    TCLEXT_BUILD="shared"
-
-else
-    TCLEXT_BUILD="static"
-
-fi
-
 #--------------------------------------------------------------------
 # Determine the name of the tclsh and/or wish executables in the
 # Tcl and Tk build directories or the location they were installed
@@ -9318,7 +9304,7 @@ printf "%s\n" "${TCLSH_PROG}" >&6; }
 if test ${enable_tls1+y}
 then :
   enableval=$enable_tls1;
-	if (test "${enableval}" = "no"); then
+	if test "${enableval}" = "no"; then
 
 printf "%s\n" "#define NO_TLS1 1" >>confdefs.h
 
@@ -9331,7 +9317,7 @@ fi
 if test ${enable_tls1_1+y}
 then :
   enableval=$enable_tls1_1;
-	if (test "${enableval}" = "no"); then
+	if test "${enableval}" = "no"; then
 
 printf "%s\n" "#define NO_TLS1_1 1" >>confdefs.h
 
@@ -9344,7 +9330,7 @@ fi
 if test ${enable_tls1_2+y}
 then :
   enableval=$enable_tls1_2;
-	if (test "${enableval}" = "no"); then
+	if test "${enableval}" = "no"; then
 
 printf "%s\n" "#define NO_TLS1_2 1" >>confdefs.h
 
@@ -9357,7 +9343,7 @@ fi
 if test ${enable_tls1_3+y}
 then :
   enableval=$enable_tls1_3;
-	if (test "${enableval}" = "no"); then
+	if test "${enableval}" = "no"; then
 
 printf "%s\n" "#define NO_TLS1_3 1" >>confdefs.h
 

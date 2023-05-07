@@ -116,7 +116,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	fi
 
 	pkgConfigExtraArgs=''
-	if test "$TCLEXT_BUILD" = "static" -o "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
+	if test "${SHARED_BUILD}" != "1" -o "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
 		pkgConfigExtraArgs='--static'
 	fi
 
@@ -146,7 +146,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	fi
 	PKG_CONFIG_PATH="${PKG_CONFIG_PATH_SAVE}"
 
-	if test "$TCLEXT_BUILD" = "static"; then
+	if test "${SHARED_BUILD}" != "1"; then
 		dnl If we are doing a static build, save the linker flags for other programs to consume
 		rm -f tcltls.${AREXT}.linkadd
 		AS_ECHO(["$TCLTLS_SSL_LIBS"]) > tcltls.${AREXT}.linkadd
@@ -155,7 +155,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	dnl If we have been asked to statically link to the SSL library, specifically tell the linker to do so
 	if test "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
 		dnl Don't bother doing this if we aren't actually doing the runtime linking
-		if test "$TCLEXT_BUILD" != "static"; then
+		if test "${SHARED_BUILD}" = "1"; then
 			dnl Split the libraries into SSL and non-SSL libraries
 			new_TCLTLS_SSL_LIBS_normal=''
 			new_TCLTLS_SSL_LIBS_static=''
