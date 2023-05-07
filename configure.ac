@@ -19,7 +19,7 @@ dnl	to configure the system for the local environment.
 # so that we create the export library with the dll.
 #-----------------------------------------------------------------------
 
-AC_INIT(tls,1.8.0)
+AC_INIT([tls],[1.8.0])
 
 #--------------------------------------------------------------------
 # Call TEA_INIT as the first TEA_ macro to set up initial vars.
@@ -27,7 +27,7 @@ AC_INIT(tls,1.8.0)
 # as well as PKG_LIB_FILE and PKG_STUB_LIB_FILE.
 #--------------------------------------------------------------------
 
-TEA_INIT()
+TEA_INIT
 
 AC_CONFIG_AUX_DIR(tclconfig)
 
@@ -72,12 +72,12 @@ TEA_SETUP_COMPILER
 #-----------------------------------------------------------------------
 
 TEA_ADD_SOURCES([tls.c tlsBIO.c tlsIO.c tlsX509.c])
-TEA_ADD_HEADERS([tls.h])
-TEA_ADD_INCLUDES([-I$(SSL_INCLUDE_DIR)])
+TEA_ADD_HEADERS([generic/tls.h])
+TEA_ADD_INCLUDES([])
 TEA_ADD_LIBS([])
 TEA_ADD_CFLAGS([])
 TEA_ADD_STUB_SOURCES([])
-TEA_ADD_TCL_SOURCES([tls.tcl])
+TEA_ADD_TCL_SOURCES([library/tls.tcl])
 
 #--------------------------------------------------------------------
 #
@@ -168,8 +168,23 @@ TEA_MAKE_LIB
 #--------------------------------------------------------------------
 
 OPENSSL="1"
+AC_SUBST(OPENSSL,"1")
 
 TCLTLS_SSL_OPENSSL
+
+# Temp work-around
+SSL_DIR="/usr"
+SSL_LIB_DIR=${SSL_DIR}/lib64
+SSL_INCLUDE_DIR=${SSL_DIR}/include/openssl
+
+AC_SUBST(SSL_DIR)
+AC_SUBST(SSL_LIB_DIR)
+AC_SUBST(SSL_INCLUDE_DIR)
+
+SSL_INCLUDE_DIR_NATIVE=\"`${CYGPATH} ${SSL_INCLUDE_DIR}`\"
+SSL_LIB_DIR_NATIVE=\"`${CYGPATH} ${SSL_LIB_DIR}`\"
+AC_SUBST(SSL_INCLUDE_DIR_NATIVE)
+AC_SUBST(SSL_LIB_DIR_NATIVE)
 
 #--------------------------------------------------------------------
 # Shared libraries and static libraries have different names.
@@ -180,23 +195,34 @@ TCLTLS_SSL_OPENSSL
 
 if test "${TEA_PLATFORM}" = "windows" ; then
     if test "$GCC" = "yes"; then
+	TEA_ADD_INCLUDES([-I${SSL_INCLUDE_DIR_NATIVE}])
 	TEA_ADD_LIBS([-L${SSL_LIB_DIR_NATIVE}])
     else
+	TEA_ADD_INCLUDES([-include:${SSL_INCLUDE_DIR_NATIVE}])
 	TEA_ADD_LIBS([-libpath:${SSL_LIB_DIR_NATIVE}])
     fi
     if test -n "${OPENSSL}"; then
         TEA_ADD_LIBS([libcrypto.lib libssl.lib])
     else
         TEA_ADD_LIBS([sslc32.lib])
+    fi
 else
     # Subst runtime dir here, use -R and -L where necessary. [Bug 1742859]
     LIB_RUNTIME_DIR=${SSL_LIB_DIR}
     eval "LD_SEARCH_FLAGS=\"${LD_SEARCH_FLAGS}\""
     if test -n "${OPENSSL}"; then
+	TEA_ADD_INCLUDES([-I${SSL_INCLUDE_DIR}])
 	TEA_ADD_LIBS([${LD_SEARCH_FLAGS} -L${SSL_LIB_DIR} -lssl -lcrypto ${GCCPATH} ${GCCLIB}])
     else
+	TEA_ADD_INCLUDES([-I${SSL_INCLUDE_DIR}])
 	TEA_ADD_LIBS([${LD_SEARCH_FLAGS} -L${SSL_LIB_DIR} -lsslc])
     fi
+fi
+
+if test "${SHARED_BUILD}" = "1" ; then
+    AC_SUBST(TCLEXT_BUILD,"shared")
+else
+    AC_SUBST(TCLEXT_BUILD,"static")
 fi
 
 #--------------------------------------------------------------------
@@ -301,7 +327,7 @@ fi
 # substituting the AC variables in. Include these here.
 #--------------------------------------------------------------------
 
-#AC_CONFIG_FILES([Makefile pkgIndex.tcl])
+AC_CONFIG_FILES([Makefile pkgIndex.tcl])
 #AC_CONFIG_FILES([tlsConfig.sh])
 
 #--------------------------------------------------------------------
@@ -309,4 +335,4 @@ fi
 # specified with AC_CONFIG_FILES.
 #--------------------------------------------------------------------
 
-AC_OUTPUT([Makefile pkgIndex.tcl])
+AC_OUTPUT

@@ -73,7 +73,7 @@ PKG_LIB_FILE9	= @PKG_LIB_FILE9@
 PKG_STUB_LIB_FILE = @PKG_STUB_LIB_FILE@
 
 lib_BINARIES	= $(PKG_LIB_FILE)
-BINARIES	= $(lib_BINARIES)
+BINARIES	= $(lib_BINARIES) pkgIndex.tcl
 
 SHELL		= @SHELL@
 
@@ -323,32 +323,31 @@ VPATH = $(srcdir):$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win:$(srcdir)/macos
 .c.@OBJEXT@:
 	$(COMPILE) -c `@CYGPATH@ $<` -o $@
 
-# Dependencies for all our targets
-tls.@OBJEXT@: @srcdir@/tls.c @srcdir@/tlsInt.h @srcdir@/tclOpts.h tls.tcl.h dh_params.h Makefile
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o tls.@OBJEXT@ -c @srcdir@/tls.c
-
-tlsBIO.@OBJEXT@: @srcdir@/tlsBIO.c @srcdir@/tlsInt.h Makefile
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o tlsBIO.@OBJEXT@ -c @srcdir@/tlsBIO.c
-
-tlsIO.@OBJEXT@: @srcdir@/tlsIO.c @srcdir@/tlsInt.h Makefile
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o tlsIO.@OBJEXT@ -c @srcdir@/tlsIO.c
-
-tlsX509.@OBJEXT@: @srcdir@/tlsX509.c @srcdir@/tlsInt.h Makefile
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o tlsX509.@OBJEXT@ -c @srcdir@/tlsX509.c
-
 # Create a C-source-ified version of the script resources
 # for TclTLS so that we only need a single file to enable
 # this extension
-tls.tcl.h: @srcdir@/tls.tcl Makefile
-	od -A n -v -t xC < '@srcdir@/tls.tcl' > tls.tcl.h.new.1
+tls.tcl.h: @srcdir@/library/tls.tcl Makefile
+	od -A n -v -t xC < '@srcdir@/library/tls.tcl' > tls.tcl.h.new.1
 	sed 's@[^0-9A-Fa-f]@@g;s@..@0x&, @g' < tls.tcl.h.new.1 > tls.tcl.h.new.2
 	rm -f tls.tcl.h.new.1
-	mv tls.tcl.h.new.2 tls.tcl.h
+	mv tls.tcl.h.new.2 @srcdir@/generic/tls.tcl.h
 
 # Create default DH parameters
-dh_params.h: @srcdir@/gen_dh_params Makefile
-	sh @srcdir@/gen_dh_params @GEN_DH_PARAMS_ARGS@ > dh_params.h.new
-	mv dh_params.h.new dh_params.h
+dh_params.h: @srcdir@/generic/gen_dh_params Makefile
+	sh @srcdir@/generic/gen_dh_params @GEN_DH_PARAMS_ARGS@ > dh_params.h.new
+	mv dh_params.h.new @srcdir@/generic/dh_params.h
+
+#========================================================================
+# Create the pkgIndex.tcl file.
+# It is usually easiest to let Tcl do this for you with pkg_mkIndex, but
+# you may find that you need to customize the package.  If so, either
+# modify the -hand version, or create a pkgIndex.tcl.in file and have
+# the configure script output the pkgIndex.tcl by editing configure.in.
+#========================================================================
+
+pkgIndex.tcl: $(srcdir)/pkgIndex.tcl.in
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
 #========================================================================
 # Distribution creation
@@ -384,11 +383,11 @@ dist: dist-clean
 	$(DIST_INSTALL_DATA) \
 	    $(srcdir)/ChangeLog \
 	    $(srcdir)/license.terms \
-	    $(srcdir)/README \
+	    $(srcdir)/README.txt \
 	    $(srcdir)/pkgIndex.tcl.in \
 	    $(DIST_DIR)/
 
-	list='demos doc generic library macosx tests unix win'; \
+	list='build demos doc generic library macosx tests unix win'; \
 	for p in $$list; do \
 	    if test -d $(srcdir)/$$p ; then \
 		$(INSTALL_DATA_DIR) $(DIST_DIR)/$$p; \
