@@ -84,50 +84,6 @@ AC_DEFUN([SHOBJ_DO_STATIC_LINK_LIB], [
 	fi
 ])
 
-AC_DEFUN([TCLTLS_SSL_OPENSSL_CHECK_PROTO_VER], [
-	dnl Determine if particular SSL version is enabled
-	if test "[$]$1" = "true" -o "[$]$1" = "force"; then
-		proto_check='true'
-		ifelse($5,, [
-			AC_CHECK_FUNC($2,, [
-				proto_check='false'
-			])
-		], [
-			AC_LANG_PUSH(C)
-			AC_MSG_CHECKING([for $3 protocol support])
-			AC_COMPILE_IFELSE([AC_LANG_PROGRAM([
-#include <openssl/ssl.h>
-#include <openssl/opensslv.h>
-#if (SSLEAY_VERSION_NUMBER >= 0x0907000L)
-# include <openssl/conf.h>
-#endif
-			], [
-int x = $5;
-			])], [
-				AC_MSG_RESULT([yes])
-			], [
-				AC_MSG_RESULT([no])
-
-				proto_check='false'
-			])
-			AC_LANG_POP([C])
-		])
-
-		if test "$proto_check" = 'false'; then
-			if test "[$]$1" = "force"; then
-				AC_MSG_ERROR([Unable to enable $3])
-			fi
-
-			$1='false'
-		fi
-	fi
-
-	if test "[$]$1" = "false"; then
-		AC_DEFINE($4, [1], [Define this to disable $3 in OpenSSL support])
-	fi
-
-])
-
 AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	openssldir=''
 	opensslpkgconfigdir=''
@@ -224,67 +180,4 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 			TCLTLS_SSL_LIBS="${new_TCLTLS_SSL_LIBS_normal} ${new_TCLTLS_SSL_LIBS_static}"
 		fi
 	fi
-
-	dnl Save compile-altering variables we are changing
-	SAVE_LIBS="${LIBS}"
-	SAVE_CFLAGS="${CFLAGS}"
-	SAVE_CPPFLAGS="${CPPFLAGS}"
-
-	dnl Update compile-altering variables to include the OpenSSL libraries
-	LIBS="${TCLTLS_SSL_LIBS} ${SAVE_LIBS} ${TCLTLS_SSL_LIBS}"
-	CFLAGS="${TCLTLS_SSL_CFLAGS} ${SAVE_CFLAGS} ${TCLTLS_SSL_CFLAGS}"
-	CPPFLAGS="${TCLTLS_SSL_CPPFLAGS} ${SAVE_CPPFLAGS} ${TCLTLS_SSL_CPPFLAGS}"
-
-	dnl Verify that basic functionality is there
-	AC_LANG_PUSH(C)
-	AC_MSG_CHECKING([if a basic OpenSSL program works])
-	AC_LINK_IFELSE([AC_LANG_PROGRAM([
-#include <openssl/ssl.h>
-#include <openssl/opensslv.h>
-#include <openssl/conf.h>
-		], [
-  SSL_library_init();
-  SSL_load_error_strings();
-		])], [
-		AC_MSG_RESULT([yes])
-	], [
-		AC_MSG_RESULT([no])
-		AC_MSG_ERROR([Unable to compile a basic program using OpenSSL])
-	])
-	AC_LANG_POP([C])
-
-	AC_CHECK_FUNCS([TLS_method])
-	TCLTLS_SSL_OPENSSL_CHECK_PROTO_VER([tcltls_ssl_ssl2], [SSLv2_method], [sslv2], [NO_SSL2])
-	TCLTLS_SSL_OPENSSL_CHECK_PROTO_VER([tcltls_ssl_ssl3], [SSLv3_method], [sslv3], [NO_SSL3])
-	TCLTLS_SSL_OPENSSL_CHECK_PROTO_VER([tcltls_ssl_tls1_0], [TLSv1_method], [tlsv1.0], [NO_TLS1])
-	TCLTLS_SSL_OPENSSL_CHECK_PROTO_VER([tcltls_ssl_tls1_1], [TLSv1_1_method], [tlsv1.1], [NO_TLS1_1])
-	TCLTLS_SSL_OPENSSL_CHECK_PROTO_VER([tcltls_ssl_tls1_2], [TLSv1_2_method], [tlsv1.2], [NO_TLS1_2])
-	TCLTLS_SSL_OPENSSL_CHECK_PROTO_VER([tcltls_ssl_tls1_3], [], [tlsv1.3], [NO_TLS1_3], [SSL_OP_NO_TLSv1_3])
-
-	AC_CACHE_VAL([tcltls_cv_func_tlsext_hostname], [
-		AC_LANG_PUSH(C)
-		AC_MSG_CHECKING([for SSL_set_tlsext_host_name])
-		AC_LINK_IFELSE([AC_LANG_PROGRAM([
-#include <openssl/ssl.h>
-#include <openssl/conf.h>
-			], [
-  (void)SSL_set_tlsext_host_name((void *) 0, (void *) 0);
-			])], [
-			AC_MSG_RESULT([yes])
-			tcltls_cv_func_tlsext_hostname='yes'
-		], [
-			AC_MSG_RESULT([no])
-			tcltls_cv_func_tlsext_hostname='no'
-		])
-		AC_LANG_POP([C])
-	])
-
-	if test "$tcltls_cv_func_tlsext_hostname" = 'no'; then
-		AC_DEFINE([OPENSSL_NO_TLSEXT], [1], [Define this if your OpenSSL does not support the TLS Extension for SNI])
-	fi
-
-	dnl Restore compile-altering variables
-	LIBS="${SAVE_LIBS}"
-	CFLAGS="${SAVE_CFLAGS}"
-	CPPFLAGS="${SAVE_CPPFLAGS}"
 ])

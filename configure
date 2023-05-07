@@ -786,6 +786,10 @@ enable_rpath
 enable_symbols
 with_openssl_dir
 with_openssl_pkgconfig
+enable_tls1
+enable_tls1_1
+enable_tls1_2
+enable_tls1_3
 enable_deterministic
 with_builtin_dh_params_size
 enable_ssl_fastpath
@@ -1430,6 +1434,10 @@ Optional Features:
   --enable-64bit-vis      enable 64bit Sparc VIS support (default: off)
   --disable-rpath         disable rpath support (default: on)
   --enable-symbols        build with debugging symbols (default: off)
+  --disable-tls1          disable TLS1 support
+  --disable-tls1_1        disable TLS1.1 support
+  --disable-tls1_2        disable TLS1.2 support
+  --disable-tls1_3        disable TLS1.3 support
   --enable-deterministic  enable deterministic parameters
   --enable-ssl-fastpath   enable using the underlying file descriptor for
                           talking directly to the SSL library
@@ -5367,9 +5375,7 @@ printf "%s\n" "$ac_cv_c_bigendian" >&6; }
    no)
       ;; #(
    universal)
-
-printf "%s\n" "#define AC_APPLE_UNIVERSAL_BUILD 1" >>confdefs.h
-
+     #
      ;; #(
    *)
      as_fn_error $? "unknown endianness
@@ -8916,6 +8922,8 @@ printf "%s\n" "#define TCL_MAJOR_VERSION 8" >>confdefs.h
 #--------------------------------------------------------------------
 
 OPENSSL="1"
+OPENSSL="1"
+
 
 
 	openssldir=''
@@ -9008,278 +9016,69 @@ printf "%s\n" X"$openssldir" |
 		printf "%s\n" "$TCLTLS_SSL_LIBS" > tcltls.${AREXT}.linkadd
 	fi
 
-
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-	ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-
-	ac_fn_c_check_func "$LINENO" "TLS_method" "ac_cv_func_TLS_method"
-if test "x$ac_cv_func_TLS_method" = xyes
-then :
-  printf "%s\n" "#define HAVE_TLS_METHOD 1" >>confdefs.h
-
-fi
-
-
-		if test "$tcltls_ssl_ssl2" = "true" -o "$tcltls_ssl_ssl2" = "force"; then
-		proto_check='true'
-
-			ac_fn_c_check_func "$LINENO" "SSLv2_method" "ac_cv_func_SSLv2_method"
-if test "x$ac_cv_func_SSLv2_method" = xyes
-then :
-
-else $as_nop
-
-				proto_check='false'
-
-fi
-
-
-
-		if test "$proto_check" = 'false'; then
-			if test "$tcltls_ssl_ssl2" = "force"; then
-				as_fn_error $? "Unable to enable sslv2" "$LINENO" 5
-			fi
-
-			tcltls_ssl_ssl2='false'
-		fi
-	fi
-
-	if test "$tcltls_ssl_ssl2" = "false"; then
-
-printf "%s\n" "#define NO_SSL2 1" >>confdefs.h
-
-	fi
-
-
-
-		if test "$tcltls_ssl_ssl3" = "true" -o "$tcltls_ssl_ssl3" = "force"; then
-		proto_check='true'
-
-			ac_fn_c_check_func "$LINENO" "SSLv3_method" "ac_cv_func_SSLv3_method"
-if test "x$ac_cv_func_SSLv3_method" = xyes
-then :
-
-else $as_nop
-
-				proto_check='false'
-
-fi
-
-
-
-		if test "$proto_check" = 'false'; then
-			if test "$tcltls_ssl_ssl3" = "force"; then
-				as_fn_error $? "Unable to enable sslv3" "$LINENO" 5
-			fi
-
-			tcltls_ssl_ssl3='false'
-		fi
-	fi
-
-	if test "$tcltls_ssl_ssl3" = "false"; then
-
-printf "%s\n" "#define NO_SSL3 1" >>confdefs.h
-
-	fi
-
-
-
-		if test "$tcltls_ssl_tls1_0" = "true" -o "$tcltls_ssl_tls1_0" = "force"; then
-		proto_check='true'
-
-			ac_fn_c_check_func "$LINENO" "TLSv1_method" "ac_cv_func_TLSv1_method"
-if test "x$ac_cv_func_TLSv1_method" = xyes
-then :
-
-else $as_nop
-
-				proto_check='false'
-
-fi
-
-
-
-		if test "$proto_check" = 'false'; then
-			if test "$tcltls_ssl_tls1_0" = "force"; then
-				as_fn_error $? "Unable to enable tlsv1.0" "$LINENO" 5
-			fi
-
-			tcltls_ssl_tls1_0='false'
-		fi
-	fi
-
-	if test "$tcltls_ssl_tls1_0" = "false"; then
-
-printf "%s\n" "#define NO_TLS1 1" >>confdefs.h
-
-	fi
-
-
-
-		if test "$tcltls_ssl_tls1_1" = "true" -o "$tcltls_ssl_tls1_1" = "force"; then
-		proto_check='true'
-
-			ac_fn_c_check_func "$LINENO" "TLSv1_1_method" "ac_cv_func_TLSv1_1_method"
-if test "x$ac_cv_func_TLSv1_1_method" = xyes
-then :
-
-else $as_nop
-
-				proto_check='false'
-
-fi
-
-
-
-		if test "$proto_check" = 'false'; then
-			if test "$tcltls_ssl_tls1_1" = "force"; then
-				as_fn_error $? "Unable to enable tlsv1.1" "$LINENO" 5
-			fi
-
-			tcltls_ssl_tls1_1='false'
-		fi
-	fi
-
-	if test "$tcltls_ssl_tls1_1" = "false"; then
-
-printf "%s\n" "#define NO_TLS1_1 1" >>confdefs.h
-
-	fi
-
-
-
-		if test "$tcltls_ssl_tls1_2" = "true" -o "$tcltls_ssl_tls1_2" = "force"; then
-		proto_check='true'
-
-			ac_fn_c_check_func "$LINENO" "TLSv1_2_method" "ac_cv_func_TLSv1_2_method"
-if test "x$ac_cv_func_TLSv1_2_method" = xyes
-then :
-
-else $as_nop
-
-				proto_check='false'
-
-fi
-
-
-
-		if test "$proto_check" = 'false'; then
-			if test "$tcltls_ssl_tls1_2" = "force"; then
-				as_fn_error $? "Unable to enable tlsv1.2" "$LINENO" 5
-			fi
-
-			tcltls_ssl_tls1_2='false'
-		fi
-	fi
-
-	if test "$tcltls_ssl_tls1_2" = "false"; then
-
-printf "%s\n" "#define NO_TLS1_2 1" >>confdefs.h
-
-	fi
-
-
-
-		if test "$tcltls_ssl_tls1_3" = "true" -o "$tcltls_ssl_tls1_3" = "force"; then
-		proto_check='true'
-
+		if test "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
+				if test "$TCLEXT_BUILD" != "static"; then
+						new_TCLTLS_SSL_LIBS_normal=''
+			new_TCLTLS_SSL_LIBS_static=''
+			for arg in $TCLTLS_SSL_LIBS; do
+				case "${arg}" in
+					-L*)
+						new_TCLTLS_SSL_LIBS_normal="${new_TCLTLS_SSL_LIBS_normal} ${arg}"
+						new_TCLTLS_SSL_LIBS_static="${new_TCLTLS_SSL_LIBS_static} ${arg}"
+						;;
+					-ldl|-lrt|-lc|-lpthread|-lm|-lcrypt|-lidn|-lresolv|-lgcc|-lgcc_s)
+						new_TCLTLS_SSL_LIBS_normal="${new_TCLTLS_SSL_LIBS_normal} ${arg}"
+						;;
+					-l*)
+						new_TCLTLS_SSL_LIBS_static="${new_TCLTLS_SSL_LIBS_static} ${arg}"
+						;;
+					*)
+						new_TCLTLS_SSL_LIBS_normal="${new_TCLTLS_SSL_LIBS_normal} ${arg}"
+						;;
+				esac
+			done
+
+
+
+
+
+
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for how to statically link to OpenSSL" >&5
+printf %s "checking for how to statically link to OpenSSL... " >&6; }
+
+	trylink_ADD_LDFLAGS=''
+	for arg in $new_TCLTLS_SSL_LIBS_static; do
+		case "${arg}" in
+			-L*)
+				trylink_ADD_LDFLAGS="${arg}"
+				;;
+		esac
+	done
+
+	SAVELIBS="$LIBS"
+	staticlib=""
+	found="0"
 			ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for tlsv1.3 protocol support" >&5
-printf %s "checking for tlsv1.3 protocol support... " >&6; }
-			cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-#include <openssl/ssl.h>
-#include <openssl/opensslv.h>
-#if (SSLEAY_VERSION_NUMBER >= 0x0907000L)
-# include <openssl/conf.h>
-#endif
-
-int
-main (void)
-{
-
-int x = SSL_OP_NO_TLSv1_3;
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-
-				{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-
-else $as_nop
-
-				{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-
-				proto_check='false'
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-			ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-
-
-		if test "$proto_check" = 'false'; then
-			if test "$tcltls_ssl_tls1_3" = "force"; then
-				as_fn_error $? "Unable to enable tlsv1.3" "$LINENO" 5
+	for trylink in "-Wl,-a,archive $new_TCLTLS_SSL_LIBS_static -Wl,-a,shared_archive" "-Wl,-Bstatic $new_TCLTLS_SSL_LIBS_static -Wl,-Bdynamic" "$new_TCLTLS_SSL_LIBS_static"; do
+		if echo " ${LDFLAGS} " | grep ' -static ' >/dev/null; then
+			if test "${trylink}" != "$new_TCLTLS_SSL_LIBS_static"; then
+				continue
 			fi
-
-			tcltls_ssl_tls1_3='false'
 		fi
-	fi
 
-	if test "$tcltls_ssl_tls1_3" = "false"; then
+		LIBS="${SAVELIBS} ${trylink_ADD_LDFLAGS} ${trylink}"
 
-printf "%s\n" "#define NO_TLS1_3 1" >>confdefs.h
-
-	fi
-
-
-
-	if test ${tcltls_cv_func_tlsext_hostname+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-
-		ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-		{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SSL_set_tlsext_host_name" >&5
-printf %s "checking for SSL_set_tlsext_host_name... " >&6; }
 		cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-#include <openssl/ssl.h>
-#include <openssl/conf.h>
-
 int
 main (void)
 {
-
-  (void)SSL_set_tlsext_host_name((void *) 0, (void *) 0);
 
   ;
   return 0;
@@ -9288,38 +9087,72 @@ _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
 
-			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-			tcltls_cv_func_tlsext_hostname='yes'
+			staticlib="${trylink}"
+			found="1"
 
-else $as_nop
-
-			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-			tcltls_cv_func_tlsext_hostname='no'
+			break
 
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-		ac_ext=c
+	done
+	ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
+	LIBS="${SAVELIBS}"
 
-fi
+	if test "${found}" = "1"; then
+		new_RESULT=''
+		SAVERESULT="$new_TCLTLS_SSL_LIBS_static"
+		for lib in ${SAVERESULT}; do
+			addlib='1'
+			for removelib in $new_TCLTLS_SSL_LIBS_static; do
+				if test "${lib}" = "${removelib}"; then
+					addlib='0'
+					break
+				fi
+			done
+
+			if test "$addlib" = '1'; then
+				new_RESULT="${new_RESULT} ${lib}"
+			fi
+		done
+		new_TCLTLS_SSL_LIBS_static="${new_RESULT} ${staticlib}"
+
+		{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: ${staticlib}" >&5
+printf "%s\n" "${staticlib}" >&6; }
 
 
-	if test "$tcltls_cv_func_tlsext_hostname" = 'no'; then
+	else
+		{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: cant" >&5
+printf "%s\n" "cant" >&6; }
 
-printf "%s\n" "#define OPENSSL_NO_TLSEXT 1" >>confdefs.h
 
 	fi
 
-		LIBS="${SAVE_LIBS}"
-	CFLAGS="${SAVE_CFLAGS}"
-	CPPFLAGS="${SAVE_CPPFLAGS}"
+			TCLTLS_SSL_LIBS="${new_TCLTLS_SSL_LIBS_normal} ${new_TCLTLS_SSL_LIBS_static}"
+		fi
+	fi
+
+#TLS_CHECK_SSL
+
+#AC_CHECK_LIB(crypto, main, [LIBS="$LIBS -lcrypto"])
+#AC_CHECK_LIB(ssl, main, [LIBS="$LIBS -lssl"])
+
+	SSL_DIR="/usr"
+	SSL_LIB_DIR=${SSL_DIR}/lib64
+	SSL_INCLUDE_DIR=${SSL_DIR}/include/openssl
+
+
+
+
+
+    SSL_INCLUDE_DIR_NATIVE=\"`${CYGPATH} ${SSL_INCLUDE_DIR}`\"
+    SSL_LIB_DIR_NATIVE=\"`${CYGPATH} ${SSL_LIB_DIR}`\"
+
 
 
 #--------------------------------------------------------------------
@@ -9377,8 +9210,9 @@ if test "${TEA_PLATFORM}" = "windows" ; then
 	fi
 	PKG_LIBS="$PKG_LIBS $i"
     done
-    fi
 
+
+	fi
 else
     # Subst runtime dir here, use -R and -L where necessary. [Bug 1742859]
     LIB_RUNTIME_DIR=${SSL_LIB_DIR}
@@ -9480,6 +9314,59 @@ printf "%s\n" "${TCLSH_PROG}" >&6; }
 # Custom
 #--------------------------------------------------------------------
 
+# Check whether --enable-tls1 was given.
+if test ${enable_tls1+y}
+then :
+  enableval=$enable_tls1;
+	if (test "${enableval}" = "no"); then
+
+printf "%s\n" "#define NO_TLS1 1" >>confdefs.h
+
+	fi
+
+fi
+
+
+# Check whether --enable-tls1_1 was given.
+if test ${enable_tls1_1+y}
+then :
+  enableval=$enable_tls1_1;
+	if (test "${enableval}" = "no"); then
+
+printf "%s\n" "#define NO_TLS1_1 1" >>confdefs.h
+
+	fi
+
+fi
+
+
+# Check whether --enable-tls1_2 was given.
+if test ${enable_tls1_2+y}
+then :
+  enableval=$enable_tls1_2;
+	if (test "${enableval}" = "no"); then
+
+printf "%s\n" "#define NO_TLS1_2 1" >>confdefs.h
+
+	fi
+
+fi
+
+
+# Check whether --enable-tls1_3 was given.
+if test ${enable_tls1_3+y}
+then :
+  enableval=$enable_tls1_3;
+	if (test "${enableval}" = "no"); then
+
+printf "%s\n" "#define NO_TLS1_3 1" >>confdefs.h
+
+	fi
+
+fi
+
+
+
 tcltls_deterministic='false'
 # Check whether --enable-deterministic was given.
 if test ${enable_deterministic+y}
@@ -9507,10 +9394,7 @@ then :
   2048|4096|8192) :
      ;; #(
   *) :
-
-			as_fn_error $? "Unsupported DH params size: $withval" "$LINENO" 5
-
-	 ;;
+    as_fn_error $? "Unsupported DH params size: $withval" "$LINENO" 5 ;;
 esac
 	GEN_DH_PARAMS_ARGS="${GEN_DH_PARAMS_ARGS} bits=$withval"
 
@@ -9812,7 +9696,6 @@ done
 LIBOBJS=$ac_libobjs
 
 LTLIBOBJS=$ac_ltlibobjs
-
 
 
 CFLAGS="${CFLAGS} ${CPPFLAGS}"; CPPFLAGS=""
