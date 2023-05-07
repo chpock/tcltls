@@ -656,7 +656,6 @@ SSL_DIR
 TCLTLS_SSL_CPPFLAGS
 TCLTLS_SSL_CFLAGS
 TCLTLS_SSL_LIBS
-OPENSSL
 VC_MANIFEST_EMBED_EXE
 VC_MANIFEST_EMBED_DLL
 RANLIB_STUB
@@ -1433,11 +1432,11 @@ Optional Features:
   --enable-64bit-vis      enable 64bit Sparc VIS support (default: off)
   --disable-rpath         disable rpath support (default: on)
   --enable-symbols        build with debugging symbols (default: off)
-  --disable-tls1          disable TLS1 support
-  --disable-tls1_1        disable TLS1.1 support
-  --disable-tls1_2        disable TLS1.2 support
-  --disable-tls1_3        disable TLS1.3 support
-  --enable-deterministic  enable deterministic parameters
+  --disable-tls1          disable TLS1 protocol
+  --disable-tls1_1        disable TLS1.1 protocol
+  --disable-tls1_2        disable TLS1.2 protocol
+  --disable-tls1_3        disable TLS1.3 protocol
+  --enable-deterministic  enable deterministic DH parameters
   --enable-ssl-fastpath   enable using the underlying file descriptor for
                           talking directly to the SSL library
   --enable-static-ssl     enable statically linking to the specified SSL
@@ -8915,13 +8914,9 @@ printf "%s\n" "#define TCL_MAJOR_VERSION 8" >>confdefs.h
 
 
 #--------------------------------------------------------------------
-# If the variable OPENSSL is set, we will build with the OpenSSL
-# libraries.  If it is not set, then we will use RSA BSAFE SSL-C
-# libraries instead of the default OpenSSL libaries.
+# This marco includes the TCL TLS specific functions to set the
+# OpenSSL or LibreSSL config.
 #--------------------------------------------------------------------
-
-OPENSSL="1"
-OPENSSL="1"
 
 
 
@@ -9159,6 +9154,13 @@ printf "%s\n" "cant" >&6; }
 if test "${TEA_PLATFORM}" = "windows" ; then
     if test "$GCC" = "yes"; then
 
+    vars="-I${SSL_INCLUDE_DIR_NATIVE}"
+    for i in $vars; do
+	PKG_INCLUDES="$PKG_INCLUDES $i"
+    done
+
+
+
     vars="-L${SSL_LIB_DIR_NATIVE}"
     for i in $vars; do
 	if test "${TEA_PLATFORM}" = "windows" -a "$GCC" = "yes" ; then
@@ -9171,6 +9173,13 @@ if test "${TEA_PLATFORM}" = "windows" ; then
 
     else
 
+    vars="-include:${SSL_INCLUDE_DIR_NATIVE}"
+    for i in $vars; do
+	PKG_INCLUDES="$PKG_INCLUDES $i"
+    done
+
+
+
     vars="-libpath:${SSL_LIB_DIR_NATIVE}"
     for i in $vars; do
 	if test "${TEA_PLATFORM}" = "windows" -a "$GCC" = "yes" ; then
@@ -9182,7 +9191,6 @@ if test "${TEA_PLATFORM}" = "windows" ; then
 
 
     fi
-    if test -n "${OPENSSL}"; then
 
     vars="libcrypto.lib libssl.lib"
     for i in $vars; do
@@ -9194,24 +9202,17 @@ if test "${TEA_PLATFORM}" = "windows" ; then
     done
 
 
-    else
-
-    vars="sslc32.lib"
-    for i in $vars; do
-	if test "${TEA_PLATFORM}" = "windows" -a "$GCC" = "yes" ; then
-	    # Convert foo.lib to -lfoo for GCC.  No-op if not *.lib
-	    i=`echo "$i" | sed -e 's/^\([^-].*\)\.[lL][iI][bB]$/-l\1/'`
-	fi
-	PKG_LIBS="$PKG_LIBS $i"
-    done
-
-
-	fi
 else
     # Subst runtime dir here, use -R and -L where necessary. [Bug 1742859]
     LIB_RUNTIME_DIR=${SSL_LIB_DIR}
     eval "LD_SEARCH_FLAGS=\"${LD_SEARCH_FLAGS}\""
-    if test -n "${OPENSSL}"; then
+
+    vars="-I${SSL_INCLUDE_DIR}"
+    for i in $vars; do
+	PKG_INCLUDES="$PKG_INCLUDES $i"
+    done
+
+
 
     vars="${LD_SEARCH_FLAGS} -L${SSL_LIB_DIR} -lssl -lcrypto ${GCCPATH} ${GCCLIB}"
     for i in $vars; do
@@ -9223,19 +9224,6 @@ else
     done
 
 
-    else
-
-    vars="${LD_SEARCH_FLAGS} -L${SSL_LIB_DIR} -lsslc"
-    for i in $vars; do
-	if test "${TEA_PLATFORM}" = "windows" -a "$GCC" = "yes" ; then
-	    # Convert foo.lib to -lfoo for GCC.  No-op if not *.lib
-	    i=`echo "$i" | sed -e 's/^\([^-].*\)\.[lL][iI][bB]$/-l\1/'`
-	fi
-	PKG_LIBS="$PKG_LIBS $i"
-    done
-
-
-    fi
 fi
 
 #--------------------------------------------------------------------

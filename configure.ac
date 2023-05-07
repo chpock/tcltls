@@ -162,13 +162,9 @@ AC_DEFINE(USE_TCL_STUBS)
 TEA_MAKE_LIB
 
 #--------------------------------------------------------------------
-# If the variable OPENSSL is set, we will build with the OpenSSL
-# libraries.  If it is not set, then we will use RSA BSAFE SSL-C
-# libraries instead of the default OpenSSL libaries.
+# This marco includes the TCL TLS specific functions to set the
+# OpenSSL or LibreSSL config.
 #--------------------------------------------------------------------
-
-OPENSSL="1"
-AC_SUBST(OPENSSL,"1")
 
 TCLTLS_SSL_OPENSSL
 
@@ -201,22 +197,13 @@ if test "${TEA_PLATFORM}" = "windows" ; then
 	TEA_ADD_INCLUDES([-include:${SSL_INCLUDE_DIR_NATIVE}])
 	TEA_ADD_LIBS([-libpath:${SSL_LIB_DIR_NATIVE}])
     fi
-    if test -n "${OPENSSL}"; then
-        TEA_ADD_LIBS([libcrypto.lib libssl.lib])
-    else
-        TEA_ADD_LIBS([sslc32.lib])
-    fi
+    TEA_ADD_LIBS([libcrypto.lib libssl.lib])
 else
     # Subst runtime dir here, use -R and -L where necessary. [Bug 1742859]
     LIB_RUNTIME_DIR=${SSL_LIB_DIR}
     eval "LD_SEARCH_FLAGS=\"${LD_SEARCH_FLAGS}\""
-    if test -n "${OPENSSL}"; then
-	TEA_ADD_INCLUDES([-I${SSL_INCLUDE_DIR}])
-	TEA_ADD_LIBS([${LD_SEARCH_FLAGS} -L${SSL_LIB_DIR} -lssl -lcrypto ${GCCPATH} ${GCCLIB}])
-    else
-	TEA_ADD_INCLUDES([-I${SSL_INCLUDE_DIR}])
-	TEA_ADD_LIBS([${LD_SEARCH_FLAGS} -L${SSL_LIB_DIR} -lsslc])
-    fi
+    TEA_ADD_INCLUDES([-I${SSL_INCLUDE_DIR}])
+    TEA_ADD_LIBS([${LD_SEARCH_FLAGS} -L${SSL_LIB_DIR} -lssl -lcrypto ${GCCPATH} ${GCCLIB}])
 fi
 
 #--------------------------------------------------------------------
@@ -242,37 +229,37 @@ TEA_PROG_TCLSH
 # Custom
 #--------------------------------------------------------------------
 
-dnl Disable support for TLS 1.0
-AC_ARG_ENABLE([tls1], AS_HELP_STRING([--disable-tls1], [disable TLS1 support]), [
+dnl Disable support for TLS 1.0 protocol
+AC_ARG_ENABLE([tls1], AS_HELP_STRING([--disable-tls1], [disable TLS1 protocol]), [
 	if test "${enableval}" = "no"; then
-		AC_DEFINE([NO_TLS1], [1], [Disable TLS1 support])
+		AC_DEFINE([NO_TLS1], [1], [Disable TLS1 protocol])
 	fi
 ])
 
-dnl Disable support for TLS 1.1
-AC_ARG_ENABLE([tls1_1], AS_HELP_STRING([--disable-tls1_1], [disable TLS1.1 support]), [
+dnl Disable support for TLS 1.1 protocol
+AC_ARG_ENABLE([tls1_1], AS_HELP_STRING([--disable-tls1_1], [disable TLS1.1 protocol]), [
 	if test "${enableval}" = "no"; then
-		AC_DEFINE([NO_TLS1_1], [1], [Disable TLS1.1 support])
+		AC_DEFINE([NO_TLS1_1], [1], [Disable TLS1.1 protocol])
 	fi
 ])
 
-dnl Disable support for TLS 1.2
-AC_ARG_ENABLE([tls1_2], AS_HELP_STRING([--disable-tls1_2], [disable TLS1.2 support]), [
+dnl Disable support for TLS 1.2 protocol
+AC_ARG_ENABLE([tls1_2], AS_HELP_STRING([--disable-tls1_2], [disable TLS1.2 protocol]), [
 	if test "${enableval}" = "no"; then
-		AC_DEFINE([NO_TLS1_2], [1], [Disable TLS1.2 support])
+		AC_DEFINE([NO_TLS1_2], [1], [Disable TLS1.2 protocol])
 	fi
 ])
 
-dnl Disable support for TLS 1.3
-AC_ARG_ENABLE([tls1_3], AS_HELP_STRING([--disable-tls1_3], [disable TLS1.3 support]), [
+dnl Disable support for TLS 1.3 protocol
+AC_ARG_ENABLE([tls1_3], AS_HELP_STRING([--disable-tls1_3], [disable TLS1.3 protocol]), [
 	if test "${enableval}" = "no"; then
-		AC_DEFINE([NO_TLS1_3], [1], [Disable TLS1.3 support])
+		AC_DEFINE([NO_TLS1_3], [1], [Disable TLS1.3 protocol])
 	fi
 ])
 
 dnl Enable support for building the same library every time
 tcltls_deterministic='false'
-AC_ARG_ENABLE([deterministic], AS_HELP_STRING([--enable-deterministic], [enable deterministic parameters]), [
+AC_ARG_ENABLE([deterministic], AS_HELP_STRING([--enable-deterministic], [enable deterministic DH parameters]), [
 	if test "$enableval" = "yes"; then
 		tcltls_deterministic='true'
 	fi
