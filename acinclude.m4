@@ -85,6 +85,8 @@ AC_DEFUN([SHOBJ_DO_STATIC_LINK_LIB], [
 ])
 
 AC_DEFUN([TCLTLS_SSL_OPENSSL], [
+	AC_CHECK_TOOL([PKGCONFIG], [pkg-config], [false])
+
 	openssldir=''
 	opensslpkgconfigdir=''
 	AC_ARG_WITH([openssl-dir],
@@ -115,8 +117,13 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		TCLTLS_SSL_CPPFLAGS="-I$openssldir/include"
 	fi
 
+	AC_MSG_CHECKING([for OpenSSL config])
+	AC_MSG_RESULT($openssldir)
+	AC_MSG_CHECKING([for OpenSSL pkgconfig])
+	AC_MSG_RESULT($opensslpkgconfigdir)
+
 	pkgConfigExtraArgs=''
-	if test "${SHARED_BUILD}" != "1" -o "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
+	if test "${SHARED_BUILD}" == 0 -o "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
 		pkgConfigExtraArgs='--static'
 	fi
 

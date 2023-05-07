@@ -8972,8 +8972,17 @@ printf "%s\n" X"$openssldir" |
 		TCLTLS_SSL_CPPFLAGS="-I$openssldir/include"
 	fi
 
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for OpenSSL config" >&5
+printf %s "checking for OpenSSL config... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $openssldir" >&5
+printf "%s\n" "$openssldir" >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for OpenSSL pkgconfig" >&5
+printf %s "checking for OpenSSL pkgconfig... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $opensslpkgconfigdir" >&5
+printf "%s\n" "$opensslpkgconfigdir" >&6; }
+
 	pkgConfigExtraArgs=''
-	if test "${SHARED_BUILD}" != "1" -o "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
+	if test "${SHARED_BUILD}" == 0 -o "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
 		pkgConfigExtraArgs='--static'
 	fi
 
@@ -9001,7 +9010,7 @@ printf "%s\n" X"$openssldir" |
 	fi
 	PKG_CONFIG_PATH="${PKG_CONFIG_PATH_SAVE}"
 
-	if test "${SHARED_BUILD}" != "1"; then
+	if test "${SHARED_BUILD}" == 0; then
 				rm -f tcltls.${AREXT}.linkadd
 		printf "%s\n" "$TCLTLS_SSL_LIBS" > tcltls.${AREXT}.linkadd
 	fi
