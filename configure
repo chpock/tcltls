@@ -646,8 +646,8 @@ ac_includes_default="\
 
 ac_header_c_list=
 ac_subst_vars='LTLIBOBJS
-GEN_DH_PARAMS_ARGS
 TCLSH_PROG
+GEN_DH_PARAMS_ARGS
 TCLTLS_SSL_CPPFLAGS
 TCLTLS_SSL_CFLAGS
 TCLTLS_SSL_LIBS
@@ -787,8 +787,8 @@ enable_tls1_3
 enable_deterministic
 with_builtin_dh_params_size
 enable_ssl_fastpath
-enable_static_ssl
 enable_hardening
+enable_static_ssl
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1435,9 +1435,9 @@ Optional Features:
   --enable-deterministic  enable deterministic DH parameters
   --enable-ssl-fastpath   enable using the underlying file descriptor for
                           talking directly to the SSL library
+  --disable-hardening     disable hardening attempts
   --enable-static-ssl     enable statically linking to the specified SSL
                           library
-  --disable-hardening     disable hardening attempts
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -9010,6 +9010,157 @@ printf "%s\n" "$opensslpkgconfigdir" >&6; }
 	fi
 	PKG_CONFIG_PATH="${PKG_CONFIG_PATH_SAVE}"
 
+
+		# Check whether --enable-tls1 was given.
+if test ${enable_tls1+y}
+then :
+  enableval=$enable_tls1;
+		if test "${enableval}" = "no"; then
+
+printf "%s\n" "#define NO_TLS1 1" >>confdefs.h
+
+		fi
+
+fi
+
+
+		# Check whether --enable-tls1_1 was given.
+if test ${enable_tls1_1+y}
+then :
+  enableval=$enable_tls1_1;
+		if test "${enableval}" = "no"; then
+
+printf "%s\n" "#define NO_TLS1_1 1" >>confdefs.h
+
+		fi
+
+fi
+
+
+		# Check whether --enable-tls1_2 was given.
+if test ${enable_tls1_2+y}
+then :
+  enableval=$enable_tls1_2;
+		if test "${enableval}" = "no"; then
+
+printf "%s\n" "#define NO_TLS1_2 1" >>confdefs.h
+
+		fi
+
+fi
+
+
+		# Check whether --enable-tls1_3 was given.
+if test ${enable_tls1_3+y}
+then :
+  enableval=$enable_tls1_3;
+		if test "${enableval}" = "no"; then
+
+printf "%s\n" "#define NO_TLS1_3 1" >>confdefs.h
+
+		fi
+
+fi
+
+
+
+		tcltls_deterministic='false'
+	# Check whether --enable-deterministic was given.
+if test ${enable_deterministic+y}
+then :
+  enableval=$enable_deterministic;
+		if test "$enableval" = "yes"; then
+			tcltls_deterministic='true'
+		fi
+
+fi
+
+	if test "$tcltls_deterministic" = 'true'; then
+		GEN_DH_PARAMS_ARGS='fallback'
+	else
+		GEN_DH_PARAMS_ARGS=''
+	fi
+
+
+# Check whether --with-builtin-dh-params-size was given.
+if test ${with_builtin_dh_params_size+y}
+then :
+  withval=$with_builtin_dh_params_size;
+		case $withval in #(
+  2048|4096|8192) :
+     ;; #(
+  *) :
+    as_fn_error $? "Unsupported DH params size: $withval" "$LINENO" 5 ;;
+esac
+		GEN_DH_PARAMS_ARGS="${GEN_DH_PARAMS_ARGS} bits=$withval"
+
+fi
+
+
+
+
+		tcltls_ssl_fastpath='no'
+	# Check whether --enable-ssl-fastpath was given.
+if test ${enable_ssl_fastpath+y}
+then :
+  enableval=$enable_ssl_fastpath;
+		if test "$enableval" = 'yes'; then
+			tcltls_ssl_fastpath='yes'
+		else
+			tcltls_ssl_fastpath='no'
+		fi
+
+fi
+
+
+	if test "$tcltls_ssl_fastpath" = 'yes'; then
+
+printf "%s\n" "#define TCLTLS_SSL_USE_FASTPATH 1" >>confdefs.h
+
+	fi
+
+		{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking enable hardening" >&5
+printf %s "checking enable hardening... " >&6; }
+	tcltls_enable_hardening='yes'
+	# Check whether --enable-hardening was given.
+if test ${enable_hardening+y}
+then :
+  enableval=$enable_hardening;
+		tcltls_enable_hardening="$enableval"
+
+fi
+
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $tcltls_enable_hardening" >&5
+printf "%s\n" "$tcltls_enable_hardening" >&6; }
+	if test "$tcltls_enable_hardening" = 'yes'; then
+		if test "$GCC" = 'yes' -o "$CC" = 'clang'; then
+
+    PKG_CFLAGS="$PKG_CFLAGS -fstack-protector-all"
+
+
+
+    PKG_CFLAGS="$PKG_CFLAGS -fno-strict-overflow"
+
+
+
+printf "%s\n" "#define _FORTIFY_SOURCE 2" >>confdefs.h
+
+		fi
+	fi
+
+
+		TCLEXT_TLS_STATIC_SSL='no'
+	# Check whether --enable-static-ssl was given.
+if test ${enable_static_ssl+y}
+then :
+  enableval=$enable_static_ssl;
+		if test "$enableval" = 'yes'; then
+			TCLEXT_TLS_STATIC_SSL='yes'
+		fi
+
+fi
+
+
 	if test "${SHARED_BUILD}" == 0; then
 				rm -f tcltls.${AREXT}.linkadd
 		printf "%s\n" "$TCLTLS_SSL_LIBS" > tcltls.${AREXT}.linkadd
@@ -9250,235 +9401,6 @@ printf "%s\n" "${TCLSH_PROG}" >&6; }
 
 #TEA_EXPORT_CONFIG([tls])
 #AC_SUBST(SAMPLE_VAR)
-
-
-#--------------------------------------------------------------------
-# Custom
-#--------------------------------------------------------------------
-
-# Check whether --enable-tls1 was given.
-if test ${enable_tls1+y}
-then :
-  enableval=$enable_tls1;
-	if test "${enableval}" = "no"; then
-
-printf "%s\n" "#define NO_TLS1 1" >>confdefs.h
-
-	fi
-
-fi
-
-
-# Check whether --enable-tls1_1 was given.
-if test ${enable_tls1_1+y}
-then :
-  enableval=$enable_tls1_1;
-	if test "${enableval}" = "no"; then
-
-printf "%s\n" "#define NO_TLS1_1 1" >>confdefs.h
-
-	fi
-
-fi
-
-
-# Check whether --enable-tls1_2 was given.
-if test ${enable_tls1_2+y}
-then :
-  enableval=$enable_tls1_2;
-	if test "${enableval}" = "no"; then
-
-printf "%s\n" "#define NO_TLS1_2 1" >>confdefs.h
-
-	fi
-
-fi
-
-
-# Check whether --enable-tls1_3 was given.
-if test ${enable_tls1_3+y}
-then :
-  enableval=$enable_tls1_3;
-	if test "${enableval}" = "no"; then
-
-printf "%s\n" "#define NO_TLS1_3 1" >>confdefs.h
-
-	fi
-
-fi
-
-
-
-tcltls_deterministic='false'
-# Check whether --enable-deterministic was given.
-if test ${enable_deterministic+y}
-then :
-  enableval=$enable_deterministic;
-	if test "$enableval" = "yes"; then
-		tcltls_deterministic='true'
-	fi
-
-fi
-
-if test "$tcltls_deterministic" = 'true'; then
-	GEN_DH_PARAMS_ARGS='fallback'
-else
-	GEN_DH_PARAMS_ARGS=''
-fi
-
-
-
-# Check whether --with-builtin-dh-params-size was given.
-if test ${with_builtin_dh_params_size+y}
-then :
-  withval=$with_builtin_dh_params_size;
-	case $withval in #(
-  2048|4096|8192) :
-     ;; #(
-  *) :
-    as_fn_error $? "Unsupported DH params size: $withval" "$LINENO" 5 ;;
-esac
-	GEN_DH_PARAMS_ARGS="${GEN_DH_PARAMS_ARGS} bits=$withval"
-
-fi
-
-
-
-
-tcltls_ssl_fastpath='no'
-# Check whether --enable-ssl-fastpath was given.
-if test ${enable_ssl_fastpath+y}
-then :
-  enableval=$enable_ssl_fastpath;
-	if test "$enableval" = 'yes'; then
-		tcltls_ssl_fastpath='yes'
-	else
-		tcltls_ssl_fastpath='no'
-	fi
-
-fi
-
-
-if test "$tcltls_ssl_fastpath" = 'yes'; then
-
-printf "%s\n" "#define TCLTLS_SSL_USE_FASTPATH 1" >>confdefs.h
-
-fi
-
-
-TCLEXT_TLS_STATIC_SSL='no'
-# Check whether --enable-static-ssl was given.
-if test ${enable_static_ssl+y}
-then :
-  enableval=$enable_static_ssl;
-	if test "$enableval" = 'yes'; then
-		TCLEXT_TLS_STATIC_SSL='yes'
-	fi
-
-fi
-
-
-
-tcltls_enable_hardening='auto'
-# Check whether --enable-hardening was given.
-if test ${enable_hardening+y}
-then :
-  enableval=$enable_hardening;
-	tcltls_enable_hardening="$enableval"
-
-fi
-
-if test "$tcltls_enable_hardening" = 'auto'; then
-	tcltls_enable_hardening='true'
-	if test "$TCLEXT_BUILD" = 'static'; then
-		tcltls_enable_hardening='false'
-	fi
-elif test "$tcltls_enable_hardening" = 'yes'; then
-	tcltls_enable_hardening='true'
-else
-	tcltls_enable_hardening='false'
-fi
-if test "$tcltls_enable_hardening" = 'true'; then
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -fstack-protector-all" >&5
-printf %s "checking whether C compiler accepts -fstack-protector-all... " >&6; }
-if test ${ax_cv_check_cflags___fstack_protector_all+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-
-  ax_check_save_flags=$CFLAGS
-  CFLAGS="$CFLAGS  -fstack-protector-all"
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  ax_cv_check_cflags___fstack_protector_all=yes
-else $as_nop
-  ax_cv_check_cflags___fstack_protector_all=no
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-  CFLAGS=$ax_check_save_flags
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___fstack_protector_all" >&5
-printf "%s\n" "$ax_cv_check_cflags___fstack_protector_all" >&6; }
-if test "x$ax_cv_check_cflags___fstack_protector_all" = xyes
-then :
-  CFLAGS="$CFLAGS -fstack-protector-all"
-else $as_nop
-  :
-fi
-
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -fno-strict-overflow" >&5
-printf %s "checking whether C compiler accepts -fno-strict-overflow... " >&6; }
-if test ${ax_cv_check_cflags___fno_strict_overflow+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-
-  ax_check_save_flags=$CFLAGS
-  CFLAGS="$CFLAGS  -fno-strict-overflow"
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  ax_cv_check_cflags___fno_strict_overflow=yes
-else $as_nop
-  ax_cv_check_cflags___fno_strict_overflow=no
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-  CFLAGS=$ax_check_save_flags
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___fno_strict_overflow" >&5
-printf "%s\n" "$ax_cv_check_cflags___fno_strict_overflow" >&6; }
-if test "x$ax_cv_check_cflags___fno_strict_overflow" = xyes
-then :
-  CFLAGS="$CFLAGS -fno-strict-overflow"
-else $as_nop
-  :
-fi
-
-
-printf "%s\n" "#define _FORTIFY_SOURCE 2" >>confdefs.h
-
-fi
 
 
 #--------------------------------------------------------------------

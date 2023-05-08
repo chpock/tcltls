@@ -153,6 +153,95 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	fi
 	PKG_CONFIG_PATH="${PKG_CONFIG_PATH_SAVE}"
 
+
+	dnl Disable support for TLS 1.0 protocol
+	AC_ARG_ENABLE([tls1], AS_HELP_STRING([--disable-tls1], [disable TLS1 protocol]), [
+		if test "${enableval}" = "no"; then
+			AC_DEFINE([NO_TLS1], [1], [Disable TLS1 protocol])
+		fi
+	])
+
+	dnl Disable support for TLS 1.1 protocol
+	AC_ARG_ENABLE([tls1_1], AS_HELP_STRING([--disable-tls1_1], [disable TLS1.1 protocol]), [
+		if test "${enableval}" = "no"; then
+			AC_DEFINE([NO_TLS1_1], [1], [Disable TLS1.1 protocol])
+		fi
+	])
+
+	dnl Disable support for TLS 1.2 protocol
+	AC_ARG_ENABLE([tls1_2], AS_HELP_STRING([--disable-tls1_2], [disable TLS1.2 protocol]), [
+		if test "${enableval}" = "no"; then
+			AC_DEFINE([NO_TLS1_2], [1], [Disable TLS1.2 protocol])
+		fi
+	])
+
+	dnl Disable support for TLS 1.3 protocol
+	AC_ARG_ENABLE([tls1_3], AS_HELP_STRING([--disable-tls1_3], [disable TLS1.3 protocol]), [
+		if test "${enableval}" = "no"; then
+			AC_DEFINE([NO_TLS1_3], [1], [Disable TLS1.3 protocol])
+		fi
+	])
+
+
+	dnl Enable support for building the same library every time
+	tcltls_deterministic='false'
+	AC_ARG_ENABLE([deterministic], AS_HELP_STRING([--enable-deterministic], [enable deterministic DH parameters]), [
+		if test "$enableval" = "yes"; then
+			tcltls_deterministic='true'
+		fi
+	])
+	if test "$tcltls_deterministic" = 'true'; then
+		GEN_DH_PARAMS_ARGS='fallback'
+	else
+		GEN_DH_PARAMS_ARGS=''
+	fi
+
+	dnl Enable support for specifying pre-computed DH params size
+	AC_ARG_WITH([builtin-dh-params-size], AS_HELP_STRING([--with-builtin-dh-params-size=<bits>], [specify the size of the built-in, precomputed, DH params]), [
+		AS_CASE([$withval],[2048|4096|8192],,[AC_MSG_ERROR([Unsupported DH params size: $withval])])
+		GEN_DH_PARAMS_ARGS="${GEN_DH_PARAMS_ARGS} bits=$withval"
+	])
+	AC_SUBST(GEN_DH_PARAMS_ARGS)
+
+
+	dnl Determine if we have been asked to use a fast path if possible
+	tcltls_ssl_fastpath='no'
+	AC_ARG_ENABLE([ssl-fastpath], AS_HELP_STRING([--enable-ssl-fastpath], [enable using the underlying file descriptor for talking directly to the SSL library]), [
+		if test "$enableval" = 'yes'; then
+			tcltls_ssl_fastpath='yes'
+		else
+			tcltls_ssl_fastpath='no'
+		fi
+	])
+
+	if test "$tcltls_ssl_fastpath" = 'yes'; then
+		AC_DEFINE(TCLTLS_SSL_USE_FASTPATH, [1], [Define this to enable using the underlying file descriptor for talking directly to the SSL library])
+	fi
+
+	dnl Enable hardening
+	AC_MSG_CHECKING([enable hardening])
+	tcltls_enable_hardening='yes'
+	AC_ARG_ENABLE([hardening], AS_HELP_STRING([--disable-hardening], [enable hardening attempts]), [
+		tcltls_enable_hardening="$enableval"
+	])
+	AC_MSG_RESULT([$tcltls_enable_hardening])
+	if test "$tcltls_enable_hardening" = 'yes'; then
+		if test "$GCC" = 'yes' -o "$CC" = 'clang'; then
+			TEA_ADD_CFLAGS([-fstack-protector-all])
+			TEA_ADD_CFLAGS([-fno-strict-overflow])
+			AC_DEFINE([_FORTIFY_SOURCE], [2], [Enable fortification])
+		fi
+	fi
+
+
+	dnl Determine if we have been asked to statically link to the SSL library
+	TCLEXT_TLS_STATIC_SSL='no'
+	AC_ARG_ENABLE([static-ssl], AS_HELP_STRING([--enable-static-ssl], [enable statically linking to the specified SSL library]), [
+		if test "$enableval" = 'yes'; then
+			TCLEXT_TLS_STATIC_SSL='yes'
+		fi
+	])
+
 	if test "${SHARED_BUILD}" != "1"; then
 		dnl If we are doing a static build, save the linker flags for other programs to consume
 		rm -f tcltls.${AREXT}.linkadd
