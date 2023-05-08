@@ -205,7 +205,6 @@ TEA_PROG_TCLSH
 #TEA_EXPORT_CONFIG([tls])
 #AC_SUBST(SAMPLE_VAR)
 
-
 #--------------------------------------------------------------------
 # Specify files to substitute AC variables in. You may alternatively
 # have a special pkgIndex.tcl.in or other files which require

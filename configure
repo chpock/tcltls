@@ -1435,9 +1435,8 @@ Optional Features:
   --enable-deterministic  enable deterministic DH parameters
   --enable-ssl-fastpath   enable using the underlying file descriptor for
                           talking directly to the SSL library
-  --disable-hardening     disable hardening attempts
-  --enable-static-ssl     enable statically linking to the specified SSL
-                          library
+  --disable-hardening     enable hardening attempts
+  --enable-static-ssl     enable static linking to the SSL library
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1453,8 +1452,8 @@ Optional Packages:
                           path to root directory of OpenSSL or LibreSSL
                           pkgconfigdir
   --with-builtin-dh-params-size=<bits>
-                          specify the size of the built-in, precomputed, DH
-                          params
+                          specify the size in bits of the built-in,
+                          precomputed, DH params
 
 Some influential environment variables:
   CC          C compiler command
@@ -8915,9 +8914,112 @@ printf "%s\n" "#define TCL_MAJOR_VERSION 8" >>confdefs.h
 #--------------------------------------------------------------------
 
 
+	if test -n "$ac_tool_prefix"; then
+  # Extract the first word of "${ac_tool_prefix}pkg-config", so it can be a program name with args.
+set dummy ${ac_tool_prefix}pkg-config; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_PKGCONFIG+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  if test -n "$PKGCONFIG"; then
+  ac_cv_prog_PKGCONFIG="$PKGCONFIG" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_PKGCONFIG="${ac_tool_prefix}pkg-config"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+PKGCONFIG=$ac_cv_prog_PKGCONFIG
+if test -n "$PKGCONFIG"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $PKGCONFIG" >&5
+printf "%s\n" "$PKGCONFIG" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+fi
+if test -z "$ac_cv_prog_PKGCONFIG"; then
+  ac_ct_PKGCONFIG=$PKGCONFIG
+  # Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_ac_ct_PKGCONFIG+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  if test -n "$ac_ct_PKGCONFIG"; then
+  ac_cv_prog_ac_ct_PKGCONFIG="$ac_ct_PKGCONFIG" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_ac_ct_PKGCONFIG="pkg-config"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+ac_ct_PKGCONFIG=$ac_cv_prog_ac_ct_PKGCONFIG
+if test -n "$ac_ct_PKGCONFIG"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_ct_PKGCONFIG" >&5
+printf "%s\n" "$ac_ct_PKGCONFIG" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+  if test "x$ac_ct_PKGCONFIG" = x; then
+    PKGCONFIG="false"
+  else
+    case $cross_compiling:$ac_tool_warned in
+yes:)
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
+printf "%s\n" "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
+ac_tool_warned=yes ;;
+esac
+    PKGCONFIG=$ac_ct_PKGCONFIG
+  fi
+else
+  PKGCONFIG="$ac_cv_prog_PKGCONFIG"
+fi
+
 
 	openssldir=''
 	opensslpkgconfigdir=''
+
 
 # Check whether --with-openssl-dir was given.
 if test ${with_openssl_dir+y}
@@ -9019,6 +9121,10 @@ then :
 
 printf "%s\n" "#define NO_TLS1 1" >>confdefs.h
 
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for disable TLS1 protocol" >&5
+printf %s "checking for disable TLS1 protocol... " >&6; }
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: 'yes'" >&5
+printf "%s\n" "'yes'" >&6; }
 		fi
 
 fi
@@ -9032,6 +9138,10 @@ then :
 
 printf "%s\n" "#define NO_TLS1_1 1" >>confdefs.h
 
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for disable TLS1.1 protocol" >&5
+printf %s "checking for disable TLS1.1 protocol... " >&6; }
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: 'yes'" >&5
+printf "%s\n" "'yes'" >&6; }
 		fi
 
 fi
@@ -9045,6 +9155,10 @@ then :
 
 printf "%s\n" "#define NO_TLS1_2 1" >>confdefs.h
 
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for disable TLS1.2 protocol" >&5
+printf %s "checking for disable TLS1.2 protocol... " >&6; }
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: 'yes'" >&5
+printf "%s\n" "'yes'" >&6; }
 		fi
 
 fi
@@ -9058,24 +9172,28 @@ then :
 
 printf "%s\n" "#define NO_TLS1_3 1" >>confdefs.h
 
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for disable TLS1.3 protocol" >&5
+printf %s "checking for disable TLS1.3 protocol... " >&6; }
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: 'yes'" >&5
+printf "%s\n" "'yes'" >&6; }
 		fi
 
 fi
 
 
-
-		tcltls_deterministic='false'
-	# Check whether --enable-deterministic was given.
+		# Check whether --enable-deterministic was given.
 if test ${enable_deterministic+y}
 then :
   enableval=$enable_deterministic;
-		if test "$enableval" = "yes"; then
-			tcltls_deterministic='true'
-		fi
+		tcltls_deterministic="$enableval"
+
+else $as_nop
+
+		tcltls_deterministic='no'
 
 fi
 
-	if test "$tcltls_deterministic" = 'true'; then
+	if test "$tcltls_deterministic" = 'yes'; then
 		GEN_DH_PARAMS_ARGS='fallback'
 	else
 		GEN_DH_PARAMS_ARGS=''
@@ -9097,41 +9215,45 @@ esac
 fi
 
 
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for DH params" >&5
+printf %s "checking for DH params... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $GEN_DH_PARAMS_ARGS" >&5
+printf "%s\n" "$GEN_DH_PARAMS_ARGS" >&6; }
 
-
-		tcltls_ssl_fastpath='no'
-	# Check whether --enable-ssl-fastpath was given.
+		# Check whether --enable-ssl-fastpath was given.
 if test ${enable_ssl_fastpath+y}
 then :
   enableval=$enable_ssl_fastpath;
-		if test "$enableval" = 'yes'; then
-			tcltls_ssl_fastpath='yes'
-		else
-			tcltls_ssl_fastpath='no'
-		fi
+		tcltls_ssl_fastpath="$enableval"
+
+else $as_nop
+
+		tcltls_ssl_fastpath='no'
 
 fi
-
 
 	if test "$tcltls_ssl_fastpath" = 'yes'; then
 
 printf "%s\n" "#define TCLTLS_SSL_USE_FASTPATH 1" >>confdefs.h
 
 	fi
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for fast path" >&5
+printf %s "checking for fast path... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $tcltls_ssl_fastpath" >&5
+printf "%s\n" "$tcltls_ssl_fastpath" >&6; }
 
-		{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking enable hardening" >&5
-printf %s "checking enable hardening... " >&6; }
-	tcltls_enable_hardening='yes'
-	# Check whether --enable-hardening was given.
+		# Check whether --enable-hardening was given.
 if test ${enable_hardening+y}
 then :
   enableval=$enable_hardening;
 		tcltls_enable_hardening="$enableval"
 
+else $as_nop
+
+		tcltls_enable_hardening='yes'
+
 fi
 
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $tcltls_enable_hardening" >&5
-printf "%s\n" "$tcltls_enable_hardening" >&6; }
 	if test "$tcltls_enable_hardening" = 'yes'; then
 		if test "$GCC" = 'yes' -o "$CC" = 'clang'; then
 
@@ -9147,16 +9269,20 @@ printf "%s\n" "#define _FORTIFY_SOURCE 2" >>confdefs.h
 
 		fi
 	fi
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for enable hardening" >&5
+printf %s "checking for enable hardening... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $tcltls_enable_hardening" >&5
+printf "%s\n" "$tcltls_enable_hardening" >&6; }
 
-
-		TCLEXT_TLS_STATIC_SSL='no'
-	# Check whether --enable-static-ssl was given.
+		# Check whether --enable-static-ssl was given.
 if test ${enable_static_ssl+y}
 then :
   enableval=$enable_static_ssl;
-		if test "$enableval" = 'yes'; then
-			TCLEXT_TLS_STATIC_SSL='yes'
-		fi
+		TCLEXT_TLS_STATIC_SSL="$enableval"
+
+else $as_nop
+
+		TCLEXT_TLS_STATIC_SSL='no'
 
 fi
 
@@ -9187,7 +9313,6 @@ fi
 						;;
 				esac
 			done
-
 
 
 
@@ -9401,7 +9526,6 @@ printf "%s\n" "${TCLSH_PROG}" >&6; }
 
 #TEA_EXPORT_CONFIG([tls])
 #AC_SUBST(SAMPLE_VAR)
-
 
 #--------------------------------------------------------------------
 # Specify files to substitute AC variables in. You may alternatively
