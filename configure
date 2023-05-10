@@ -647,11 +647,11 @@ ac_includes_default="\
 ac_header_c_list=
 ac_subst_vars='LTLIBOBJS
 TCLSH_PROG
-GEN_DH_PARAMS_ARGS
-TCLTLS_SSL_CPPFLAGS
+TCLTLS_SSL_INCLUDES
 TCLTLS_SSL_CFLAGS
 TCLTLS_SSL_LIBS
-PKGCONFIG
+GEN_DH_PARAMS_ARGS
+PKG_CONFIG
 VC_MANIFEST_EMBED_EXE
 VC_MANIFEST_EMBED_DLL
 RANLIB_STUB
@@ -778,8 +778,6 @@ enable_64bit
 enable_64bit_vis
 enable_rpath
 enable_symbols
-with_openssl_dir
-with_openssl_pkgconfig
 enable_tls1
 enable_tls1_1
 enable_tls1_2
@@ -789,6 +787,10 @@ with_builtin_dh_params_size
 enable_ssl_fastpath
 enable_hardening
 enable_static_ssl
+with_openssl_dir
+with_openssl_includedir
+with_openssl_libdir
+with_openssl_pkgconfig
 '
       ac_precious_vars='build_alias
 host_alias
@@ -801,7 +803,7 @@ CPPFLAGS
 CPP
 TCLTLS_SSL_LIBS
 TCLTLS_SSL_CFLAGS
-TCLTLS_SSL_CPPFLAGS'
+TCLTLS_SSL_INCLUDES'
 
 
 # Initialize some variables set by options.
@@ -1435,7 +1437,7 @@ Optional Features:
   --enable-deterministic  enable deterministic DH parameters
   --enable-ssl-fastpath   enable using the underlying file descriptor for
                           talking directly to the SSL library
-  --disable-hardening     enable hardening attempts
+  --enable-hardening      enable hardening attempts
   --enable-static-ssl     enable static linking to the SSL library
 
 Optional Packages:
@@ -1445,15 +1447,21 @@ Optional Packages:
                           (tclConfig.sh)
   --with-tcl8             Compile for Tcl8 in Tcl9 environment
   --with-tclinclude       directory containing the public Tcl header files
+  --with-builtin-dh-params-size=<bits>
+                          specify the size in bits of the built-in,
+                          precomputed, DH params
   --with-openssl-dir=<dir>
                           path to root directory of OpenSSL or LibreSSL
+                          installation
+  --with-openssl-includedir=<dir>
+                          path to include directory of OpenSSL or LibreSSL
+                          installation
+  --with-openssl-libdir=<dir>
+                          path to lib directory of OpenSSL or LibreSSL
                           installation
   --with-openssl-pkgconfig=<dir>
                           path to root directory of OpenSSL or LibreSSL
                           pkgconfigdir
-  --with-builtin-dh-params-size=<bits>
-                          specify the size in bits of the built-in,
-                          precomputed, DH params
 
 Some influential environment variables:
   CC          C compiler command
@@ -1468,8 +1476,8 @@ Some influential environment variables:
               libraries to pass to the linker for OpenSSL or LibreSSL
   TCLTLS_SSL_CFLAGS
               C compiler flags for OpenSSL or LibreSSL
-  TCLTLS_SSL_CPPFLAGS
-              C preprocessor flags for OpenSSL or LibreSSL
+  TCLTLS_SSL_INCLUDES
+              C compiler include paths for OpenSSL or LibreSSL
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -8919,12 +8927,12 @@ printf "%s\n" "#define TCL_MAJOR_VERSION 8" >>confdefs.h
 set dummy ${ac_tool_prefix}pkg-config; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_prog_PKGCONFIG+y}
+if test ${ac_cv_prog_PKG_CONFIG+y}
 then :
   printf %s "(cached) " >&6
 else $as_nop
-  if test -n "$PKGCONFIG"; then
-  ac_cv_prog_PKGCONFIG="$PKGCONFIG" # Let the user override the test.
+  if test -n "$PKG_CONFIG"; then
+  ac_cv_prog_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test.
 else
 as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
 for as_dir in $PATH
@@ -8937,7 +8945,7 @@ do
   esac
     for ac_exec_ext in '' $ac_executable_extensions; do
   if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_prog_PKGCONFIG="${ac_tool_prefix}pkg-config"
+    ac_cv_prog_PKG_CONFIG="${ac_tool_prefix}pkg-config"
     printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
     break 2
   fi
@@ -8947,10 +8955,10 @@ IFS=$as_save_IFS
 
 fi
 fi
-PKGCONFIG=$ac_cv_prog_PKGCONFIG
-if test -n "$PKGCONFIG"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $PKGCONFIG" >&5
-printf "%s\n" "$PKGCONFIG" >&6; }
+PKG_CONFIG=$ac_cv_prog_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+printf "%s\n" "$PKG_CONFIG" >&6; }
 else
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
@@ -8958,18 +8966,18 @@ fi
 
 
 fi
-if test -z "$ac_cv_prog_PKGCONFIG"; then
-  ac_ct_PKGCONFIG=$PKGCONFIG
+if test -z "$ac_cv_prog_PKG_CONFIG"; then
+  ac_ct_PKG_CONFIG=$PKG_CONFIG
   # Extract the first word of "pkg-config", so it can be a program name with args.
 set dummy pkg-config; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_prog_ac_ct_PKGCONFIG+y}
+if test ${ac_cv_prog_ac_ct_PKG_CONFIG+y}
 then :
   printf %s "(cached) " >&6
 else $as_nop
-  if test -n "$ac_ct_PKGCONFIG"; then
-  ac_cv_prog_ac_ct_PKGCONFIG="$ac_ct_PKGCONFIG" # Let the user override the test.
+  if test -n "$ac_ct_PKG_CONFIG"; then
+  ac_cv_prog_ac_ct_PKG_CONFIG="$ac_ct_PKG_CONFIG" # Let the user override the test.
 else
 as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
 for as_dir in $PATH
@@ -8982,7 +8990,7 @@ do
   esac
     for ac_exec_ext in '' $ac_executable_extensions; do
   if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_prog_ac_ct_PKGCONFIG="pkg-config"
+    ac_cv_prog_ac_ct_PKG_CONFIG="pkg-config"
     printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
     break 2
   fi
@@ -8992,17 +9000,17 @@ IFS=$as_save_IFS
 
 fi
 fi
-ac_ct_PKGCONFIG=$ac_cv_prog_ac_ct_PKGCONFIG
-if test -n "$ac_ct_PKGCONFIG"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_ct_PKGCONFIG" >&5
-printf "%s\n" "$ac_ct_PKGCONFIG" >&6; }
+ac_ct_PKG_CONFIG=$ac_cv_prog_ac_ct_PKG_CONFIG
+if test -n "$ac_ct_PKG_CONFIG"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_ct_PKG_CONFIG" >&5
+printf "%s\n" "$ac_ct_PKG_CONFIG" >&6; }
 else
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
 fi
 
-  if test "x$ac_ct_PKGCONFIG" = x; then
-    PKGCONFIG="false"
+  if test "x$ac_ct_PKG_CONFIG" = x; then
+    PKG_CONFIG="false"
   else
     case $cross_compiling:$ac_tool_warned in
 yes:)
@@ -9010,107 +9018,11 @@ yes:)
 printf "%s\n" "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
 ac_tool_warned=yes ;;
 esac
-    PKGCONFIG=$ac_ct_PKGCONFIG
+    PKG_CONFIG=$ac_ct_PKG_CONFIG
   fi
 else
-  PKGCONFIG="$ac_cv_prog_PKGCONFIG"
+  PKG_CONFIG="$ac_cv_prog_PKG_CONFIG"
 fi
-
-
-	openssldir=''
-	opensslpkgconfigdir=''
-
-
-# Check whether --with-openssl-dir was given.
-if test ${with_openssl_dir+y}
-then :
-  withval=$with_openssl_dir;
-			openssldir="$withval"
-
-
-fi
-
-
-# Check whether --with-openssl-pkgconfig was given.
-if test ${with_openssl_pkgconfig+y}
-then :
-  withval=$with_openssl_pkgconfig;
-			opensslpkgconfigdir="$withval"
-
-
-fi
-
-
-	if test -n "$openssldir"; then
-		if test -e "$openssldir/libssl.$SHOBJEXT"; then
-			TCLTLS_SSL_LIBS="-L$openssldir -lssl -lcrypto"
-			openssldir="`$as_dirname -- "$openssldir" ||
-$as_expr X"$openssldir" : 'X\(.*[^/]\)//*[^/][^/]*/*$' \| \
-	 X"$openssldir" : 'X\(//\)[^/]' \| \
-	 X"$openssldir" : 'X\(//\)$' \| \
-	 X"$openssldir" : 'X\(/\)' \| . 2>/dev/null ||
-printf "%s\n" X"$openssldir" |
-    sed '/^X\(.*[^/]\)\/\/*[^/][^/]*\/*$/{
-	    s//\1/
-	    q
-	  }
-	  /^X\(\/\/\)[^/].*/{
-	    s//\1/
-	    q
-	  }
-	  /^X\(\/\/\)$/{
-	    s//\1/
-	    q
-	  }
-	  /^X\(\/\).*/{
-	    s//\1/
-	    q
-	  }
-	  s/.*/./; q'`"
-		else
-			TCLTLS_SSL_LIBS="-L$openssldir/lib -lssl -lcrypto"
-		fi
-		TCLTLS_SSL_CFLAGS="-I$openssldir/include"
-		TCLTLS_SSL_CPPFLAGS="-I$openssldir/include"
-	fi
-
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for OpenSSL config" >&5
-printf %s "checking for OpenSSL config... " >&6; }
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $openssldir" >&5
-printf "%s\n" "$openssldir" >&6; }
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for OpenSSL pkgconfig" >&5
-printf %s "checking for OpenSSL pkgconfig... " >&6; }
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $opensslpkgconfigdir" >&5
-printf "%s\n" "$opensslpkgconfigdir" >&6; }
-
-	pkgConfigExtraArgs=''
-	if test "${SHARED_BUILD}" == 0 -o "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
-		pkgConfigExtraArgs='--static'
-	fi
-
-			PKG_CONFIG_PATH_SAVE="${PKG_CONFIG_PATH}"
-	if test -n "${opensslpkgconfigdir}"; then
-		if ! test -f "${opensslpkgconfigdir}/openssl.pc"; then
-			as_fn_error $? "Unable to locate ${opensslpkgconfigdir}/openssl.pc" "$LINENO" 5
-		fi
-
-		PKG_CONFIG_PATH="${opensslpkgconfigdir}${PATH_SEPARATOR}${PKG_CONFIG_PATH}"
-		export PKG_CONFIG_PATH
-	fi
-
-
-
-
-	if test -z "$TCLTLS_SSL_LIBS"; then
-		TCLTLS_SSL_LIBS="`"${PKGCONFIG}" openssl --libs $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
-	fi
-	if test -z "$TCLTLS_SSL_CFLAGS"; then
-		TCLTLS_SSL_CFLAGS="`"${PKGCONFIG}" openssl --cflags-only-other $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
-	fi
-	if test -z "$TCLTLS_SSL_CPPFLAGS"; then
-		TCLTLS_SSL_CPPFLAGS="`"${PKGCONFIG}" openssl --cflags-only-I $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
-	fi
-	PKG_CONFIG_PATH="${PKG_CONFIG_PATH_SAVE}"
 
 
 		# Check whether --enable-tls1 was given.
@@ -9181,6 +9093,7 @@ printf "%s\n" "'yes'" >&6; }
 fi
 
 
+
 		# Check whether --enable-deterministic was given.
 if test ${enable_deterministic+y}
 then :
@@ -9220,6 +9133,7 @@ printf %s "checking for DH params... " >&6; }
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $GEN_DH_PARAMS_ARGS" >&5
 printf "%s\n" "$GEN_DH_PARAMS_ARGS" >&6; }
 
+
 		# Check whether --enable-ssl-fastpath was given.
 if test ${enable_ssl_fastpath+y}
 then :
@@ -9241,6 +9155,7 @@ printf "%s\n" "#define TCLTLS_SSL_USE_FASTPATH 1" >>confdefs.h
 printf %s "checking for fast path... " >&6; }
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $tcltls_ssl_fastpath" >&5
 printf "%s\n" "$tcltls_ssl_fastpath" >&6; }
+
 
 		# Check whether --enable-hardening was given.
 if test ${enable_hardening+y}
@@ -9274,6 +9189,7 @@ printf %s "checking for enable hardening... " >&6; }
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $tcltls_enable_hardening" >&5
 printf "%s\n" "$tcltls_enable_hardening" >&6; }
 
+
 		# Check whether --enable-static-ssl was given.
 if test ${enable_static_ssl+y}
 then :
@@ -9286,131 +9202,152 @@ else $as_nop
 
 fi
 
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for static linking of openSSL libraries" >&5
+printf %s "checking for static linking of openSSL libraries... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $TCLEXT_TLS_STATIC_SSL" >&5
+printf "%s\n" "$TCLEXT_TLS_STATIC_SSL" >&6; }
 
-	if test "${SHARED_BUILD}" == 0; then
-				rm -f tcltls.${AREXT}.linkadd
-		printf "%s\n" "$TCLTLS_SSL_LIBS" > tcltls.${AREXT}.linkadd
+	# Static lib
+	pkgConfigExtraArgs=''
+	if test "${SHARED_BUILD}" == 0 -o "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
+		pkgConfigExtraArgs='--static'
 	fi
 
-		if test "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
-				if test "${SHARED_BUILD}" = "1"; then
-						new_TCLTLS_SSL_LIBS_normal=''
-			new_TCLTLS_SSL_LIBS_static=''
-			for arg in $TCLTLS_SSL_LIBS; do
-				case "${arg}" in
-					-L*)
-						new_TCLTLS_SSL_LIBS_normal="${new_TCLTLS_SSL_LIBS_normal} ${arg}"
-						new_TCLTLS_SSL_LIBS_static="${new_TCLTLS_SSL_LIBS_static} ${arg}"
-						;;
-					-ldl|-lrt|-lc|-lpthread|-lm|-lcrypt|-lidn|-lresolv|-lgcc|-lgcc_s)
-						new_TCLTLS_SSL_LIBS_normal="${new_TCLTLS_SSL_LIBS_normal} ${arg}"
-						;;
-					-l*)
-						new_TCLTLS_SSL_LIBS_static="${new_TCLTLS_SSL_LIBS_static} ${arg}"
-						;;
-					*)
-						new_TCLTLS_SSL_LIBS_normal="${new_TCLTLS_SSL_LIBS_normal} ${arg}"
-						;;
-				esac
-			done
 
 
-
-
-
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for how to statically link to OpenSSL" >&5
-printf %s "checking for how to statically link to OpenSSL... " >&6; }
-
-	trylink_ADD_LDFLAGS=''
-	for arg in $new_TCLTLS_SSL_LIBS_static; do
-		case "${arg}" in
-			-L*)
-				trylink_ADD_LDFLAGS="${arg}"
-				;;
-		esac
-	done
-
-	SAVELIBS="$LIBS"
-	staticlib=""
-	found="0"
-			ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-	for trylink in "-Wl,-a,archive $new_TCLTLS_SSL_LIBS_static -Wl,-a,shared_archive" "-Wl,-Bstatic $new_TCLTLS_SSL_LIBS_static -Wl,-Bdynamic" "$new_TCLTLS_SSL_LIBS_static"; do
-		if echo " ${LDFLAGS} " | grep ' -static ' >/dev/null; then
-			if test "${trylink}" != "$new_TCLTLS_SSL_LIBS_static"; then
-				continue
-			fi
-		fi
-
-		LIBS="${SAVELIBS} ${trylink_ADD_LDFLAGS} ${trylink}"
-
-		cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"
+# Check whether --with-openssl-dir was given.
+if test ${with_openssl_dir+y}
 then :
+  withval=$with_openssl_dir;
+			openssldir="$withval"
 
-			staticlib="${trylink}"
-			found="1"
+else $as_nop
 
-			break
+			openssldir=''
+
 
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-	done
-	ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-	LIBS="${SAVELIBS}"
 
-	if test "${found}" = "1"; then
-		new_RESULT=''
-		SAVERESULT="$new_TCLTLS_SSL_LIBS_static"
-		for lib in ${SAVERESULT}; do
-			addlib='1'
-			for removelib in $new_TCLTLS_SSL_LIBS_static; do
-				if test "${lib}" = "${removelib}"; then
-					addlib='0'
-					break
-				fi
-			done
 
-			if test "$addlib" = '1'; then
-				new_RESULT="${new_RESULT} ${lib}"
+# Check whether --with-openssl-includedir was given.
+if test ${with_openssl_includedir+y}
+then :
+  withval=$with_openssl_includedir;
+			opensslincludedir="$withval"
+
+else $as_nop
+
+			if test -n "$openssldir"; then
+				opensslincludedir="${openssldir}${PATH_SEPARATOR}include${PATH_SEPARATOR}openssl"
+			else
+				opensslincludedir=''
 			fi
-		done
-		new_TCLTLS_SSL_LIBS_static="${new_RESULT} ${staticlib}"
-
-		{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: ${staticlib}" >&5
-printf "%s\n" "${staticlib}" >&6; }
 
 
-	else
-		{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: cant" >&5
-printf "%s\n" "cant" >&6; }
+fi
 
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for OpenSSL include directory" >&5
+printf %s "checking for OpenSSL include directory... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $opensslincludedir" >&5
+printf "%s\n" "$opensslincludedir" >&6; }
 
-	fi
-
-			TCLTLS_SSL_LIBS="${new_TCLTLS_SSL_LIBS_normal} ${new_TCLTLS_SSL_LIBS_static}"
+		if test -n "$opensslincludedir"; then
+		if test -f "${opensslincludedir}${PATH_SEPARATOR}ssl.h"; then
+			TCLTLS_SSL_CFLAGS="-I$opensslincludedir"
+			TCLTLS_SSL_INCLUDES="-I$opensslincludedir"
+		else
+			as_fn_error $? "Unable to locate ssl.h" "$LINENO" 5
 		fi
 	fi
+
+
+# Check whether --with-openssl-libdir was given.
+if test ${with_openssl_libdir+y}
+then :
+  withval=$with_openssl_libdir;
+			openssllibdir="$withval"
+
+else $as_nop
+
+			if test -n "$openssldir"; then
+				if test "$do64bit" == 'yes'; then
+					openssllibdir="${openssldir}${PATH_SEPARATOR}lib64"
+				else
+					openssllibdir="${openssldir}${PATH_SEPARATOR}lib"
+				fi
+			else
+				openssllibdir=''
+			fi
+
+
+fi
+
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for OpenSSL lib directory" >&5
+printf %s "checking for OpenSSL lib directory... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $openssllibdir" >&5
+printf "%s\n" "$openssllibdir" >&6; }
+
+	if test -n "$openssllibdir"; then
+		if test -f "${openssllibdir}${PATH_SEPARATOR}libssl${SHLIB_SUFFIX}"; then
+			if test "${TCLEXT_TLS_STATIC_SSL}" == 'no'; then
+				TCLTLS_SSL_LIBS="-L$openssllibdir -lcrypto -lssl"
+			else
+				# Linux and Solaris
+				TCLTLS_SSL_LIBS="-Wl,-Bstatic `$PKG_CONFIG --static --libs crypto ssl` -Wl,-Bdynamic"
+				# HPUX
+				# -Wl,-a,archive ... -Wl,-a,shared_archive
+			fi
+		else
+			as_fn_error $? "Unable to locate libssl${SHLIB_SUFFIX}" "$LINENO" 5
+		fi
+	else
+		TCLTLS_SSL_LIBS="-lcrypto -lssl"
+	fi
+
+
+
+# Check whether --with-openssl-pkgconfig was given.
+if test ${with_openssl_pkgconfig+y}
+then :
+  withval=$with_openssl_pkgconfig;
+			opensslpkgconfigdir="$withval"
+
+else $as_nop
+
+			opensslpkgconfigdir=''
+
+
+fi
+
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for OpenSSL pkgconfig" >&5
+printf %s "checking for OpenSSL pkgconfig... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $opensslpkgconfigdir" >&5
+printf "%s\n" "$opensslpkgconfigdir" >&6; }
+
+			PKG_CONFIG_PATH_SAVE="${PKG_CONFIG_PATH}"
+	if test -n "${opensslpkgconfigdir}"; then
+		if ! test -f "${opensslpkgconfigdir}${PATH_SEPARATOR}openssl.pc"; then
+			as_fn_error $? "Unable to locate ${opensslpkgconfigdir}${PATH_SEPARATOR}openssl.pc" "$LINENO" 5
+		fi
+
+		PKG_CONFIG_PATH="${opensslpkgconfigdir}${PATH_SEPARATOR}${PKG_CONFIG_PATH}"
+		export PKG_CONFIG_PATH
+	fi
+
+
+
+
+	if test -z "$TCLTLS_SSL_LIBS"; then
+		TCLTLS_SSL_LIBS="`"${PKG_CONFIG}" openssl --libs $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
+	fi
+	if test -z "$TCLTLS_SSL_CFLAGS"; then
+		TCLTLS_SSL_CFLAGS="`"${PKG_CONFIG}" openssl --cflags-only-other $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
+	fi
+	if test -z "$TCLTLS_SSL_INCLUDES"; then
+		TCLTLS_SSL_INCLUDES="`"${PKG_CONFIG}" openssl --cflags-only-I $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
+	fi
+	PKG_CONFIG_PATH="${PKG_CONFIG_PATH_SAVE}"
 
 
 #--------------------------------------------------------------------
@@ -9427,7 +9364,7 @@ if test "${TEA_PLATFORM}" = "windows" ; then
 
 
 
-    vars="${TCLTLS_SSL_CPPFLAGS}"
+    vars="${TCLTLS_SSL_INCLUDES}"
     for i in $vars; do
 	PKG_INCLUDES="$PKG_INCLUDES $i"
     done
@@ -9451,7 +9388,7 @@ else
 
 
 
-    vars="${TCLTLS_SSL_CPPFLAGS}"
+    vars="${TCLTLS_SSL_INCLUDES}"
     for i in $vars; do
 	PKG_INCLUDES="$PKG_INCLUDES $i"
     done
@@ -9534,6 +9471,7 @@ printf "%s\n" "${TCLSH_PROG}" >&6; }
 #--------------------------------------------------------------------
 
 ac_config_files="$ac_config_files Makefile pkgIndex.tcl"
+
 #AC_CONFIG_FILES([tlsConfig.sh])
 
 #--------------------------------------------------------------------
