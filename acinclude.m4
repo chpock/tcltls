@@ -9,7 +9,7 @@ builtin(include,tclconfig/tcl.m4)
 #
 
 AC_DEFUN([TCLTLS_SSL_OPENSSL], [
-	AC_CHECK_TOOL([PKG_CONFIG], [pkg-config], [false])
+	AC_CHECK_TOOL([PKG_CONFIG], [pkg-config])
 
 	dnl Disable support for TLS 1.0 protocol
 	AC_ARG_ENABLE([tls1], AS_HELP_STRING([--disable-tls1], [disable TLS1 protocol]), [
@@ -111,14 +111,8 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	AC_MSG_CHECKING([for static linking of openSSL libraries])
 	AC_MSG_RESULT([$TCLEXT_TLS_STATIC_SSL])
 
-	# Static lib
-	pkgConfigExtraArgs=''
-	if test "${SHARED_BUILD}" == 0 -o "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
-		pkgConfigExtraArgs='--static'
-	fi
 
-
-	dnl Get SSL paths
+	dnl Set SSL files root path
 	AC_ARG_WITH([openssl-dir],
 		AS_HELP_STRING([--with-openssl-dir=<dir>],
 			[path to root directory of OpenSSL or LibreSSL installation]
@@ -129,7 +123,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		]
 	)
 
-	dnl Get SSL include files path
+	dnl Set SSL include files path
 	AC_ARG_WITH([openssl-includedir],
 		AS_HELP_STRING([--with-openssl-includedir=<dir>],
 			[path to include directory of OpenSSL or LibreSSL installation]
@@ -146,7 +140,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	AC_MSG_CHECKING([for OpenSSL include directory])
 	AC_MSG_RESULT($opensslincludedir)
 
-	dnl Get SSL lib files path
+	dnl Set SSL include vars
 	if test -n "$opensslincludedir"; then
 		if test -f "$opensslincludedir/ssl.h"; then
 			TCLTLS_SSL_CFLAGS="-I$opensslincludedir"
@@ -154,8 +148,12 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		else
 			AC_MSG_ERROR([Unable to locate ssl.h])
 		fi
+	else
+		TCLTLS_SSL_CFLAGS="-I$(includedir)/openssl"
+		TCLTLS_SSL_INCLUDES="-I$(includedir)/openssl"
 	fi
 
+	dnl Set SSL lib files path
 	AC_ARG_WITH([openssl-libdir],
 		AS_HELP_STRING([--with-openssl-libdir=<dir>],
 			[path to lib directory of OpenSSL or LibreSSL installation]
@@ -176,6 +174,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	AC_MSG_CHECKING([for OpenSSL lib directory])
 	AC_MSG_RESULT($openssllibdir)
 
+	dnl Set SSL lib vars
 	if test -n "$openssllibdir"; then
 		if test -f "$openssllibdir/libssl${SHLIB_SUFFIX}"; then
 			if test "${TCLEXT_TLS_STATIC_SSL}" == 'no'; then
@@ -194,9 +193,15 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	fi
 
 
+	dnl Include config variables in --help list and make available to be substituted via AC_SUBST.
+	AC_ARG_VAR([TCLTLS_SSL_CFLAGS], [C compiler flags for OpenSSL or LibreSSL])
+	AC_ARG_VAR([TCLTLS_SSL_INCLUDES], [C compiler include paths for OpenSSL or LibreSSL])
+	AC_ARG_VAR([TCLTLS_SSL_LIBS], [libraries to pass to the linker for OpenSSL or LibreSSL])
+
+
+	dnl Set location of pkgconfig files
 	AC_ARG_WITH([openssl-pkgconfig],
-		AS_HELP_STRING(
-			[--with-openssl-pkgconfig=<dir>],
+		AS_HELP_STRING([--with-openssl-pkgconfig=<dir>],
 			[path to root directory of OpenSSL or LibreSSL pkgconfigdir]
 		), [
 			opensslpkgconfigdir="$withval"
@@ -207,29 +212,34 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	AC_MSG_CHECKING([for OpenSSL pkgconfig])
 	AC_MSG_RESULT($opensslpkgconfigdir)
 
+
+	# Use Package Config tool to get config
+	pkgConfigExtraArgs=''
+	if test "${SHARED_BUILD}" == 0 -o "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
+		pkgConfigExtraArgs='--static'
+	fi
+
 	dnl Use pkg-config to find the libraries
-	dnl Temporarily update PKG_CONFIG_PATH
-	PKG_CONFIG_PATH_SAVE="${PKG_CONFIG_PATH}"
-	if test -n "${opensslpkgconfigdir}"; then
-		if ! test -f "${opensslpkgconfigdir}/openssl.pc"; then
-			AC_MSG_ERROR([Unable to locate ${opensslpkgconfigdir}/openssl.pc])
+	if test -n "${PKG_CONFIG}"; then
+		dnl Temporarily update PKG_CONFIG_PATH
+		PKG_CONFIG_PATH_SAVE="${PKG_CONFIG_PATH}"
+		if test -n "${opensslpkgconfigdir}"; then
+			if ! test -f "${opensslpkgconfigdir}/openssl.pc"; then
+				AC_MSG_ERROR([Unable to locate ${opensslpkgconfigdir}/openssl.pc])
+			fi
+
+			PKG_CONFIG_PATH="${opensslpkgconfigdir}${PATH_SEPARATOR}${PKG_CONFIG_PATH}"
+			export PKG_CONFIG_PATH
 		fi
-
-		PKG_CONFIG_PATH="${opensslpkgconfigdir}${PATH_SEPARATOR}${PKG_CONFIG_PATH}"
-		export PKG_CONFIG_PATH
+		if test -z "$TCLTLS_SSL_LIBS"; then
+			TCLTLS_SSL_LIBS="`"${PKG_CONFIG}" openssl --libs $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get OpenSSL Configuration])
+		fi
+		if test -z "$TCLTLS_SSL_CFLAGS"; then
+			TCLTLS_SSL_CFLAGS="`"${PKG_CONFIG}" openssl --cflags-only-other $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get OpenSSL Configuration])
+		fi
+		if test -z "$TCLTLS_SSL_INCLUDES"; then
+			TCLTLS_SSL_INCLUDES="`"${PKG_CONFIG}" openssl --cflags-only-I $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get OpenSSL Configuration])
+		fi
+		PKG_CONFIG_PATH="${PKG_CONFIG_PATH_SAVE}"
 	fi
-
-	AC_ARG_VAR([TCLTLS_SSL_LIBS], [libraries to pass to the linker for OpenSSL or LibreSSL])
-	AC_ARG_VAR([TCLTLS_SSL_CFLAGS], [C compiler flags for OpenSSL or LibreSSL])
-	AC_ARG_VAR([TCLTLS_SSL_INCLUDES], [C compiler include paths for OpenSSL or LibreSSL])
-	if test -z "$TCLTLS_SSL_LIBS"; then
-		TCLTLS_SSL_LIBS="`"${PKG_CONFIG}" openssl --libs $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get OpenSSL Configuration])
-	fi
-	if test -z "$TCLTLS_SSL_CFLAGS"; then
-		TCLTLS_SSL_CFLAGS="`"${PKG_CONFIG}" openssl --cflags-only-other $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get OpenSSL Configuration])
-	fi
-	if test -z "$TCLTLS_SSL_INCLUDES"; then
-		TCLTLS_SSL_INCLUDES="`"${PKG_CONFIG}" openssl --cflags-only-I $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get OpenSSL Configuration])
-	fi
-	PKG_CONFIG_PATH="${PKG_CONFIG_PATH_SAVE}"
 ])
