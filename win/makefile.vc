@@ -18,7 +18,6 @@
 
 # The name of the package
 PROJECT=tls
-DOTVERSION = 1.8.0
 
 !include "rules-ext.vc"
 

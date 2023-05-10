@@ -763,9 +763,9 @@ VERSION = $(TK_VERSION)
 # first from a configure.in file, and then from configure.ac
 !ifndef DOTVERSION
 !if [echo DOTVERSION = \> versions.vc] \
-   || [nmakehlp -V $(ROOT)\configure.in ^[$(PROJECT)^] >> versions.vc]
+   || [nmakehlp -V $(ROOT)\configure.in AC_INIT >> versions.vc]
 !if [echo DOTVERSION = \> versions.vc] \
-   || [nmakehlp -V $(ROOT)\configure.ac ^[$(PROJECT)^] >> versions.vc]
+   || [nmakehlp -V $(ROOT)\configure.ac AC_INIT >> versions.vc]
 !error *** Could not figure out extension version. Please define DOTVERSION in parent makefile before including rules.vc.
 !endif
 !endif
