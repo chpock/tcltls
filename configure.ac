@@ -1,256 +1,222 @@
-dnl Define ourselves
-AC_INIT(tcltls, 1.8.0)
+#!/bin/bash -norc
+dnl	This file is an input file used by the GNU "autoconf" program to
+dnl	generate the file "configure", which is run during Tcl installation
+dnl	to configure the system for the local environment.
 
-dnl Checks for programs.
-AC_PROG_CC
-AC_PROG_MAKE_SET
-AC_PROG_INSTALL
-AC_GNU_SOURCE
+#
+#-----------------------------------------------------------------------
+# This is the configure.ac for the TclTLS extension.  The only places you
+# should need to modify this file are marked by the string __CHANGE__.
+#-----------------------------------------------------------------------
 
-dnl Determine system information
-DC_CHK_OS_INFO
+#-----------------------------------------------------------------------
+# Set your package name and version numbers here.
+#
+# This initializes the environment with PACKAGE_NAME and PACKAGE_VERSION
+# set as provided.  These will also be added as -D defs in your Makefile
+# so you can encode the package version directly into the source files.
+# This will also define a special symbol for Windows (BUILD_<PACKAGE_NAME>
+# so that we create the export library with the dll.
+#-----------------------------------------------------------------------
 
-dnl Look for appropriate headers
-AC_CHECK_HEADERS(unistd.h stdlib.h string.h strings.h)
+AC_INIT([tls],[1.8.0])
 
-dnl Perform Tcl Extension required stuff
-TCLEXT_INIT
+#--------------------------------------------------------------------
+# Call TEA_INIT as the first TEA_ macro to set up initial vars.
+# This will define a ${TEA_PLATFORM} variable == "unix" or "windows"
+# as well as PKG_LIB_FILE and PKG_STUB_LIB_FILE.
+#--------------------------------------------------------------------
 
-if test "$TCLEXT_BUILD" != 'static'; then
-	dnl Determine how to make shared objects
-	DC_GET_SHOBJFLAGS
+TEA_INIT
 
-	EXTENSION_TARGET="tcltls.${SHOBJEXT}"
+AC_CONFIG_AUX_DIR(tclconfig)
+
+#--------------------------------------------------------------------
+# Load the tclConfig.sh file
+#--------------------------------------------------------------------
+
+TEA_PATH_TCLCONFIG
+TEA_LOAD_TCLCONFIG
+
+#--------------------------------------------------------------------
+# Load the tkConfig.sh file if necessary (Tk extension)
+#--------------------------------------------------------------------
+
+#TEA_PATH_TKCONFIG
+#TEA_LOAD_TKCONFIG
+
+#-----------------------------------------------------------------------
+# Handle the --prefix=... option by defaulting to what Tcl gave.
+# Must be called after TEA_LOAD_TCLCONFIG and before TEA_SETUP_COMPILER.
+#-----------------------------------------------------------------------
+
+TEA_PREFIX
+
+#-----------------------------------------------------------------------
+# Standard compiler checks.
+# This sets up CC by using the CC env var, or looks for gcc otherwise.
+# This also calls AC_PROG_CC and a few others to create the basic setup
+# necessary to compile executables.
+#-----------------------------------------------------------------------
+
+TEA_SETUP_COMPILER
+
+#-----------------------------------------------------------------------
+# __CHANGE__
+# Specify the C source files to compile in TEA_ADD_SOURCES,
+# public headers that need to be installed in TEA_ADD_HEADERS,
+# stub library C source files to compile in TEA_ADD_STUB_SOURCES,
+# and runtime Tcl library files in TEA_ADD_TCL_SOURCES.
+# This defines PKG(_STUB)_SOURCES, PKG(_STUB)_OBJECTS, PKG_HEADERS
+# and PKG_TCL_SOURCES.
+#-----------------------------------------------------------------------
+
+TEA_ADD_SOURCES([tls.c tlsBIO.c tlsIO.c tlsX509.c])
+TEA_ADD_HEADERS([generic/tls.h])
+TEA_ADD_INCLUDES([])
+TEA_ADD_LIBS([])
+TEA_ADD_CFLAGS([])
+TEA_ADD_STUB_SOURCES([])
+TEA_ADD_TCL_SOURCES([library/tls.tcl])
+
+#--------------------------------------------------------------------
+#
+# You can add more files to clean if your extension creates any extra
+# files by extending CLEANFILES.
+# Add pkgIndex.tcl if it is generated in the Makefile instead of ./configure
+# and change Makefile.in to move it from CONFIG_CLEAN_FILES to BINARIES var.
+#
+# A few miscellaneous platform-specific items:
+# TEA_ADD_* any platform specific compiler/build info here.
+#--------------------------------------------------------------------
+
+CONFIG_CLEAN_FILES="$CONFIG_CLEAN_FILES tls.tcl.h.* config.log config.status dh_params.h.new dh_params.h Makefile pkgIndex.tcl tcltls.a.linkadd tcltls.syms"
+if test "${TEA_PLATFORM}" = "windows" ; then
+    AC_DEFINE(BUILD_tls)
+    AC_DEFINE(WINDOWS)
+    CLEANFILES="pkgIndex.tcl *.lib *.dll *.exp *.ilk *.pdb vc*.pch"
 else
-	AC_CHECK_TOOL([AR], [ar], [false])
-	AC_CHECK_TOOL([RANLIB], [ranlib], [:])
-	EXTENSION_TARGET="tcltls.${AREXT}"
+    CLEANFILES="pkgIndex.tcl *.so"
 fi
-AC_SUBST(EXTENSION_TARGET)
-AC_SUBST(TCLEXT_BUILD)
+AC_SUBST(CLEANFILES)
 
-dnl Determine what SSL library to link with
-AC_ARG_WITH([ssl], AS_HELP_STRING([--with-ssl=<name>], [name of ssl library to build against (openssl, libressl, nss, auto)]), [
-	if test "$withval" = "no"; then
-		AC_MSG_ERROR([You may not specify --without-ssl])
-	fi
+#--------------------------------------------------------------------
+# Choose which headers you need.  Extension authors should try very
+# hard to only rely on the Tcl public header files.  Internal headers
+# contain private data structures and are subject to change without
+# notice.
+# This MUST be called after TEA_LOAD_TCLCONFIG / TEA_LOAD_TKCONFIG
+#--------------------------------------------------------------------
 
-	if test "$withval" = "yes"; then
-		AC_MSG_ERROR([If you specify --with-ssl then you must provide a value])
-	fi
+TEA_PUBLIC_TCL_HEADERS
+#TEA_PRIVATE_TCL_HEADERS
 
-	tcltls_ssl_lib="$withval"
-], [
-	tcltls_ssl_lib='auto'
-])
+#TEA_PUBLIC_TK_HEADERS
+#TEA_PRIVATE_TK_HEADERS
+#TEA_PATH_X
 
-dnl Enable support for building the same library every time
-tcltls_deterministic='false'
-AC_ARG_ENABLE([deterministic], AS_HELP_STRING([--enable-deterministic], [enable deterministic parameters]), [
-	if test "$enableval" = "yes"; then
-		tcltls_deterministic='true'
-	fi
-])
-if test "$tcltls_deterministic" = 'true'; then
-	GEN_DH_PARAMS_ARGS='fallback'
+#--------------------------------------------------------------------
+# Check whether --enable-threads or --disable-threads was given.
+# This auto-enables if Tcl was compiled threaded.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_THREADS
+
+#--------------------------------------------------------------------
+# The statement below defines a collection of symbols related to
+# building as a shared library instead of a static library.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_SHARED
+
+#--------------------------------------------------------------------
+# This macro figures out what flags to use with the compiler/linker
+# when building shared/static debug/optimized objects.  This information
+# can be taken from the tclConfig.sh file, but this figures it all out.
+#--------------------------------------------------------------------
+
+TEA_CONFIG_CFLAGS
+
+#--------------------------------------------------------------------
+# Set the default compiler switches based on the --enable-symbols option.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_SYMBOLS
+
+#--------------------------------------------------------------------
+# Everyone should be linking against the Tcl stub library.  If you
+# can't for some reason, remove this definition.  If you aren't using
+# stubs, you also need to modify the SHLIB_LD_LIBS setting below to
+# link against the non-stubbed Tcl library.  Add Tk too if necessary.
+#--------------------------------------------------------------------
+
+AC_DEFINE(USE_TCL_STUBS)
+#AC_DEFINE(USE_TK_STUBS)
+
+#--------------------------------------------------------------------
+# This macro generates a line to use when building a library.  It
+# depends on values set by the TEA_ENABLE_SHARED, TEA_ENABLE_SYMBOLS,
+# and TEA_LOAD_TCLCONFIG macros above.
+#--------------------------------------------------------------------
+
+TEA_MAKE_LIB
+
+#--------------------------------------------------------------------
+# This marco includes the TCL TLS specific functions to set the
+# OpenSSL or LibreSSL config.
+#--------------------------------------------------------------------
+
+TCLTLS_SSL_OPENSSL
+
+#--------------------------------------------------------------------
+# Shared libraries and static libraries have different names.
+# Also, windows libraries and unix libraries have different names.
+# For the OpenSSL version, I chose to use the same library names that
+# OpenSSL uses as its default names.
+#--------------------------------------------------------------------
+
+if test "${TEA_PLATFORM}" = "windows" ; then
+    if test "$GCC" = "yes"; then
+	TEA_ADD_CFLAGS([${TCLTLS_SSL_CFLAGS}])
+	TEA_ADD_INCLUDES([${TCLTLS_SSL_INCLUDES}])
+	TEA_ADD_LIBS([${TCLTLS_SSL_LIBS}])
+    fi
 else
-	GEN_DH_PARAMS_ARGS=''
+	TEA_ADD_CFLAGS([${TCLTLS_SSL_CFLAGS}])
+	TEA_ADD_INCLUDES([${TCLTLS_SSL_INCLUDES}])
+	TEA_ADD_LIBS([${TCLTLS_SSL_LIBS}])
 fi
 
-dnl Enable support for specifying pre-computed DH params size
-AC_ARG_WITH([builtin-dh-params-size], AS_HELP_STRING([--with-builtin-dh-params-size=<bits>], [specify the size of the built-in, precomputed, DH params]), [
-	AS_CASE([$withval],
-		[2048|4096|8192],,
-		[
-			AC_MSG_ERROR([Unsupported DH params size: $withval])
-		]
-	)
-	GEN_DH_PARAMS_ARGS="${GEN_DH_PARAMS_ARGS} bits=$withval"
-])
-AC_SUBST(GEN_DH_PARAMS_ARGS)
+#--------------------------------------------------------------------
+# Determine the name of the tclsh and/or wish executables in the
+# Tcl and Tk build directories or the location they were installed
+# into. These paths are used to support running test cases only,
+# the Makefile should not be making use of these paths to generate
+# a pkgIndex.tcl file or anything else at extension build time.
+#--------------------------------------------------------------------
 
-dnl Allow the user to manually disable protocols
-dnl ## SSLv2: Enabled by default
-tcltls_ssl_ssl2='true'
-AC_ARG_ENABLE([sslv2], AS_HELP_STRING([--disable-sslv2], [disable SSLv2 protocol]), [
-	if test "$enableval" = "yes"; then
-		tcltls_ssl_ssl2='force'
-	else
-		tcltls_ssl_ssl2='false'
-	fi
-])
+TEA_PROG_TCLSH
+#TEA_PROG_WISH
 
-dnl ## SSLv3: Enabled by default
-tcltls_ssl_ssl3='true'
-AC_ARG_ENABLE([sslv3], AS_HELP_STRING([--disable-sslv3], [disable SSLv3 protocol]), [
-	if test "$enableval" = "yes"; then
-		tcltls_ssl_ssl3='force'
-	else
-		tcltls_ssl_ssl3='false'
-	fi
-])
+#--------------------------------------------------------------------
+# Setup a *Config.sh.in configuration file.
+#--------------------------------------------------------------------
 
-dnl ## TLSv1.0: Enabled by default
-tcltls_ssl_tls1_0='true'
-AC_ARG_ENABLE([tlsv1.0], AS_HELP_STRING([--disable-tlsv1.0], [disable TLSv1.0 protocol]), [
-	if test "$enableval" = "yes"; then
-		tcltls_ssl_tls1_0='force'
-	else
-		tcltls_ssl_tls1_0='false'
-	fi
-])
+#TEA_EXPORT_CONFIG([tls])
+#AC_SUBST(SAMPLE_VAR)
 
-dnl ## TLSv1.1: Enabled by default
-tcltls_ssl_tls1_1='true'
-AC_ARG_ENABLE([tlsv1.1], AS_HELP_STRING([--disable-tlsv1.1], [disable TLSv1.1 protocol]), [
-	if test "$enableval" = "yes"; then
-		tcltls_ssl_tls1_1='force'
-	else
-		tcltls_ssl_tls1_1='false'
-	fi
-])
+#--------------------------------------------------------------------
+# Specify files to substitute AC variables in. You may alternatively
+# have a special pkgIndex.tcl.in or other files which require
+# substituting the AC variables in. Include these here.
+#--------------------------------------------------------------------
 
-dnl ## TLSv1.2: Enabled by default
-tcltls_ssl_tls1_2='true'
-AC_ARG_ENABLE([tlsv1.2], AS_HELP_STRING([--disable-tlsv1.2], [disable TLSv1.2 protocol]), [
-	if test "$enableval" = "yes"; then
-		tcltls_ssl_tls1_2='force'
-	else
-		tcltls_ssl_tls1_2='false'
-	fi
-])
+AC_CONFIG_FILES([Makefile pkgIndex.tcl])
+#AC_CONFIG_FILES([tlsConfig.sh])
 
-dnl ## TLSv1.3: Enabled by default
-tcltls_ssl_tls1_3='true'
-AC_ARG_ENABLE([tlsv1.3], AS_HELP_STRING([--disable-tlsv1.3], [disable TLSv1.3 protocol]), [
-	if test "$enableval" = "yes"; then
-		tcltls_ssl_tls1_3='force'
-	else
-		tcltls_ssl_tls1_3='false'
-	fi
-])
+#--------------------------------------------------------------------
+# Finally, substitute all of the various values into the files
+# specified with AC_CONFIG_FILES.
+#--------------------------------------------------------------------
 
-
-dnl Enable support for a debugging build
-tcltls_debug='false'
-AC_ARG_ENABLE([debug], AS_HELP_STRING([--enable-debug], [enable debugging parameters]), [
-	if test "$enableval" = "yes"; then
-		tcltls_debug='true'
-	fi
-])
-if test "$tcltls_debug" = 'true'; then
-	AC_DEFINE(TCLEXT_TCLTLS_DEBUG, [1], [Enable debugging build])
-	AX_CHECK_COMPILE_FLAG([-fcheck-pointer-bounds], [CFLAGS="$CFLAGS -fcheck-pointer-bounds"])
-else
-	dnl If we are not doing debugging disable some of the more annoying warnings
-	AX_CHECK_COMPILE_FLAG([-Wno-unused-value], [CFLAGS="$CFLAGS -Wno-unused-value"])
-	AX_CHECK_COMPILE_FLAG([-Wno-unused-parameter], [CFLAGS="$CFLAGS -Wno-unused-parameter"])
-	AX_CHECK_COMPILE_FLAG([-Wno-deprecated-declarations], [CFLAGS="$CFLAGS -Wno-deprecated-declarations"])
-fi
-
-dnl Find "pkg-config" since we need to use it
-AC_CHECK_TOOL([PKGCONFIG], [pkg-config], [false])
-
-dnl Determine if we have been asked to use a fast path if possible
-tcltls_ssl_fastpath='no'
-AC_ARG_ENABLE([ssl-fastpath], AS_HELP_STRING([--enable-ssl-fastpath], [enable using the underlying file descriptor for talking directly to the SSL library]), [
-	if test "$enableval" = 'yes'; then
-		tcltls_ssl_fastpath='yes'
-	else
-		tcltls_ssl_fastpath='no'
-	fi
-])
-
-if test "$tcltls_ssl_fastpath" = 'yes'; then
-	AC_DEFINE(TCLTLS_SSL_USE_FASTPATH, [1], [Define this to enable using the underlying file descriptor for talking directly to the SSL library])
-fi
-
-dnl Determine if we have been asked to statically link to the SSL library
-TCLEXT_TLS_STATIC_SSL='no'
-AC_ARG_ENABLE([static-ssl], AS_HELP_STRING([--enable-static-ssl], [enable statically linking to the specified SSL library]), [
-	if test "$enableval" = 'yes'; then
-		TCLEXT_TLS_STATIC_SSL='yes'
-	fi
-])
-
-dnl Enable compiler warnings
-AX_CHECK_COMPILE_FLAG([-Wall], [CFLAGS="$CFLAGS -Wall"])
-AX_CHECK_COMPILE_FLAG([-W], [
-	CFLAGS="$CFLAGS -W"
-	AX_CHECK_COMPILE_FLAG([-Wno-self-assign], [CFLAGS="$CFLAGS -Wno-self-assign"])
-])
-
-dnl Enable hardening
-tcltls_enable_hardening='auto'
-AC_ARG_ENABLE([hardening], AS_HELP_STRING([--disable-hardening], [disable hardening attempts]), [
-	tcltls_enable_hardening="$enableval"
-])
-if test "$tcltls_enable_hardening" = 'auto'; then
-	tcltls_enable_hardening='true'
-	if test "$TCLEXT_BUILD" = 'static'; then
-		tcltls_enable_hardening='false'
-	fi
-elif test "$tcltls_enable_hardening" = 'yes'; then
-	tcltls_enable_hardening='true'
-else
-	tcltls_enable_hardening='false'
-fi
-if test "$tcltls_enable_hardening" = 'true'; then
-	AX_CHECK_COMPILE_FLAG([-fstack-protector-all], [CFLAGS="$CFLAGS -fstack-protector-all"])
-	AX_CHECK_COMPILE_FLAG([-fno-strict-overflow], [CFLAGS="$CFLAGS -fno-strict-overflow"])
-	AC_DEFINE([_FORTIFY_SOURCE], [2], [Enable fortification])
-fi
-
-dnl XXX:TODO: Automatically determine the SSL library to use
-dnl           defaulting to OpenSSL for compatibility reasons
-if test "$tcltls_ssl_lib" = 'auto'; then
-	tcltls_ssl_lib='openssl'
-fi
-
-AC_MSG_CHECKING([which TLS library to use])
-AC_MSG_RESULT([$tcltls_ssl_lib])
-
-dnl Manually rewrite libressl to OpenSSL since we use the
-dnl compatibility interface
-if test "$tcltls_ssl_lib" = "libressl"; then
-	tcltls_ssl_lib='openssl'
-fi
-
-AS_CASE([$tcltls_ssl_lib],
-	[openssl], [
-		TCLTLS_SSL_OPENSSL
-	],
-	[nss], [
-	 	TCLTLS_SSL_LIBS=""
-		TCLTLS_SSL_CFLAGS=""
-		TCLTLS_SSL_CPPFLAGS=""
-	],
-	[
-		AC_MSG_ERROR([Unsupported SSL library: $tcltls_ssl_lib])
-	]
-)
-dnl Determine how to use this SSL library
-AC_MSG_CHECKING([how to use $tcltls_ssl_lib])
-LIBS="${TCLTLS_SSL_LIBS} ${LIBS} ${TCLTLS_SSL_LIBS}"
-CFLAGS="${TCLTLS_SSL_CFLAGS} ${CFLAGS} ${TCLTLS_SSL_CFLAGS}"
-CPPFLAGS="${TCLTLS_SSL_CPPFLAGS} ${CPPFLAGS} ${TCLTLS_SSL_CPPFLAGS}"
-AC_MSG_RESULT([$TCLTLS_SSL_CPPFLAGS $TCLTLS_SSL_CFLAGS $TCLTLS_SSL_LIBS])
-
-dnl Sync the RPATH if requested
-if test "$TCLEXT_BUILD" != 'static'; then
-	if test "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
-		DC_SYNC_RPATH([no])
-	else
-		DC_SYNC_RPATH([yes])
-	fi
-fi
-
-dnl Enable a stable ABI
-DC_SETUP_STABLE_API([${srcdir}/tcltls.vers], tcltls.syms)
-if test "$tcltls_debug" = 'true'; then
-	WEAKENSYMS=':'
-	REMOVESYMS=':'
-fi
-
-dnl Produce output
-AC_OUTPUT(Makefile pkgIndex.tcl tcltls.syms)
+AC_OUTPUT

@@ -4,6 +4,7 @@
  * Stylized option processing - requires consistent
  * external vars: opt, idx, objc, objv
  */
+
 #ifndef _TCL_OPTS_H
 #define _TCL_OPTS_H
 

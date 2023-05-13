@@ -1,64 +1,86 @@
 	Windows DLL Build instructions using nmake build system
 	2020-10-15 Harald.Oehlmann@elmicron.de
+	2023-04-23 Brian O'Hagan
 
 Properties:
-- 32 bit DLL
+- 64 bit DLL
 - VisualStudio 2015
-Note: Vuisual C++ 6 does not build OpenSSL (long long syntax error)
+Note: Visual C++ 6 does not build OpenSSL (long long syntax error)
 - Cygwin32 (temporary helper, please help to replace by tclsh)
 - OpenSSL statically linked to TCLTLS DLL.
-Note: Dynamic linking also works but results in a DLL dependeny on OPENSSL DLL's
+Note: Dynamic linking also works but results in a DLL dependency on OPENSSL DLL's
+
+-----------------------------
 
 1) Build OpenSSL static libraries:
 
-OpenSSL source distribtution unpacked in:
-c:\test\tcltls\Openssl_1_1_1h
+set SSLBUILD=\path\to\build\dir
+set SSLINSTALL=\path\to\install\dir
+set SSLCOMMON=\path\to\common\dir
 
-- Install Perl from http://strawberryperl.com/download/5.32.0.1/strawberry-perl-5.32.0.1-32bit.msi
-  to C:\perl
-  (ActivePerl failed due to missing 32 bit console module)
-- Install NASM Assembler:
+(1a) Get OpenSSL
 
-https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/win32/nasm-2.15.05-installer-x86.exe
-  to C:\Program Files (x86)\NASM
-  
--> Visual Studio x86 native prompt.
+  https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1t/openssl-1.1.1t.tar.gz
 
-set Path=%PATH%;C:\Program Files (x86)\NASM;C:\Perl\perl\bin
+  Unpack OpenSSL source distribution to %SSLBUILD%
 
-perl Configure VC-WIN32 --prefix=c:\test\tcltls\openssl --openssldir=c:\test\tcltls\openssldir no-shared no-filenames threads
+(1b) Install Perl from https://strawberryperl.com/
 
-nmake
-nmake test
-namke install
+  https://strawberryperl.com/download/5.32.1.1/strawberry-perl-5.32.1.1-64bit.msi
+  Install to C:\Strawberry\perl
 
-2) Build TCLTLS
+(1c) Install NASM Assembler from https://www.nasm.us/
 
-Unzip distribution in:
-c:\test\tcltls\tcltls-1.7.22
+  https://www.nasm.us/pub/nasm/releasebuilds/2.16.01/win64/nasm-2.16.01-installer-x64.exe
+  Install to: C:\Program Files\NASM
 
--> start cygwin bash prompt
+(1d) Configure
 
-cd /cygdrive/c/test/tcltls/tcltls-1.7.22
+  At Visual Studio x86 native prompt:
+
+  set Path=%PATH%;C:\Program Files\NASM;C:\Strawberry\perl\bin
+  perl ..\Configure VC-WIN64A no-shared no-filenames threads no-ssl2 no-ssl3 --api=1.1.0 --prefix="%SSLINSTALL%" --openssldir="%SSLCOMMON%" -DOPENSSL_NO_DEPRECATED
+  # Not used options: no-asm no-zlib no-comp no-ui-console no-autoload-config
+
+(1e) Build OpenSSL
+
+  nmake
+  nmake test
+  nmake install
+
+-----------------------------
+
+2) Build TclTLS
+
+set BUILDDIR=\path\to\build\dir
+set TCLINSTALL=\path\to\tcl\dir
+
+2a) Unzip distribution to %BUILDDIR%
+
+2b) Start BASH shell (MinGW62 Git shell)
+
+cd %BUILDDIR%
 ./gen_dh_params > dh_params.h
 
-od -A n -v -t xC < 'tls.tcl' > tls.tcl.h.new.1
-sed 's@[^0-9A-Fa-f]@@g;s@..@0x&, @g' < tls.tcl.h.new.1 > tls.tcl.h
+od -A n -v -t xC < 'library/tls.tcl' > tls.tcl.h.new.1
+sed 's@[^0-9A-Fa-f]@@g;s@..@0x&, @g' < tls.tcl.h.new.1 > generic/tls.tcl.h
 rm -f tls.tcl.h.new.1
 
--> Visual Studio x86 native prompt.
+2c) Start Visual Studio shell
 
-cd C:\test\tcltls\tcltls-1.7.22\win
+cd %BUILDDIR%\win
 
-nmake -f makefile.vc TCLDIR=c:\test\tcl8610 SSL_INSTALL_FOLDER=C:\test\tcltls\openssl
+nmake -f makefile.vc TCLDIR=%TCLINSTALL% SSL_INSTALL_FOLDER=%SSLINSTALL%
+nmake -f makefile.vc install TCLDIR=c:\test\tcl8610 INSTALLDIR=%TCLINSTALL% SSL_INSTALL_FOLDER=%SSLINSTALL%
 
-nmake -f makefile.vc install TCLDIR=c:\test\tcl8610 INSTALLDIR=c:\test\tcltls SSL_INSTALL_FOLDER=C:\test\tcltls\openssl
+-----------------------------
 
 3) Test
 
 Start tclsh or wish
 
-lappend auto_path {C:\test\tcltls\tls1.7.22}
 package require tls
-
-A small "1.7.22" showing up is hopefully the end of this long way...
+package require http
+http::register https 443 [list ::tls::socket -autoservername true]
+set tok [http::data [http::geturl https://www.tcl-lang.org]]
+::http::cleanup $tok

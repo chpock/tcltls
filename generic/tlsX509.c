@@ -11,7 +11,7 @@
 #include "tlsInt.h"
 
 /*
- *  Ensure these are not macros - known to be defined on Win32 
+ *  Ensure these are not macros - known to be defined on Win32
  */
 #ifdef min
 #undef min
@@ -41,14 +41,13 @@ ASN1_UTCTIME_tostr(ASN1_UTCTIME *tm)
     char *v;
     int gmt=0;
     static char *mon[12]={
-        "Jan","Feb","Mar","Apr","May","Jun",
-        "Jul","Aug","Sep","Oct","Nov","Dec"};
+        "Jan","Feb","Mar","Apr","May","Jun", "Jul","Aug","Sep","Oct","Nov","Dec"};
     int i;
     int y=0,M=0,d=0,h=0,m=0,s=0;
-    
+
     i=tm->length;
     v=(char *)tm->data;
-    
+
     if (i < 10) goto err;
     if (v[i-1] == 'Z') gmt=1;
     for (i=0; i<10; i++)
@@ -60,12 +59,10 @@ ASN1_UTCTIME_tostr(ASN1_UTCTIME *tm)
     d= (v[4]-'0')*10+(v[5]-'0');
     h= (v[6]-'0')*10+(v[7]-'0');
     m=  (v[8]-'0')*10+(v[9]-'0');
-    if (	(v[10] >= '0') && (v[10] <= '9') &&
-		(v[11] >= '0') && (v[11] <= '9'))
+    if ((v[10] >= '0') && (v[10] <= '9') && (v[11] >= '0') && (v[11] <= '9'))
         s=  (v[10]-'0')*10+(v[11]-'0');
-    
-    sprintf(bp,"%s %2d %02d:%02d:%02d %d%s",
-                   mon[M-1],d,h,m,s,y+1900,(gmt)?" GMT":"");
+
+    sprintf(bp,"%s %2d %02d:%02d:%02d %d%s", mon[M-1],d,h,m,s,y+1900,(gmt)?" GMT":"");
     return bp;
  err:
     return "Bad time value";
@@ -93,8 +90,8 @@ ASN1_UTCTIME_tostr(ASN1_UTCTIME *tm)
 #define CERT_STR_SIZE 16384
 
 Tcl_Obj*
-Tls_NewX509Obj( Tcl_Interp *interp, X509 *cert) {
-    Tcl_Obj *certPtr = Tcl_NewListObj( 0, NULL);
+Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
+    Tcl_Obj *certPtr = Tcl_NewListObj(0, NULL);
     BIO *bio;
     int n;
     unsigned long flags;
@@ -125,7 +122,7 @@ Tls_NewX509Obj( Tcl_Interp *interp, X509 *cert) {
 	flags = XN_FLAG_RFC2253 | ASN1_STRFLGS_UTF8_CONVERT;
 	flags &= ~ASN1_STRFLGS_ESC_MSB;
 
-	X509_NAME_print_ex(bio, X509_get_subject_name(cert), 0, flags); 
+	X509_NAME_print_ex(bio, X509_get_subject_name(cert), 0, flags);
 	n = BIO_read(bio, subject, min(BIO_pending(bio), BUFSIZ - 1));
 	n = max(n, 0);
 	subject[n] = 0;
@@ -168,11 +165,11 @@ Tls_NewX509Obj( Tcl_Interp *interp, X509 *cert) {
     }
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-    strcpy( notBefore, ASN1_UTCTIME_tostr( X509_get_notBefore(cert) ));
-    strcpy( notAfter, ASN1_UTCTIME_tostr( X509_get_notAfter(cert) ));
+    strcpy(notBefore, ASN1_UTCTIME_tostr(X509_get_notBefore(cert)));
+    strcpy(notAfter, ASN1_UTCTIME_tostr(X509_get_notAfter(cert)));
 #else
-    strcpy( notBefore, ASN1_UTCTIME_tostr( X509_getm_notBefore(cert) ));
-    strcpy( notAfter, ASN1_UTCTIME_tostr( X509_getm_notAfter(cert) ));
+    strcpy(notBefore, ASN1_UTCTIME_tostr(X509_getm_notBefore(cert)));
+    strcpy(notAfter, ASN1_UTCTIME_tostr(X509_getm_notAfter(cert)));
 #endif
 
 #ifndef NO_SSL_SHA
