@@ -4,6 +4,7 @@
  *	Copyright (C) 2000 Ajuba Solutions
  *	Copyright (C) 2002 ActiveState Corporation
  *	Copyright (C) 2004 Starfish Systems
+ *	Copyright (C) 2023 Brian O'Hagan
  *
  * TLS (aka SSL) Channel - can be layered on any bi-directional
  * Tcl_Channel (Note: Requires Trf Core Patch)
@@ -1473,6 +1474,132 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 /*
  *-------------------------------------------------------------------
  *
+ * ConnectionInfoObjCmd -- return connection info from OpenSSL.
+ *
+ * Results:
+ *	A list of connection info
+  *
+ *-------------------------------------------------------------------
+ */
+
+static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
+    Tcl_Channel chan;		/* The channel to set a mode on. */
+    State *statePtr;		/* client state for ssl socket */
+    Tcl_Obj *objPtr;
+    const SSL *ssl;
+    const SSL_CIPHER *cipher;
+
+#if !defined(OPENSSL_NO_TLSEXT) && OPENSSL_VERSION_NUMBER >= 0x10002000L
+    const unsigned char *proto;
+    unsigned int len;
+#endif
+#if defined(HAVE_SSL_COMPRESSION) && OPENSSL_VERSION_NUMBER >= 0x10002000L
+    const COMP_METHOD *comp;
+#endif
+
+    if (objc != 2) {
+	Tcl_WrongNumArgs(interp, 1, objv, "channel");
+	return(TCL_ERROR);
+    }
+
+    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], NULL), NULL);
+    if (chan == (Tcl_Channel) NULL) {
+	return(TCL_ERROR);
+    }
+
+    /*
+     * Make sure to operate on the topmost channel
+     */
+    chan = Tcl_GetTopChannel(chan);
+    if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
+	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan), "\": not a TLS channel", NULL);
+	return(TCL_ERROR);
+    }
+
+    objPtr = Tcl_NewListObj(0, NULL);
+
+    /* Get connection state */
+    statePtr = (State *)Tcl_GetChannelInstanceData(chan);
+    ssl = statePtr->ssl;
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("state", -1));
+    if (SSL_is_init_finished(ssl)) {
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("established", -1));
+    } else if (SSL_in_init(ssl)) {
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("handshake", -1));
+    } else {
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("initializing", -1));
+    }
+
+    /* Get server name */
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("server", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name), -1));
+
+    /* Get protocol */
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("protocol", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get_version(ssl), -1));
+
+    /* Get cipher */
+    cipher = SSL_get_current_cipher(ssl);
+    if (cipher != NULL) {
+	char buf[BUFSIZ] = {0};
+	int bits, alg_bits;
+
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("cipher", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_CIPHER_get_name(cipher), -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("standard_name", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_CIPHER_standard_name(cipher), -1));
+
+	bits = SSL_CIPHER_get_bits(cipher, &alg_bits);
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("bits", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(bits));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("secret_bits", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(alg_bits));
+	/* alg_bits is actual key secret bits. If use bits and secret (algorithm) bits differ,
+           the rest of the bits are fixed, i.e. for limited export ciphers (bits < 56) */
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("min_version", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_CIPHER_get_version(cipher), -1));
+
+	if (SSL_CIPHER_description(cipher, buf, sizeof(buf)) != NULL) {
+	    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("description", -1));
+	    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(buf, -1));
+	}
+    }
+
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("renegotiation", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(
+	SSL_get_secure_renegotiation_support(ssl) ? "allowed" : "disallowed", -1));
+
+#if !defined(OPENSSL_NO_TLSEXT) && OPENSSL_VERSION_NUMBER >= 0x10002000L
+    /* Report the selected protocol as a result of the negotiation */
+    SSL_get0_alpn_selected(ssl, &proto, &len);
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("alpn", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj((char *)proto, (int)len));
+#endif
+
+    /* Session info */
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_reused", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(SSL_session_reused(ssl)));
+
+#if defined(HAVE_SSL_COMPRESSION) && OPENSSL_VERSION_NUMBER >= 0x10002000L
+    /* Compression info */
+    comp = SSL_get_current_compression(ssl);
+    if (comp != NULL) {
+	expansion = SSL_get_current_expansion(ssl);
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("compression", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_COMP_get_name(comp), -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("expansion", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_COMP_get_name(expansion), -1));
+    }
+#endif
+
+    Tcl_SetObjResult(interp, objPtr);
+    return TCL_OK;
+	clientData = clientData;
+}
+
+/*
+ *-------------------------------------------------------------------
+ *
  * VersionObjCmd -- return version string from OpenSSL.
  *
  * Results:
@@ -1847,6 +1974,7 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
     }
 
     Tcl_CreateObjCommand(interp, "tls::ciphers", CiphersObjCmd, (ClientData) 0, (Tcl_CmdDeleteProc *) NULL);
+    Tcl_CreateObjCommand(interp, "tls::connection", ConnectionInfoObjCmd, (ClientData) 0, (Tcl_CmdDeleteProc *) NULL);
     Tcl_CreateObjCommand(interp, "tls::handshake", HandshakeObjCmd, (ClientData) 0, (Tcl_CmdDeleteProc *) NULL);
     Tcl_CreateObjCommand(interp, "tls::import", ImportObjCmd, (ClientData) 0, (Tcl_CmdDeleteProc *) NULL);
     Tcl_CreateObjCommand(interp, "tls::unimport", UnimportObjCmd, (ClientData) 0, (Tcl_CmdDeleteProc *) NULL);
