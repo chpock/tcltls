@@ -491,14 +491,15 @@ PasswordCallback(char *buf, int size, int verify, void *udata) {
  *
  *-------------------------------------------------------------------
  */
+static const char *protocols[] = {
+	"ssl2", "ssl3", "tls1", "tls1.1", "tls1.2", "tls1.3", NULL
+};
+enum protocol {
+    TLS_SSL2, TLS_SSL3, TLS_TLS1, TLS_TLS1_1, TLS_TLS1_2, TLS_TLS1_3, TLS_NONE
+};
+
 static int
 CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
-    static const char *protocols[] = {
-	"ssl2",	"ssl3",	"tls1",	"tls1.1", "tls1.2", "tls1.3", NULL
-    };
-    enum protocol {
-	TLS_SSL2, TLS_SSL3, TLS_TLS1, TLS_TLS1_1, TLS_TLS1_2, TLS_TLS1_3, TLS_NONE
-    };
     Tcl_Obj *objPtr;
     SSL_CTX *ctx = NULL;
     SSL *ssl = NULL;
@@ -603,6 +604,59 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
     }
     SSL_free(ssl);
     SSL_CTX_free(ctx);
+
+    Tcl_SetObjResult(interp, objPtr);
+    return TCL_OK;
+	clientData = clientData;
+}
+
+/*
+ *-------------------------------------------------------------------
+ *
+ * ProtocolsObjCmd -- list available protocols
+ *
+ *	This procedure is invoked to process the "tls::protocols" command
+ *	to list available protocols.
+ *
+ * Results:
+ *	A standard Tcl result list.
+ *
+ * Side effects:
+ *	none
+ *
+ *-------------------------------------------------------------------
+ */
+static int
+ProtocolsObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
+    Tcl_Obj *objPtr;
+
+    dprintf("Called");
+
+    if (objc != 1) {
+	Tcl_WrongNumArgs(interp, 1, objv, "");
+	return TCL_ERROR;
+    }
+
+    objPtr = Tcl_NewListObj(0, NULL);
+
+#if OPENSSL_VERSION_NUMBER < 0x10101000L && !defined(NO_SSL2) && !defined(OPENSSL_NO_SSL2)
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(protocols[TLS_SSL2], -1));
+#endif
+#if !defined(NO_SSL3) && !defined(OPENSSL_NO_SSL3)
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(protocols[TLS_SSL3], -1));
+#endif
+#if !defined(NO_TLS1) && !defined(OPENSSL_NO_TLS1)
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(protocols[TLS_TLS1], -1));
+#endif
+#if !defined(NO_TLS1_1) && !defined(OPENSSL_NO_TLS1_1)
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(protocols[TLS_TLS1_1], -1));
+#endif
+#if !defined(NO_TLS1_2) && !defined(OPENSSL_NO_TLS1_2)
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(protocols[TLS_TLS1_2], -1));
+#endif
+#if !defined(NO_TLS1_3) && !defined(OPENSSL_NO_TLS1_3)
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(protocols[TLS_TLS1_3], -1));
+#endif
 
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
@@ -1981,6 +2035,7 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
     Tcl_CreateObjCommand(interp, "tls::status", StatusObjCmd, (ClientData) 0, (Tcl_CmdDeleteProc *) NULL);
     Tcl_CreateObjCommand(interp, "tls::version", VersionObjCmd, (ClientData) 0, (Tcl_CmdDeleteProc *) NULL);
     Tcl_CreateObjCommand(interp, "tls::misc", MiscObjCmd, (ClientData) 0, (Tcl_CmdDeleteProc *) NULL);
+    Tcl_CreateObjCommand(interp, "tls::protocols", ProtocolsObjCmd, (ClientData) 0, (Tcl_CmdDeleteProc *) NULL);
 
     if (interp) {
 	Tcl_Eval(interp, tlsTclInitScript);
