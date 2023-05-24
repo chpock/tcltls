@@ -500,17 +500,17 @@ enum protocol {
 
 static int
 CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
-    Tcl_Obj *objPtr;
+    Tcl_Obj *objPtr = NULL;
     SSL_CTX *ctx = NULL;
     SSL *ssl = NULL;
     STACK_OF(SSL_CIPHER) *sk;
     char *cp, buf[BUFSIZ];
-    int index, verbose = 0;
+    int index, verbose = 0, use_supported = 0;
 
     dprintf("Called");
 
-    if ((objc < 2) || (objc > 3)) {
-	Tcl_WrongNumArgs(interp, 1, objv, "protocol ?verbose?");
+    if ((objc < 2) || (objc > 4)) {
+	Tcl_WrongNumArgs(interp, 1, objv, "protocol ?verbose? ?supported?");
 	return TCL_ERROR;
     }
     if (Tcl_GetIndexFromObj(interp, objv[1], protocols, "protocol", 0, &index) != TCL_OK) {
@@ -519,9 +519,13 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
     if ((objc > 2) && Tcl_GetBooleanFromObj(interp, objv[2], &verbose) != TCL_OK) {
 	return TCL_ERROR;
     }
+    if ((objc > 3) && Tcl_GetBooleanFromObj(interp, objv[3], &use_supported) != TCL_OK) {
+	return TCL_ERROR;
+    }
+
     switch ((enum protocol)index) {
 	case TLS_SSL2:
-#if OPENSSL_VERSION_NUMBER >= 0x10101000L || defined(NO_SSL2) || defined(OPENSSL_NO_SSL2)
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L || defined(NO_SSL2) || defined(OPENSSL_NO_SSL2)
 	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 	    return TCL_ERROR;
 #else
@@ -572,34 +576,50 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 	Tcl_AppendResult(interp, REASON(), NULL);
 	return TCL_ERROR;
     }
+
     ssl = SSL_new(ctx);
     if (ssl == NULL) {
 	Tcl_AppendResult(interp, REASON(), NULL);
 	SSL_CTX_free(ctx);
 	return TCL_ERROR;
     }
-    objPtr = Tcl_NewListObj(0, NULL);
 
-    if (!verbose) {
-	for (index = 0; ; index++) {
-	    cp = (char*)SSL_get_cipher_list(ssl, index);
-	    if (cp == NULL) break;
-	    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(cp, -1));
-	}
+    /* Use list and order as would be sent in a ClientHello or all available ciphers */
+    if (use_supported) {
+	sk = SSL_get1_supported_ciphers(ssl);
     } else {
 	sk = SSL_get_ciphers(ssl);
+    }
 
-	for (index = 0; index < sk_SSL_CIPHER_num(sk); index++) {
-	    register size_t i;
-	    SSL_CIPHER_description(sk_SSL_CIPHER_value(sk, index), buf, sizeof(buf));
-	    for (i = strlen(buf) - 1; i ; i--) {
-		if ((buf[i] == ' ') || (buf[i] == '\n') || (buf[i] == '\r') || (buf[i] == '\t')) {
-		    buf[i] = '\0';
+    if (sk != NULL) {
+	if (!verbose) {
+	    objPtr = Tcl_NewListObj(0, NULL);
+	    for (int i = 0; i < sk_SSL_CIPHER_num(sk); i++) {
+		const SSL_CIPHER *c = sk_SSL_CIPHER_value(sk, i);
+		if (c == NULL) continue;
+
+		/* cipher name or (NONE) */
+		cp = SSL_CIPHER_get_name(c);
+		if (cp == NULL) break;
+		Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(cp, -1));
+	    }
+
+	} else {
+	    objPtr = Tcl_NewStringObj("",0);
+	    for (int i = 0; i < sk_SSL_CIPHER_num(sk); i++) {
+		const SSL_CIPHER *c = sk_SSL_CIPHER_value(sk, i);
+		if (c == NULL) continue;
+
+		/* textual description of the cipher */
+		if (SSL_CIPHER_description(c, buf, sizeof(buf)) != NULL) {
+		    Tcl_AppendToObj(objPtr, buf, strlen(buf));
 		} else {
-		    break;
+		    Tcl_AppendToObj(objPtr, "UNKNOWN\n", 8);
 		}
 	    }
-	    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(buf, -1));
+	}
+	if (use_supported) {
+	    sk_SSL_CIPHER_free(sk);
 	}
     }
     SSL_free(ssl);
@@ -639,7 +659,7 @@ ProtocolsObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *co
 
     objPtr = Tcl_NewListObj(0, NULL);
 
-#if OPENSSL_VERSION_NUMBER < 0x10101000L && !defined(NO_SSL2) && !defined(OPENSSL_NO_SSL2)
+#if OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(NO_SSL2) && !defined(OPENSSL_NO_SSL2)
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(protocols[TLS_SSL2], -1));
 #endif
 #if !defined(NO_SSL3) && !defined(OPENSSL_NO_SSL3)
@@ -992,7 +1012,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     if (alpn) {
 	/* Convert a Tcl list into a protocol-list in wire-format */
 	unsigned char *protos, *p;
-	unsigned int protoslen = 0;
+	unsigned int protos_len = 0;
 	int i, len, cnt;
 	Tcl_Obj **list;
 	if (Tcl_ListObjGetElements(interp, alpn, &cnt, &list) != TCL_OK) {
@@ -1007,10 +1027,10 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 		Tls_Free((char *) statePtr);
 		return TCL_ERROR;
 	    }
-	    protoslen += 1 + len;
+	    protos_len += 1 + len;
 	}
 	/* Build the complete protocol-list */
-	protos = ckalloc(protoslen);
+	protos = ckalloc(protos_len);
 	/* protocol-lists consist of 8-bit length-prefixed, byte strings */
 	for (i = 0, p = protos; i < cnt; i++) {
 	    char *str = Tcl_GetStringFromObj(list[i], &len);
@@ -1019,7 +1039,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	    p += len;
 	}
 	/* Note: This functions reverses the return value convention */
-	if (SSL_set_alpn_protos(statePtr->ssl, protos, protoslen)) {
+	if (SSL_set_alpn_protos(statePtr->ssl, protos, protos_len)) {
 	    Tcl_AppendResult(interp, "failed to set alpn protocols", (char *) NULL);
 	    Tls_Free((char *) statePtr);
 	    ckfree(protos);
