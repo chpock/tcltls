@@ -37,6 +37,7 @@ namespace eval tls {
         {* -cert iopts 1}
         {* -certfile iopts 1}
         {* -cipher iopts 1}
+        {* -ciphersuites iopts 1}
         {* -command iopts 1}
         {* -dhparams iopts 1}
         {* -key iopts 1}

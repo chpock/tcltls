@@ -44,7 +44,7 @@
 static SSL_CTX *CTX_Init(State *statePtr, int isServer, int proto, char *key,
 		char *certfile, unsigned char *key_asn1, unsigned char *cert_asn1,
 		int key_asn1_len, int cert_asn1_len, char *CAdir, char *CAfile,
-		char *ciphers, char *DHparams);
+		char *ciphers, char *ciphersuites, char *DHparams);
 
 static int	TlsLibInit(int uninitialize);
 
@@ -795,6 +795,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     unsigned char *cert         = NULL;
     int cert_len                = 0;
     char *ciphers	        = NULL;
+    char *ciphersuites	        = NULL;
     char *CAfile	        = NULL;
     char *CAdir		        = NULL;
     char *DHparams	        = NULL;
@@ -854,6 +855,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTSTR("-cafile", CAfile);
 	OPTSTR("-certfile", certfile);
 	OPTSTR("-cipher", ciphers);
+	OPTSTR("-ciphersuites", ciphersuites);
 	OPTOBJ("-command", script);
 	OPTSTR("-dhparams", DHparams);
 	OPTSTR("-keyfile", keyfile);
@@ -876,7 +878,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTBYTE("-cert", cert, cert_len);
 	OPTBYTE("-key", key, key_len);
 
-	OPTBAD("option", "-alpn, -cadir, -cafile, -cert, -certfile, -cipher, -command, -dhparams, -key, -keyfile, -model, -password, -require, -request, -server, -servername, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, or -tls1.3");
+	OPTBAD("option", "-alpn, -cadir, -cafile, -cert, -certfile, -cipher, -ciphersuites, -command, -dhparams, -key, -keyfile, -model, -password, -require, -request, -server, -servername, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, or -tls1.3");
 
 	return TCL_ERROR;
     }
@@ -897,6 +899,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     if (certfile && !*certfile)         certfile	= NULL;
     if (keyfile && !*keyfile)		keyfile	        = NULL;
     if (ciphers && !*ciphers)	        ciphers	        = NULL;
+    if (ciphersuites && !*ciphersuites) ciphersuites    = NULL;
     if (CAfile && !*CAfile)	        CAfile	        = NULL;
     if (CAdir && !*CAdir)	        CAdir	        = NULL;
     if (DHparams && !*DHparams)	        DHparams        = NULL;
@@ -950,7 +953,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	ctx = ((State *)Tcl_GetChannelInstanceData(chan))->ctx;
     } else {
 	if ((ctx = CTX_Init(statePtr, server, proto, keyfile, certfile, key, cert,
-	    key_len, cert_len, CAdir, CAfile, ciphers, DHparams)) == (SSL_CTX*)0) {
+	    key_len, cert_len, CAdir, CAfile, ciphers, ciphersuites, DHparams)) == (SSL_CTX*)0) {
 	    Tls_Free((char *) statePtr);
 	    return TCL_ERROR;
 	}
@@ -1146,7 +1149,7 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
 static SSL_CTX *
 CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile,
     unsigned char *key, unsigned char *cert, int key_len, int cert_len, char *CAdir,
-    char *CAfile, char *ciphers, char *DHparams) {
+    char *CAfile, char *ciphers, char *ciphersuites, char *DHparams) {
     Tcl_Interp *interp = statePtr->interp;
     SSL_CTX *ctx = NULL;
     Tcl_DString ds;
@@ -1163,7 +1166,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     }
 
     /* create SSL context */
-#if OPENSSL_VERSION_NUMBER >= 0x10101000L || defined(NO_SSL2) || defined(OPENSSL_NO_SSL2)
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L || defined(NO_SSL2) || defined(OPENSSL_NO_SSL2)
     if (ENABLED(proto, TLS_PROTO_SSL2)) {
 	Tcl_AppendResult(interp, "SSL2 protocol not supported", NULL);
 	return (SSL_CTX *)0;
@@ -1201,7 +1204,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 #endif
 
     switch (proto) {
-#if OPENSSL_VERSION_NUMBER < 0x10101000L && !defined(NO_SSL2) && !defined(OPENSSL_NO_SSL2)
+#if OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(NO_SSL2) && !defined(OPENSSL_NO_SSL2)
     case TLS_PROTO_SSL2:
 	method = SSLv2_method();
 	break;
@@ -1293,8 +1296,13 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 #endif
     SSL_CTX_sess_set_cache_size(ctx, 128);
 
-    if (ciphers != NULL)
-	SSL_CTX_set_cipher_list(ctx, ciphers);
+    /* Set user defined ciphers and cipher suites */
+    if (((ciphers != NULL) && !SSL_CTX_set_cipher_list(ctx, ciphers)) || \
+	((ciphersuites != NULL) && !SSL_CTX_set_ciphersuites(ctx, ciphersuites))) {
+	    Tcl_AppendResult(interp, "Set ciphers failed", (char *) NULL);
+	    SSL_CTX_free(ctx);
+	    return (SSL_CTX *)0;
+    }
 
     /* set some callbacks */
     SSL_CTX_set_default_passwd_cb(ctx, PasswordCallback);
