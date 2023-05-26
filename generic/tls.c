@@ -44,7 +44,7 @@
 static SSL_CTX *CTX_Init(State *statePtr, int isServer, int proto, char *key,
 		char *certfile, unsigned char *key_asn1, unsigned char *cert_asn1,
 		int key_asn1_len, int cert_asn1_len, char *CAdir, char *CAfile,
-		char *ciphers, char *ciphersuites, char *DHparams);
+		char *ciphers, char *ciphersuites, int level, char *DHparams);
 
 static int	TlsLibInit(int uninitialize);
 
@@ -612,7 +612,7 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 
 		/* textual description of the cipher */
 		if (SSL_CIPHER_description(c, buf, sizeof(buf)) != NULL) {
-		    Tcl_AppendToObj(objPtr, buf, strlen(buf));
+		    Tcl_AppendToObj(objPtr, buf, (int) strlen(buf));
 		} else {
 		    Tcl_AppendToObj(objPtr, "UNKNOWN\n", 8);
 		}
@@ -806,7 +806,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 #endif
     int ssl2 = 0, ssl3 = 0;
     int tls1 = 1, tls1_1 = 1, tls1_2 = 1, tls1_3 = 1;
-    int proto = 0;
+    int proto = 0, level = -1;
     int verify = 0, require = 0, request = 1;
 
     dprintf("Called");
@@ -855,6 +855,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTSTR("-cafile", CAfile);
 	OPTSTR("-certfile", certfile);
 	OPTSTR("-cipher", ciphers);
+	OPTSTR("-ciphers", ciphers);
 	OPTSTR("-ciphersuites", ciphersuites);
 	OPTOBJ("-command", script);
 	OPTSTR("-dhparams", DHparams);
@@ -863,6 +864,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTOBJ("-password", password);
 	OPTBOOL("-require", require);
 	OPTBOOL("-request", request);
+	OPTINT("-securitylevel", level);
 	OPTBOOL("-server", server);
 #ifndef OPENSSL_NO_TLSEXT
 	OPTSTR("-servername", servername);
@@ -878,7 +880,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTBYTE("-cert", cert, cert_len);
 	OPTBYTE("-key", key, key_len);
 
-	OPTBAD("option", "-alpn, -cadir, -cafile, -cert, -certfile, -cipher, -ciphersuites, -command, -dhparams, -key, -keyfile, -model, -password, -require, -request, -server, -servername, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, or -tls1.3");
+	OPTBAD("option", "-alpn, -cadir, -cafile, -cert, -certfile, -cipher, -ciphersuites, -command, -dhparams, -key, -keyfile, -model, -password, -require, -request, -securitylevel, -server, -servername, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, or -tls1.3");
 
 	return TCL_ERROR;
     }
@@ -953,7 +955,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	ctx = ((State *)Tcl_GetChannelInstanceData(chan))->ctx;
     } else {
 	if ((ctx = CTX_Init(statePtr, server, proto, keyfile, certfile, key, cert,
-	    key_len, cert_len, CAdir, CAfile, ciphers, ciphersuites, DHparams)) == (SSL_CTX*)0) {
+	    key_len, cert_len, CAdir, CAfile, ciphers, ciphersuites, level, DHparams)) == (SSL_CTX*)0) {
 	    Tls_Free((char *) statePtr);
 	    return TCL_ERROR;
 	}
@@ -1149,7 +1151,7 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
 static SSL_CTX *
 CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile,
     unsigned char *key, unsigned char *cert, int key_len, int cert_len, char *CAdir,
-    char *CAfile, char *ciphers, char *ciphersuites, char *DHparams) {
+    char *CAfile, char *ciphers, char *ciphersuites, int level, char *DHparams) {
     Tcl_Interp *interp = statePtr->interp;
     SSL_CTX *ctx = NULL;
     Tcl_DString ds;
@@ -1296,12 +1298,18 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 #endif
     SSL_CTX_sess_set_cache_size(ctx, 128);
 
-    /* Set user defined ciphers and cipher suites */
+    /* Set user defined ciphers, cipher suites, and security level */
     if (((ciphers != NULL) && !SSL_CTX_set_cipher_list(ctx, ciphers)) || \
 	((ciphersuites != NULL) && !SSL_CTX_set_ciphersuites(ctx, ciphersuites))) {
 	    Tcl_AppendResult(interp, "Set ciphers failed", (char *) NULL);
 	    SSL_CTX_free(ctx);
 	    return (SSL_CTX *)0;
+    }
+
+    /* Set security level */
+    if (level > -1 && level < 6) {
+	/* SSL_set_security_level */
+	SSL_CTX_set_security_level(ctx, level);
     }
 
     /* set some callbacks */
@@ -1613,12 +1621,16 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     }
 
     /* Get server name */
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("server", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("servername", -1));
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name), -1));
 
     /* Get protocol */
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("protocol", -1));
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get_version(ssl), -1));
+
+    /* Get security level */
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("securitylevel", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(SSL_get_security_level(ssl)));
 
     /* Get cipher */
     cipher = SSL_get_current_cipher(ssl);

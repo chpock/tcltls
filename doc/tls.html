@@ -180,6 +180,13 @@ used directly.</p>
         <dd>Require a valid certificate from peer during SSL handshake.
 	    If this is set to true, then <strong>-request</strong> must
             also be set to true. (default is <em>false</em>)</dd>
+        <dt><strong>-securitylevel</strong> <em>integer</em></dt>
+        <dd>Set security level. Must be 0 to 5. The security level affects
+	    cipher suite encryption algorithms, supported ECC curves,
+	    supported signature algorithms, DH parameter sizes, certificate
+	    key sizes and signature algorithms. The default is 1.
+	    Level 3 and higher disable support for session tickets and only
+	    accept cipher suites that provide forward secrecy.</dd>
         <dt><strong>-server</strong> <em>bool</em></dt>
         <dd>Handshake as server if true, else handshake as
             client. (default is <em>false</em>)</dd>
@@ -271,7 +278,9 @@ used directly.</p>
         <dd>The name of the connected to server.</dd>
         <dt><strong>protocol</strong> <em>version</em></dt>
         <dd>The protocol version used for the connection:
-	    SSL2, SSL3, TLS1, TLS1.1, TLS1.2, TLS1.3, or unknown</dd>
+	    SSL2, SSL3, TLS1, TLS1.1, TLS1.2, TLS1.3, or unknown.</dd>
+        <dt><strong>securitylevel</strong> <em>level</em></dt>
+        <dd>The security level used for selection of ciphers, key size, etc.</dd>
         <dt><strong>cipher</strong> <em>cipher</em></dt>
         <dd>The current cipher in use for the connection.</dd>
         <dt><strong>standard_name</strong> <em>name</em></dt>
