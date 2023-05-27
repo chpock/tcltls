@@ -283,6 +283,11 @@ used directly.</p>
         <dt><strong>protocol</strong> <em>version</em></dt>
         <dd>The protocol version used for the connection:
 	    SSL2, SSL3, TLS1, TLS1.1, TLS1.2, TLS1.3, or unknown.</dd>
+        <dt><strong>renegotiation</strong> <em>state</em></dt>
+        <dd>Whether protocol renegotiation is allowed or disallowed.</dd>
+        <dt><strong>alpn</strong> <em>protocol</em></dt>
+        <dd>The protocol selected after Application-Layer Protocol
+	    Negotiation (ALPN).</dd>
         <dt><strong>securitylevel</strong> <em>level</em></dt>
         <dd>The security level used for selection of ciphers, key size, etc.</dd>
         <dt><strong>cipher</strong> <em>cipher</em></dt>
@@ -297,11 +302,6 @@ used directly.</p>
         <dd>The minimum protocol version for cipher.</dd>
         <dt><strong>description</strong> <em>string</em></dt>
         <dd>A text description of the cipher.</dd>
-        <dt><strong>renegotiation</strong> <em>state</em></dt>
-        <dd>Whether protocol renegotiation is allowed or disallowed.</dd>
-        <dt><strong>alpn</strong> <em>protocol</em></dt>
-        <dd>The protocol selected after Application-Layer Protocol
-	    Negotiation (ALPN).</dd>
         <dt><strong>session_reused</strong> <em>boolean</em></dt>
         <dd>Whether the session has been reused or not.</dd>
         <dt><strong>session_id</strong> <em>string</em></dt>

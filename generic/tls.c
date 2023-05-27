@@ -95,6 +95,10 @@ static Tcl_Mutex init_mx;
 #endif /* OPENSSL_THREADS */
 #endif /* TCL_THREADS */
 
+/********************/
+/* Callbacks        */
+/********************/
+
 
 /*
  *-------------------------------------------------------------------
@@ -113,6 +117,7 @@ static Tcl_Mutex init_mx;
 static void
 InfoCallback(const SSL *ssl, int where, int ret) {
     State *statePtr = (State*)SSL_get_app_data((SSL *)ssl);
+    Tcl_Interp *interp	= statePtr->interp;
     Tcl_Obj *cmdPtr;
     char *major; char *minor;
 
@@ -151,32 +156,32 @@ InfoCallback(const SSL *ssl, int where, int ret) {
 	else					minor = "unknown";
     }
 
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr, Tcl_NewStringObj("info", -1));
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr,
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("info", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr,
 	    Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr, Tcl_NewStringObj(major, -1));
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr, Tcl_NewStringObj(minor, -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(major, -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(minor, -1));
 
     if (where & (SSL_CB_LOOP|SSL_CB_EXIT)) {
-	Tcl_ListObjAppendElement(statePtr->interp, cmdPtr,
+	Tcl_ListObjAppendElement(interp, cmdPtr,
 	    Tcl_NewStringObj(SSL_state_string_long(ssl), -1));
     } else if (where & SSL_CB_ALERT) {
 	const char *cp = (char *) SSL_alert_desc_string_long(ret);
 
-	Tcl_ListObjAppendElement(statePtr->interp, cmdPtr, Tcl_NewStringObj(cp, -1));
+	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(cp, -1));
     } else {
-	Tcl_ListObjAppendElement(statePtr->interp, cmdPtr,
+	Tcl_ListObjAppendElement(interp, cmdPtr,
 	    Tcl_NewStringObj(SSL_state_string_long(ssl), -1));
     }
-    Tcl_Preserve((ClientData) statePtr->interp);
+    Tcl_Preserve((ClientData) interp);
     Tcl_Preserve((ClientData) statePtr);
 
     Tcl_IncrRefCount(cmdPtr);
-    (void) Tcl_EvalObjEx(statePtr->interp, cmdPtr, TCL_EVAL_GLOBAL);
+    (void) Tcl_EvalObjEx(interp, cmdPtr, TCL_EVAL_GLOBAL);
     Tcl_DecrRefCount(cmdPtr);
 
     Tcl_Release((ClientData) statePtr);
-    Tcl_Release((ClientData) statePtr->interp);
+    Tcl_Release((ClientData) interp);
 }
 
 /*
@@ -207,6 +212,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
     SSL   *ssl		= (SSL*)X509_STORE_CTX_get_ex_data(ctx, SSL_get_ex_data_X509_STORE_CTX_idx());
     X509  *cert		= X509_STORE_CTX_get_current_cert(ctx);
     State *statePtr	= (State*)SSL_get_app_data(ssl);
+    Tcl_Interp *interp	= statePtr->interp;
     int depth		= X509_STORE_CTX_get_error_depth(ctx);
     int err		= X509_STORE_CTX_get_error(ctx);
     int code;
@@ -228,40 +234,40 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
     }
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
 
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr, Tcl_NewStringObj("verify", -1));
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr,
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("verify", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr,
 	    Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr, Tcl_NewIntObj(depth));
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr, Tls_NewX509Obj(statePtr->interp, cert));
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr, Tcl_NewIntObj(ok));
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr, Tcl_NewStringObj(errStr ? errStr : "", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(depth));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tls_NewX509Obj(interp, cert));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(ok));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(errStr ? errStr : "", -1));
 
-    Tcl_Preserve((ClientData) statePtr->interp);
+    Tcl_Preserve((ClientData) interp);
     Tcl_Preserve((ClientData) statePtr);
 
     statePtr->flags |= TLS_TCL_CALLBACK;
 
     Tcl_IncrRefCount(cmdPtr);
-    code = Tcl_EvalObjEx(statePtr->interp, cmdPtr, TCL_EVAL_GLOBAL);
+    code = Tcl_EvalObjEx(interp, cmdPtr, TCL_EVAL_GLOBAL);
     if (code != TCL_OK) {
 	/* It got an error - reject the certificate.		*/
 #if (TCL_MAJOR_VERSION == 8) && (TCL_MINOR_VERSION < 6)
-	Tcl_BackgroundError(statePtr->interp);
+	Tcl_BackgroundError(interp);
 #else
-	Tcl_BackgroundException(statePtr->interp, code);
+	Tcl_BackgroundException(interp, code);
 #endif
 	ok = 0;
     } else {
-	result = Tcl_GetObjResult(statePtr->interp);
+	result = Tcl_GetObjResult(interp);
 	string = Tcl_GetStringFromObj(result, &length);
 	/* An empty result leaves verification unchanged.	*/
 	if (string != NULL && length > 0) {
-	    code = Tcl_GetIntFromObj(statePtr->interp, result, &ok);
+	    code = Tcl_GetIntFromObj(interp, result, &ok);
 	    if (code != TCL_OK) {
 #if (TCL_MAJOR_VERSION == 8) && (TCL_MINOR_VERSION < 6)
-		Tcl_BackgroundError(statePtr->interp);
+		Tcl_BackgroundError(interp);
 #else
-		Tcl_BackgroundException(statePtr->interp, code);
+		Tcl_BackgroundException(interp, code);
 #endif
 		ok = 0;
 	    }
@@ -272,7 +278,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
     statePtr->flags &= ~(TLS_TCL_CALLBACK);
 
     Tcl_Release((ClientData) statePtr);
-    Tcl_Release((ClientData) statePtr->interp);
+    Tcl_Release((ClientData) interp);
     return(ok);	/* By default, leave verification unchanged.	*/
 }
 
@@ -291,15 +297,16 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
  */
 void
 Tls_Error(State *statePtr, char *msg) {
+    Tcl_Interp *interp	= statePtr->interp;
     Tcl_Obj *cmdPtr;
     int code;
 
     dprintf("Called");
 
     if (msg && *msg) {
-	Tcl_SetErrorCode(statePtr->interp, "SSL", msg, (char *)NULL);
+	Tcl_SetErrorCode(interp, "SSL", msg, (char *)NULL);
     } else {
-	msg = Tcl_GetStringFromObj(Tcl_GetObjResult(statePtr->interp), NULL);
+	msg = Tcl_GetStringFromObj(Tcl_GetObjResult(interp), NULL);
     }
     statePtr->err = msg;
 
@@ -307,42 +314,49 @@ Tls_Error(State *statePtr, char *msg) {
 	char buf[BUFSIZ];
 	sprintf(buf, "SSL channel \"%s\": error: %s",
 	    Tcl_GetChannelName(statePtr->self), msg);
-	Tcl_SetResult(statePtr->interp, buf, TCL_VOLATILE);
+	Tcl_SetResult(interp, buf, TCL_VOLATILE);
 #if (TCL_MAJOR_VERSION == 8) && (TCL_MINOR_VERSION < 6)
-	Tcl_BackgroundError(statePtr->interp);
+	Tcl_BackgroundError(interp);
 #else
-	Tcl_BackgroundException(statePtr->interp, TCL_ERROR);
+	Tcl_BackgroundException(interp, TCL_ERROR);
 #endif
 	return;
     }
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
 
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr,
-	    Tcl_NewStringObj("error", -1));
-
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr,
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("error", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr,
 	    Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(msg, -1));
 
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr,
-	    Tcl_NewStringObj(msg, -1));
-
-    Tcl_Preserve((ClientData) statePtr->interp);
+    Tcl_Preserve((ClientData) interp);
     Tcl_Preserve((ClientData) statePtr);
 
     Tcl_IncrRefCount(cmdPtr);
-    code = Tcl_EvalObjEx(statePtr->interp, cmdPtr, TCL_EVAL_GLOBAL);
+    code = Tcl_EvalObjEx(interp, cmdPtr, TCL_EVAL_GLOBAL);
     if (code != TCL_OK) {
 #if (TCL_MAJOR_VERSION == 8) && (TCL_MINOR_VERSION < 6)
-	Tcl_BackgroundError(statePtr->interp);
+	Tcl_BackgroundError(interp);
 #else
-	Tcl_BackgroundException(statePtr->interp, code);
+	Tcl_BackgroundException(interp, code);
 #endif
     }
     Tcl_DecrRefCount(cmdPtr);
     Tcl_Release((ClientData) statePtr);
-    Tcl_Release((ClientData) statePtr->interp);
+    Tcl_Release((ClientData) interp);
 }
 
+/*
+ *-------------------------------------------------------------------
+ *
+ * KeyLogCallback --
+ *
+ *	Write received key data to log file.
+ *
+ * Side effects:
+ *	none
+ *-------------------------------------------------------------------
+ */
 void KeyLogCallback(const SSL *ssl, const char *line) {
     char *str = getenv(SSLKEYLOGFILE);
     FILE *fd;
@@ -450,7 +464,6 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj( "session", -1));
 
     /* Session id */
-    session = SSL_get_session(statePtr->ssl);
     session_id = SSL_SESSION_get0_id_context(session, &len);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(session_id, len));
 
@@ -481,6 +494,10 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
     return 1;
 }
 
+/********************/
+/* Commands         */
+/********************/
+
 /*
  *-------------------------------------------------------------------
  *
@@ -724,9 +741,7 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 	return(TCL_ERROR);
     }
 
-    /*
-     * Make sure to operate on the topmost channel
-     */
+    /* Make sure to operate on the topmost channel */
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan), "\": not a TLS channel", NULL);
@@ -845,9 +860,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	return TCL_ERROR;
     }
 
-    /*
-     * Make sure to operate on the topmost channel
-     */
+    /* Make sure to operate on the topmost channel */
     chan = Tcl_GetTopChannel(chan);
 
     for (idx = 2; idx < objc; idx++) {
@@ -1130,9 +1143,7 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
 	return TCL_ERROR;
     }
 
-    /*
-     * Make sure to operate on the topmost channel
-     */
+    /* Make sure to operate on the topmost channel */
     chan = Tcl_GetTopChannel(chan);
 
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
@@ -1521,9 +1532,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     if (chan == (Tcl_Channel) NULL) {
 	return TCL_ERROR;
     }
-    /*
-     * Make sure to operate on the topmost channel
-     */
+    /* Make sure to operate on the topmost channel */
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
@@ -1608,9 +1617,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	return(TCL_ERROR);
     }
 
-    /*
-     * Make sure to operate on the topmost channel
-     */
+    /* Make sure to operate on the topmost channel */
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan), "\": not a TLS channel", NULL);
@@ -1619,31 +1626,47 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 
     objPtr = Tcl_NewListObj(0, NULL);
 
-    /* Get connection state */
+    /* Connection info */
     statePtr = (State *)Tcl_GetChannelInstanceData(chan);
     ssl = statePtr->ssl;
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("state", -1));
-    if (SSL_is_init_finished(ssl)) {
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("established", -1));
-    } else if (SSL_in_init(ssl)) {
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("handshake", -1));
-    } else {
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("initializing", -1));
+    if (ssl != NULL) {
+	const char *state;
+
+	/* connection state */
+	if (SSL_is_init_finished(ssl)) {
+	    state = "established";
+	} else if (SSL_in_init(ssl)) {
+	    state = "handshake";
+	} else {
+	    state = "initializing";
+	}
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("state", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(state, -1));
+
+	/* Get server name */
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("servername", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name), -1));
+
+	/* Get protocol */
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("protocol", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get_version(ssl), -1));
+
+	/* Renegotiation allowed */
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("renegotiation", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(
+	    SSL_get_secure_renegotiation_support(ssl) ? "allowed" : "not supported", -1));
+
+	/* Report the selected protocol as a result of the ALPN negotiation */
+	SSL_get0_alpn_selected(ssl, &proto, &len);
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("alpn", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj((char *)proto, (int)len));
+
+	/* Get security level */
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("securitylevel", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(SSL_get_security_level(ssl)));
     }
 
-    /* Get server name */
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("servername", -1));
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name), -1));
-
-    /* Get protocol */
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("protocol", -1));
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get_version(ssl), -1));
-
-    /* Get security level */
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("securitylevel", -1));
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(SSL_get_security_level(ssl)));
-
-    /* Get cipher */
+    /* Cipher info */
     cipher = SSL_get_current_cipher(ssl);
     if (cipher != NULL) {
 	char buf[BUFSIZ] = {0};
@@ -1669,15 +1692,6 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(buf, -1));
 	}
     }
-
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("renegotiation", -1));
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(
-	SSL_get_secure_renegotiation_support(ssl) ? "allowed" : "not supported", -1));
-
-    /* Report the selected protocol as a result of the negotiation */
-    SSL_get0_alpn_selected(ssl, &proto, &len);
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("alpn", -1));
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj((char *)proto, (int)len));
 
     /* Session info */
     session = SSL_get_session(ssl);
@@ -1717,11 +1731,11 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     /* Compression info */
     comp = SSL_get_current_compression(ssl);
     if (comp != NULL) {
-	expansion = SSL_get_current_expansion(ssl);
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("compression", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_COMP_get_name(comp), -1));
+	comp = SSL_get_current_expansion(ssl);
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("expansion", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_COMP_get_name(expansion), -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_COMP_get_name(comp), -1));
     }
 #endif
 
@@ -1970,6 +1984,10 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
 	clientData = clientData;
 }
 
+/********************/
+/* Init             */
+/********************/
+
 /*
  *-------------------------------------------------------------------
  *
