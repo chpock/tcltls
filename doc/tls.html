@@ -195,6 +195,8 @@ used directly.</p>
 	    the package is linked against supports the TLS hostname extension
 	    for 'Server Name Indication' (SNI). Use to name the logical host
 	    we are talking to and expecting a certificate for.</dd>
+        <dt><strong>-session_id</strong> <em>string</em></dt>
+        <dd>Session id to resume session.</dd>
         <dt><strong>-ssl2</strong> <em>bool</em></dt>
         <dd>Enable use of SSL v2. (default is <em>false</em>)</dd>
         <dt><strong>-ssl3 </strong><em>bool</em></dt>
@@ -255,6 +257,8 @@ used directly.</p>
         <dd>The SHA1 hash of the certificate.</dd>
         <dt><strong>sha256_hash</strong> <em>hash</em></dt>
         <dd>The SHA256 hash of the certificate.</dd>
+        <dt><strong>validation</strong> <em>result</em></dt>
+        <dd>Certificate validation result.</dd>
         <dt><strong>alpn</strong> <em>protocol</em></dt>
         <dd>The protocol selected after Application-Layer Protocol
 	    Negotiation (ALPN).</dd>
@@ -274,7 +278,7 @@ used directly.</p>
     <dl>
         <dt><strong>state</strong> <em>state</em></dt>
         <dd>State of the connection: initializing, handshake, established</dd>
-        <dt><strong>server</strong> <em>name</em></dt>
+        <dt><strong>servername</strong> <em>name</em></dt>
         <dd>The name of the connected to server.</dd>
         <dt><strong>protocol</strong> <em>version</em></dt>
         <dd>The protocol version used for the connection:
@@ -300,6 +304,16 @@ used directly.</p>
 	    Negotiation (ALPN).</dd>
         <dt><strong>session_reused</strong> <em>boolean</em></dt>
         <dd>Whether the session has been reused or not.</dd>
+        <dt><strong>session_id</strong> <em>string</em></dt>
+        <dd>Unique session id for use in resuming the session.</dd>
+        <dt><strong>session_ticket</strong> <em>string</em></dt>
+        <dd>Unique session ticket for use in resuming the session.</dd>
+        <dt><strong>resumable</strong> <em>boolean</em></dt>
+        <dd>Can the session be resumed or not.</dd>
+        <dt><strong>start_time</strong> <em>seconds</em></dt>
+        <dd>Time since session started in seconds since epoch.</dd>
+        <dt><strong>timeout</strong> <em>seconds</em></dt>
+        <dd>Max duration of session in seconds before time-out.</dd>
     </dl>
 </blockquote>
 
@@ -382,6 +396,19 @@ to handle intermediate processing by the OpenSSL library, using the
 	  <code>SSL_state_string_long()</code> or by
 	  <code>SSL_alert_desc_string_long()</code>,
 	  depending on context.
+	</dd>
+
+	<br>
+
+	<dt>
+	  <strong>session</strong> <em>session_id ticket lifetime</em>
+	</dt>
+	<dd>
+	  This form of callback is invoked by the OpenSSL function
+	  <code>SSL_CTX_sess_set_new_cb()</code>.
+	  Where <em>session_id</em> is the current session identifier,
+	  <em>ticket</em> is the session ticket info, and <em>lifetime</em>
+	  is the the ticket lifetime in seconds.
 	</dd>
 
 	<br>

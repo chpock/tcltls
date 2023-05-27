@@ -159,6 +159,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	rc = SSL_get_error(statePtr->ssl, err);
 
 	dprintf("Got error: %i (rc = %i)", err, rc);
+	dprintf("Got error: %s", ERR_reason_error_string(ERR_get_error()));
 
 	bioShouldRetry = 0;
 	if (err <= 0) {
