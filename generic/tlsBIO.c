@@ -6,27 +6,6 @@
 
 #include "tlsInt.h"
 
-#ifdef TCLTLS_OPENSSL_PRE_1_1_API
-#define BIO_get_data(bio)                ((bio)->ptr)
-#define BIO_get_init(bio)                ((bio)->init)
-#define BIO_get_shutdown(bio)            ((bio)->shutdown)
-#define BIO_set_data(bio, val)           (bio)->ptr = (val)
-#define BIO_set_init(bio, val)           (bio)->init = (val)
-#define BIO_set_shutdown(bio, val)       (bio)->shutdown = (val)
-
-/* XXX: This assumes the variable being assigned to is BioMethods */
-#define BIO_meth_new(type_, name_)       (BIO_METHOD *)Tcl_Alloc(sizeof(BIO_METHOD)); \
-					 memset(BioMethods, 0, sizeof(BIO_METHOD)); \
-					 BioMethods->type = type_; \
-					 BioMethods->name = name_;
-#define BIO_meth_set_write(bio, val)     (bio)->bwrite = val;
-#define BIO_meth_set_read(bio, val)      (bio)->bread = val;
-#define BIO_meth_set_puts(bio, val)      (bio)->bputs = val;
-#define BIO_meth_set_ctrl(bio, val)      (bio)->ctrl = val;
-#define BIO_meth_set_create(bio, val)    (bio)->create = val;
-#define BIO_meth_set_destroy(bio, val)   (bio)->destroy = val;
-#endif
-
 static int BioWrite(BIO *bio, const char *buf, int bufLen) {
     Tcl_Channel chan;
     int ret;
@@ -61,7 +40,7 @@ static int BioWrite(BIO *bio, const char *buf, int bufLen) {
 	if (tclErrno == EAGAIN) {
 	    dprintf("It's EAGAIN");
 	} else {
-	    dprintf("It's an unepxected error: %s/%i", Tcl_ErrnoMsg(tclErrno), tclErrno);
+	    dprintf("It's an unexpected error: %s/%i", Tcl_ErrnoMsg(tclErrno), tclErrno);
 	}
 
     } else {
@@ -116,7 +95,7 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
 	if (tclErrno == EAGAIN) {
 	    dprintf("It's EAGAIN");
 	} else {
-	    dprintf("It's an unepxected error: %s/%i", Tcl_ErrnoMsg(tclErrno), tclErrno);
+	    dprintf("It's an unexpected error: %s/%i", Tcl_ErrnoMsg(tclErrno), tclErrno);
 	}
 
     } else {

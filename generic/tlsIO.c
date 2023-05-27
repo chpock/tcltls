@@ -99,7 +99,7 @@ static int TlsCloseProc2(ClientData instanceData, Tcl_Interp *interp, int flags)
  *
  *    Tls_WaitForConnect --
  *
- *    Sideeffects:
+ *    Side effects:
  *        Issues SSL_accept or SSL_connect
  *
  *    Result:
@@ -802,7 +802,7 @@ static int TlsNotifyProc(ClientData instanceData, int mask) {
  *      on the underlying channel.
  *      ------------------------------------------------*
  *
- *      Sideeffects:
+ *      Side effects:
  *              May generate subsequent calls to
  *              Tcl_NotifyChannel.
  *
@@ -876,7 +876,7 @@ TlsChannelHandler (ClientData clientData, int mask) {
  *    information waiting in channel buffers.
  *    ------------------------------------------------*
  *
- *    Sideeffects:
+ *    Side effects:
  *        As of 'TlsChannelHandler'.
  *
  *    Result:

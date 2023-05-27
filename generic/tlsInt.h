@@ -34,29 +34,10 @@
 #define CONST86
 #endif
 
-#ifdef NO_PATENTS
-#  define NO_IDEA
-#  define NO_RC2
-#  define NO_RC4
-#  define NO_RC5
-#  define NO_RSA
-#  ifndef NO_SSL2
-#    define NO_SSL2
-#  endif
-#endif
-
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
 #include <openssl/opensslv.h>
-
-/*
- * Determine if we should use the pre-OpenSSL 1.1.0 API
- */
-#undef TCLTLS_OPENSSL_PRE_1_1
-#if (defined(LIBRESSL_VERSION_NUMBER)) || OPENSSL_VERSION_NUMBER < 0x10100000L
-#  define TCLTLS_OPENSSL_PRE_1_1_API 1
-#endif
 
 #ifndef ECONNABORTED
 #define ECONNABORTED	130	/* Software caused connection abort */

@@ -102,7 +102,6 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     char notAfter[BUFSIZ];
     char certStr[CERT_STR_SIZE], *certStr_p;
     int certStr_len, toRead;
-#ifndef NO_SSL_SHA
     char sha1_hash_ascii[SHA_DIGEST_LENGTH * 2 + 1];
     unsigned char sha1_hash_binary[SHA_DIGEST_LENGTH];
     char sha256_hash_ascii[SHA256_DIGEST_LENGTH * 2 + 1];
@@ -111,7 +110,6 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 
     sha1_hash_ascii[SHA_DIGEST_LENGTH * 2] = '\0';
     sha256_hash_ascii[SHA256_DIGEST_LENGTH * 2] = '\0';
-#endif
 
     certStr[0] = 0;
     if ((bio = BIO_new(BIO_s_mem())) == NULL) {
@@ -164,15 +162,9 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	BIO_free(bio);
     }
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    strcpy(notBefore, ASN1_UTCTIME_tostr(X509_get_notBefore(cert)));
-    strcpy(notAfter, ASN1_UTCTIME_tostr(X509_get_notAfter(cert)));
-#else
     strcpy(notBefore, ASN1_UTCTIME_tostr(X509_getm_notBefore(cert)));
     strcpy(notAfter, ASN1_UTCTIME_tostr(X509_getm_notAfter(cert)));
-#endif
 
-#ifndef NO_SSL_SHA
     /* SHA1 */
     X509_digest(cert, EVP_sha1(), sha1_hash_binary, NULL);
     for (int n = 0; n < SHA_DIGEST_LENGTH; n++) {
@@ -190,7 +182,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     }
     Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( "sha256_hash", -1) );
     Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( sha256_hash_ascii, SHA256_DIGEST_LENGTH * 2) );
-#endif
+
     Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( "subject", -1) );
     Tcl_ListObjAppendElement( interp, certPtr, Tcl_NewStringObj( subject, -1) );
 
