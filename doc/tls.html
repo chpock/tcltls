@@ -314,6 +314,8 @@ used directly.</p>
         <dd>Time since session started in seconds since epoch.</dd>
         <dt><strong>timeout</strong> <em>seconds</em></dt>
         <dd>Max duration of session in seconds before time-out.</dd>
+        <dt><strong>session_cache_mode</strong> <em>mode</em></dt>
+        <dd>Server cache mode (client, server, or both).</dd>
     </dl>
 </blockquote>
 
@@ -362,6 +364,17 @@ to handle intermediate processing by the OpenSSL library, using the
 
 	<dl>
 
+	<dt>
+	  <strong>alpn</strong> <em></em>
+	</dt>
+	<dd>
+	  This form of callback is invoked when server selects the first
+	  -alpn specified protocol common to the client and server. If none,
+	  first client one is used.
+	</dd>
+
+	<br>
+
 <!--	This form of callback is disabled.
 
 	<dt>
@@ -375,6 +388,15 @@ to handle intermediate processing by the OpenSSL library, using the
 
 	<br>
 -->
+
+	<dt>
+	  <strong>hello</strong> <em></em>
+	</dt>
+	<dd>
+	  This form of callback is invoked during client hello message processing.
+	</dd>
+
+	<br>
 
 	<dt>
 	  <strong>info</strong> <em>channel major minor message</em>
@@ -409,6 +431,18 @@ to handle intermediate processing by the OpenSSL library, using the
 	  Where <em>session_id</em> is the current session identifier,
 	  <em>ticket</em> is the session ticket info, and <em>lifetime</em>
 	  is the the ticket lifetime in seconds.
+	</dd>
+
+	<br>
+
+	<dt>
+	  <strong>sni</strong> <em>servername</em>
+	</dt>
+	<dd>
+	  This form of callback is invoked when the server receives the SNI
+	  header from the client where <i>servername</i> is the client
+	  specified servername. Used to allow multiple names for
+	  same server so the right certificate can be used.
 	</dd>
 
 	<br>

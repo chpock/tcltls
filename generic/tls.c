@@ -494,6 +494,203 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
     return 1;
 }
 
+/*
+ *-------------------------------------------------------------------
+ *
+ * ALPN Callback for Servers --
+ *
+ *	Select which protocol (http/1.1, h2, h3, etc.) to use for the
+ *	incoming connection.
+ *
+ * Results:
+ *	None
+ *
+ * Side effects:
+ *	Calls callback (if defined)
+ *
+ * Return codes:
+ *	SSL_TLSEXT_ERR_OK: ALPN protocol selected. The connection continues.
+ *	SSL_TLSEXT_ERR_ALERT_FATAL: There was no overlap between the client's
+ *	    supplied list and the server configuration. The connection will be aborted.
+ *	SSL_TLSEXT_ERR_NOACK: ALPN protocol not selected, e.g., because no ALPN
+ *	    protocols are configured for this connection. The connection continues.
+ *
+ *-------------------------------------------------------------------
+ */
+static int
+ALPNCallback(const SSL *ssl, const unsigned char **out, unsigned char *outlen,
+	const unsigned char *in, unsigned int inlen, void *arg) {
+    State *statePtr = (State*)arg;
+    Tcl_Interp *interp	= statePtr->interp;
+    Tcl_Obj *cmdPtr;
+    int code;
+
+    dprintf("Called");
+
+    if (statePtr->callback == (Tcl_Obj*)NULL)
+	return SSL_TLSEXT_ERR_OK;
+
+    cmdPtr = Tcl_DuplicateObj(statePtr->callback);
+
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj( "alpn", -1));
+
+    Tcl_Preserve((ClientData) interp);
+    Tcl_Preserve((ClientData) statePtr);
+
+    Tcl_IncrRefCount(cmdPtr);
+    code = Tcl_EvalObjEx(interp, cmdPtr, TCL_EVAL_GLOBAL);
+    if (code != TCL_OK) {
+#if (TCL_MAJOR_VERSION == 8) && (TCL_MINOR_VERSION < 6)
+	Tcl_BackgroundError(interp);
+#else
+	Tcl_BackgroundException(interp, code);
+#endif
+    }
+    Tcl_DecrRefCount(cmdPtr);
+
+    Tcl_Release((ClientData) statePtr);
+    Tcl_Release((ClientData) interp);
+    return SSL_TLSEXT_ERR_OK;
+}
+
+/*
+ *-------------------------------------------------------------------
+ *
+ * SNI Callback for Servers --
+ *
+ *	Perform server name selection
+ *
+ * Results:
+ *	None
+ *
+ * Side effects:
+ *	Calls callback (if defined)
+ *
+ * Return codes:
+ *	SSL_TLSEXT_ERR_OK: SNI hostname is accepted. The connection continues.
+ *	SSL_TLSEXT_ERR_ALERT_FATAL: SNI hostname is not accepted. The connection
+ *	    is aborted. Default for alert is SSL_AD_UNRECOGNIZED_NAME.
+ *	SSL_TLSEXT_ERR_ALERT_WARNING: SNI hostname is not accepted, warning alert
+ *	    sent (not in TLSv1.3). The connection continues.
+ *	SSL_TLSEXT_ERR_NOACK: SNI hostname is not accepted and not acknowledged,
+ *	    e.g. if SNI has not been configured. The connection continues.
+ *
+ *-------------------------------------------------------------------
+ */
+static int
+SNICallback(const SSL *ssl, int *alert, void *arg) {
+    State *statePtr = (State*)arg;
+    Tcl_Interp *interp	= statePtr->interp;
+/*    SSL_CTX* ctx; */
+    Tcl_Obj *cmdPtr;
+    int code;
+    char *servername = NULL;
+
+    dprintf("Called");
+
+    if (statePtr->callback == (Tcl_Obj*)NULL) {
+	return SSL_TLSEXT_ERR_OK;
+    } else if (ssl == NULL) {
+	return SSL_TLSEXT_ERR_NOACK;
+    }
+
+    servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+    if (!servername || servername[0] == '\0')
+        return SSL_TLSEXT_ERR_NOACK;
+
+    /* Use SSL_set_SSL_CTX to change the SSL connection object to use another
+       context created from SSL_CTX() for the certificate corresponding to,
+       the the server name provided by the client. */
+
+    cmdPtr = Tcl_DuplicateObj(statePtr->callback);
+
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj( "sni", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(servername , -1));
+
+    Tcl_Preserve((ClientData) interp);
+    Tcl_Preserve((ClientData) statePtr);
+
+    Tcl_IncrRefCount(cmdPtr);
+    code = Tcl_EvalObjEx(interp, cmdPtr, TCL_EVAL_GLOBAL);
+    if (code != TCL_OK) {
+#if (TCL_MAJOR_VERSION == 8) && (TCL_MINOR_VERSION < 6)
+	Tcl_BackgroundError(interp);
+#else
+	Tcl_BackgroundException(interp, code);
+#endif
+    }
+    Tcl_DecrRefCount(cmdPtr);
+
+    Tcl_Release((ClientData) statePtr);
+    Tcl_Release((ClientData) interp);
+    return SSL_TLSEXT_ERR_OK;
+}
+
+/*
+ *-------------------------------------------------------------------
+ *
+ * Hello Callback for Servers --
+ *
+ *	Used by server to examine the server name indication (SNI) extension
+ *	provided by the client in order to select an appropriate certificate to
+ *	present, and make other configuration adjustments relevant to that server
+ *	name and its configuration. This includes swapping out the associated
+ *	SSL_CTX pointer, modifying the server's list of permitted TLS versions,
+ *	changing the server's cipher list in response to the client's cipher list, etc.
+ *
+ * Results:
+ *	None
+ *
+ * Side effects:
+ *	Calls callback (if defined)
+ *
+ * Return codes:
+ *	SSL_CLIENT_HELLO_RETRY = suspend the handshake, and the handshake function will return immediately
+ *	SSL_CLIENT_HELLO_ERROR = failure, terminate connection. Set alert to error code.
+ *	SSL_CLIENT_HELLO_SUCCESS = success
+ *
+ *-------------------------------------------------------------------
+ */
+static int
+HelloCallback(const SSL *ssl, int *alert, void *arg) {
+    State *statePtr = (State*)arg;
+    Tcl_Interp *interp	= statePtr->interp;
+    Tcl_Obj *cmdPtr;
+    int code;
+
+    dprintf("Called");
+
+    if (statePtr->callback == (Tcl_Obj*)NULL)
+	return SSL_CLIENT_HELLO_SUCCESS;
+
+    cmdPtr = Tcl_DuplicateObj(statePtr->callback);
+
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj( "hello", -1));
+
+    /* SSL_client_hello_get0_random(), SSL_client_hello_get0_session_id(), SSL_client_hello_get0_ciphers(), and SSL_client_hello_get0_compression_methods() provide access to the corresponding ClientHello fields, returning the field length and optionally setting an out pointer to the octets of that field. */
+
+    /* Similarly, SSL_client_hello_get0_ext() provides access to individual extensions from the ClientHello on a per-extension basis. For the provided wire protocol extension type value, the extension value and length are returned in the output parameters (if present). */
+
+
+    Tcl_Preserve((ClientData) interp);
+    Tcl_Preserve((ClientData) statePtr);
+
+    Tcl_IncrRefCount(cmdPtr);
+    code = Tcl_EvalObjEx(interp, cmdPtr, TCL_EVAL_GLOBAL);
+    if (code != TCL_OK) {
+#if (TCL_MAJOR_VERSION == 8) && (TCL_MINOR_VERSION < 6)
+	Tcl_BackgroundError(interp);
+#else
+	Tcl_BackgroundException(interp, code);
+#endif
+    }
+    Tcl_DecrRefCount(cmdPtr);
+
+    Tcl_Release((ClientData) statePtr);
+    Tcl_Release((ClientData) interp);
+    return SSL_CLIENT_HELLO_SUCCESS;
+}
+
 /********************/
 /* Commands         */
 /********************/
@@ -1094,6 +1291,12 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     statePtr->bio	= BIO_new(BIO_f_ssl());
 
     if (server) {
+	/* Server callbacks */
+	SSL_CTX_set_alpn_select_cb(statePtr->ctx, ALPNCallback, (void *)statePtr);
+	SSL_CTX_set_tlsext_servername_arg(statePtr->ctx, (void *)statePtr);
+	SSL_CTX_set_tlsext_servername_callback(statePtr->ctx, SNICallback);
+	SSL_CTX_set_client_hello_cb(statePtr->ctx, HelloCallback, (void *)statePtr);
+
 	statePtr->flags |= TLS_TCL_SERVER;
 	SSL_set_accept_state(statePtr->ssl);
     } else {
@@ -1304,12 +1507,12 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     if (proto == TLS_PROTO_TLS1_3) {
 	SSL_CTX_set_min_proto_version(ctx, TLS1_3_VERSION);
 	SSL_CTX_set_max_proto_version(ctx, TLS1_3_VERSION);
-
-	if (!isServer) {
-	    SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
-	}
     }
 #endif
+
+    if (!isServer) {
+	SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
+    }
 
     SSL_CTX_set_app_data(ctx, (void*)interp);	/* remember the interpreter */
     SSL_CTX_set_options(ctx, SSL_OP_ALL);	/* all SSL bug workarounds */
@@ -1603,6 +1806,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     const SSL_SESSION *session;
     const unsigned char *proto;
     unsigned int len;
+    long mode;
 #if defined(HAVE_SSL_COMPRESSION)
     const COMP_METHOD *comp;
 #endif
@@ -1738,6 +1942,22 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_COMP_get_name(comp), -1));
     }
 #endif
+
+    /* Server info */
+    mode = SSL_CTX_get_session_cache_mode(statePtr->ctx);
+    if (mode & SSL_SESS_CACHE_OFF) {
+	proto = "off";
+    } else if (mode & SSL_SESS_CACHE_CLIENT) {
+	proto = "client";
+    } else if (mode & SSL_SESS_CACHE_SERVER) {
+	proto = "server";
+    } else if (mode & SSL_SESS_CACHE_BOTH) {
+	proto = "both";
+    } else {
+	proto = "unknown";
+    }
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_cache_mode", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(proto, -1));
 
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
