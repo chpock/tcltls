@@ -581,7 +581,6 @@ static int
 SNICallback(const SSL *ssl, int *alert, void *arg) {
     State *statePtr = (State*)arg;
     Tcl_Interp *interp	= statePtr->interp;
-/*    SSL_CTX* ctx; */
     Tcl_Obj *cmdPtr;
     int code;
     char *servername = NULL;
@@ -595,12 +594,9 @@ SNICallback(const SSL *ssl, int *alert, void *arg) {
     }
 
     servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
-    if (!servername || servername[0] == '\0')
+    if (!servername || servername[0] == '\0') {
         return SSL_TLSEXT_ERR_NOACK;
-
-    /* Use SSL_set_SSL_CTX to change the SSL connection object to use another
-       context created from SSL_CTX() for the certificate corresponding to,
-       the the server name provided by the client. */
+    }
 
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
 
@@ -1807,9 +1803,6 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     const unsigned char *proto;
     unsigned int len;
     long mode;
-#if defined(HAVE_SSL_COMPRESSION)
-    const COMP_METHOD *comp;
-#endif
 
     if (objc != 2) {
 	Tcl_WrongNumArgs(interp, 1, objv, "channel");
@@ -1931,17 +1924,24 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewLongObj(SSL_SESSION_get_timeout(session)));
     }
 
-#if defined(HAVE_SSL_COMPRESSION)
     /* Compression info */
-    comp = SSL_get_current_compression(ssl);
-    if (comp != NULL) {
+    if (ssl != NULL) {
+#ifdef HAVE_SSL_COMPRESSION
+	const COMP_METHOD *comp, *expn;
+	comp = SSL_get_current_compression(ssl);
+	expn = SSL_get_current_expansion(ssl);
+
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("compression", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_COMP_get_name(comp), -1));
-	comp = SSL_get_current_expansion(ssl);
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(comp ? SSL_COMP_get_name(comp) : "NONE", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("expansion", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_COMP_get_name(comp), -1));
-    }
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(expn ? SSL_COMP_get_name(expn) : "NONE", -1));
+#else
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("compression", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("NONE", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("expansion", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("NONE", -1));
 #endif
+    }
 
     /* Server info */
     mode = SSL_CTX_get_session_cache_mode(statePtr->ctx);
