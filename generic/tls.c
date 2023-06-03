@@ -530,9 +530,12 @@ ALPNCallback(const SSL *ssl, const unsigned char **out, unsigned char *outlen,
     if (statePtr->callback == (Tcl_Obj*)NULL)
 	return SSL_TLSEXT_ERR_OK;
 
-    cmdPtr = Tcl_DuplicateObj(statePtr->callback);
+    /* Select protocol */
+    SSL_select_next_proto(out, outlen, statePtr->protos, statePtr->protos_len, in, inlen);
 
-    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj( "alpn", -1));
+    cmdPtr = Tcl_DuplicateObj(statePtr->callback);
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("alpn", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(*out, -1));
 
     Tcl_Preserve((ClientData) interp);
     Tcl_Preserve((ClientData) statePtr);
@@ -1240,10 +1243,12 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	unsigned int protos_len = 0;
 	int i, len, cnt;
 	Tcl_Obj **list;
+
 	if (Tcl_ListObjGetElements(interp, alpn, &cnt, &list) != TCL_OK) {
 	    Tls_Free((char *) statePtr);
 	    return TCL_ERROR;
 	}
+
 	/* Determine the memory required for the protocol-list */
 	for (i = 0; i < cnt; i++) {
 	    Tcl_GetStringFromObj(list[i], &len);
@@ -1254,6 +1259,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	    }
 	    protos_len += 1 + len;
 	}
+
 	/* Build the complete protocol-list */
 	protos = ckalloc(protos_len);
 	/* protocol-lists consist of 8-bit length-prefixed, byte strings */
@@ -1263,6 +1269,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	    memcpy(p, str, len);
 	    p += len;
 	}
+
+	/* SSL_set_alpn_protos makes a copy of the protocol-list */
 	/* Note: This functions reverses the return value convention */
 	if (SSL_set_alpn_protos(statePtr->ssl, protos, protos_len)) {
 	    Tcl_AppendResult(interp, "failed to set alpn protocols", (char *) NULL);
@@ -1270,8 +1278,13 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	    ckfree(protos);
 	    return TCL_ERROR;
 	}
-	/* SSL_set_alpn_protos makes a copy of the protocol-list */
-	ckfree(protos);
+
+	/* Store protocols list */
+	statePtr->protos = protos;
+	statePtr->protos_len = protos_len;
+    } else {
+	statePtr->protos = NULL;
+	statePtr->protos_len = 0;
     }
 
     /*
@@ -2263,6 +2276,10 @@ void Tls_Clean(State *statePtr) {
 	statePtr->timer = NULL;
     }
 
+    if (statePtr->protos) {
+	ckfree(statePtr->protos);
+	statePtr->protos = NULL;
+    }
     if (statePtr->bio) {
 	/* This will call SSL_shutdown. Bug 1414045 */
 	dprintf("BIO_free_all(%p)", statePtr->bio);
