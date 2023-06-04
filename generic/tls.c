@@ -236,7 +236,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
 
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("verify", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
-	    Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
+	Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(depth));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tls_NewX509Obj(interp, cert));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(ok));
@@ -370,7 +370,7 @@ void KeyLogCallback(const SSL *ssl, const char *line) {
 /*
  *-------------------------------------------------------------------
  *
- * PasswordCallback --
+ * Password Callback --
  *
  *	Called when a password is needed to unpack RSA and PEM keys.
  *	Evals any bound password script and returns the result as
@@ -430,7 +430,7 @@ PasswordCallback(char *buf, int size, int verify, void *udata) {
 /*
  *-------------------------------------------------------------------
  *
- * SessionCallback for Clients --
+ * Session Callback for Clients --
  *
  *	Called when a new session ticket has been received. In TLS 1.3
  *	this may be received multiple times after the handshake. For
@@ -460,8 +460,7 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
 	return 0;
 
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
-
-    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj( "session", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("session", -1));
 
     /* Session id */
     session_id = SSL_SESSION_get0_id_context(session, &len);
@@ -602,8 +601,7 @@ SNICallback(const SSL *ssl, int *alert, void *arg) {
     }
 
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
-
-    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj( "sni", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("sni", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(servername , -1));
 
     Tcl_Preserve((ClientData) interp);
@@ -635,7 +633,7 @@ SNICallback(const SSL *ssl, int *alert, void *arg) {
  *	present, and make other configuration adjustments relevant to that server
  *	name and its configuration. This includes swapping out the associated
  *	SSL_CTX pointer, modifying the server's list of permitted TLS versions,
- *	changing the server's cipher list in response to the client's cipher list, etc.
+*	changing the server's cipher list in response to the client's cipher list, etc.
  *
  * Results:
  *	None
@@ -656,20 +654,49 @@ HelloCallback(const SSL *ssl, int *alert, void *arg) {
     Tcl_Interp *interp	= statePtr->interp;
     Tcl_Obj *cmdPtr;
     int code;
+    const char *servername;
+    const unsigned char *p;
+    size_t len, remaining;
 
     dprintf("Called");
 
     if (statePtr->callback == (Tcl_Obj*)NULL)
 	return SSL_CLIENT_HELLO_SUCCESS;
 
+    /* Get names */
+    if (!SSL_client_hello_get0_ext(ssl, TLSEXT_TYPE_server_name, &p, &remaining) || remaining <= 2) {
+        return SSL_CLIENT_HELLO_ERROR;
+    }
+
+    /* Extract the length of the supplied list of names. */
+    len = (*(p++) << 8);
+    len += *(p++);
+    if (len + 2 != remaining) {
+        return SSL_CLIENT_HELLO_ERROR;
+    }
+    remaining = len;
+
+    /* The list in practice only has a single element, so we only consider the first one. */
+    if (remaining == 0 || *p++ != TLSEXT_NAMETYPE_host_name) {
+        return SSL_CLIENT_HELLO_ERROR;
+    }
+    remaining--;
+
+    /* Now we can finally pull out the byte array with the actual hostname. */
+    if (remaining <= 2) {
+        return SSL_CLIENT_HELLO_ERROR;
+    }
+    len = (*(p++) << 8);
+    len += *(p++);
+    if (len + 2 > remaining) {
+        return SSL_CLIENT_HELLO_ERROR;
+    }
+    remaining = len;
+    servername = (const char *)p;
+
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
-
-    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj( "hello", -1));
-
-    /* SSL_client_hello_get0_random(), SSL_client_hello_get0_session_id(), SSL_client_hello_get0_ciphers(), and SSL_client_hello_get0_compression_methods() provide access to the corresponding ClientHello fields, returning the field length and optionally setting an out pointer to the octets of that field. */
-
-    /* Similarly, SSL_client_hello_get0_ext() provides access to individual extensions from the ClientHello on a per-extension basis. For the provided wire protocol extension type value, the extension value and length are returned in the output parameters (if present). */
-
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("hello", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(servername, (int)len));
 
     Tcl_Preserve((ClientData) interp);
     Tcl_Preserve((ClientData) statePtr);
@@ -1220,11 +1247,20 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
     /* Set host server name */
     if (servername) {
+	/* Sets the server name indication (SNI) ClientHello extension */
 	if (!SSL_set_tlsext_host_name(statePtr->ssl, servername) && require) {
 	    Tcl_AppendResult(interp, "setting TLS host name extension failed", (char *) NULL);
             Tls_Free((char *) statePtr);
             return TCL_ERROR;
         }
+
+	/* Configure server host name checks in the SSL client. Set DNS hostname to
+	   name for peer certificate checks. SSL_set1_host has limitations. */
+	if (!SSL_add1_host(statePtr->ssl, servername)) {
+	    Tcl_AppendResult(interp, "setting DNS host name failed", (char *) NULL);
+            Tls_Free((char *) statePtr);
+            return TCL_ERROR;
+	}
     }
 
     /* Resume session id */
@@ -1519,6 +1555,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     }
 #endif
 
+    /* Force cipher selection order by server */
     if (!isServer) {
 	SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
     }
@@ -1718,6 +1755,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     int mode;
     const unsigned char *proto;
     unsigned int len;
+    char *peername = NULL;
 
     dprintf("Called");
 
@@ -1763,6 +1801,19 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     } else {
 	objPtr = Tcl_NewListObj(0, NULL);
     }
+
+    /* Peer cert chain (client only) */
+    STACK_OF(X509)* ssl_certs = SSL_get_peer_cert_chain(statePtr->ssl);
+    if (!peer && (ssl_certs == NULL || sk_X509_num(ssl_certs) == 0)) {
+	return TCL_ERROR;
+    }
+
+    /* Peer name from cert */
+    if (SSL_get_verify_result(statePtr->ssl) == X509_V_OK) {
+	peername = SSL_get0_peername(statePtr->ssl);
+    }
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("peername", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(peername, -1));
 
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("sbits", -1));
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(SSL_get_cipher_bits(statePtr->ssl, NULL)));
@@ -1864,7 +1915,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	/* Renegotiation allowed */
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("renegotiation", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(
-	    SSL_get_secure_renegotiation_support(ssl) ? "allowed" : "not supported", -1));
+	    SSL_get_secure_renegotiation_support(ssl) ? "supported" : "not supported", -1));
 
 	/* Report the selected protocol as a result of the ALPN negotiation */
 	SSL_get0_alpn_selected(ssl, &proto, &len);
@@ -1916,10 +1967,10 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 
 	/* Session id */
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_id", -1));
-	session_id = SSL_SESSION_get0_id_context(session, &len);
+	session_id = SSL_SESSION_get_id(session, &len);
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(session_id, (int)len));
 
-	/* Session ticket */
+	/* Session ticket - client only */
 	SSL_SESSION_get0_ticket(session, &ticket, &len2);
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_ticket", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(ticket, (int) len2));
