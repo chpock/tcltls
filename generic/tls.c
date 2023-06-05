@@ -432,7 +432,7 @@ PasswordCallback(char *buf, int size, int verify, void *udata) {
  *
  * Session Callback for Clients --
  *
- *	Called when a new session ticket has been received. In TLS 1.3
+ *	Called when a new session is added to the cache. In TLS 1.3
  *	this may be received multiple times after the handshake. For
  *	earlier versions, this will be received during the handshake.
  *
@@ -456,8 +456,11 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
 
     dprintf("Called");
 
-    if (statePtr->callback == (Tcl_Obj*)NULL)
-	return 0;
+    if (statePtr->callback == (Tcl_Obj*)NULL) {
+	return SSL_TLSEXT_ERR_OK;
+    } else if (ssl == NULL) {
+	return SSL_TLSEXT_ERR_NOACK;
+    }
 
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("session", -1));
@@ -490,7 +493,8 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
 
     Tcl_Release((ClientData) statePtr);
     Tcl_Release((ClientData) interp);
-    return 1;
+    /* If return non-zero, caller will have to do a SSL_SESSION_free() on the structure. */
+    return 0;
 }
 
 /*
@@ -526,8 +530,11 @@ ALPNCallback(const SSL *ssl, const unsigned char **out, unsigned char *outlen,
 
     dprintf("Called");
 
-    if (statePtr->callback == (Tcl_Obj*)NULL)
+    if (statePtr->callback == (Tcl_Obj*)NULL) {
 	return SSL_TLSEXT_ERR_OK;
+    } else if (ssl == NULL) {
+	return SSL_TLSEXT_ERR_NOACK;
+    }
 
     /* Select protocol */
     SSL_select_next_proto(out, outlen, statePtr->protos, statePtr->protos_len, in, inlen);
@@ -660,8 +667,11 @@ HelloCallback(const SSL *ssl, int *alert, void *arg) {
 
     dprintf("Called");
 
-    if (statePtr->callback == (Tcl_Obj*)NULL)
-	return SSL_CLIENT_HELLO_SUCCESS;
+    if (statePtr->callback == (Tcl_Obj*)NULL) {
+	return SSL_TLSEXT_ERR_OK;
+    } else if (ssl == NULL) {
+	return SSL_TLSEXT_ERR_NOACK;
+    }
 
     /* Get names */
     if (!SSL_client_hello_get0_ext(ssl, TLSEXT_TYPE_server_name, &p, &remaining) || remaining <= 2) {
@@ -1331,7 +1341,6 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     SSL_set_app_data(statePtr->ssl, (void *)statePtr);	/* point back to us */
     SSL_set_verify(statePtr->ssl, verify, VerifyCallback);
     SSL_CTX_set_info_callback(statePtr->ctx, InfoCallback);
-    SSL_CTX_sess_set_new_cb(statePtr->ctx, SessionCallback);
 
     /* Create Tcl_Channel BIO Handler */
     statePtr->p_bio	= BIO_new_tcl(statePtr, BIO_NOCLOSE);
@@ -1347,6 +1356,10 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	statePtr->flags |= TLS_TCL_SERVER;
 	SSL_set_accept_state(statePtr->ssl);
     } else {
+	/* Session caching */
+	SSL_CTX_set_session_cache_mode(statePtr->ctx, SSL_SESS_CACHE_CLIENT | SSL_SESS_CACHE_NO_INTERNAL_STORE);
+	SSL_CTX_sess_set_new_cb(statePtr->ctx, SessionCallback);
+
 	SSL_set_connect_state(statePtr->ssl);
     }
     SSL_set_bio(statePtr->ssl, statePtr->p_bio, statePtr->p_bio);
