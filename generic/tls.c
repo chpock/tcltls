@@ -769,6 +769,8 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 	return TCL_ERROR;
     }
 
+    ERR_clear_error();
+
     switch ((enum protocol)index) {
 	case TLS_SSL2:
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L || defined(NO_SSL2) || defined(OPENSSL_NO_SSL2)
@@ -1538,6 +1540,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	break;
     }
 
+    ERR_clear_error();
     ctx = SSL_CTX_new(method);
 
     if (!ctx) {
@@ -1891,18 +1894,9 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     statePtr = (State *)Tcl_GetChannelInstanceData(chan);
     ssl = statePtr->ssl;
     if (ssl != NULL) {
-	const char *state;
-
 	/* connection state */
-	if (SSL_is_init_finished(ssl)) {
-	    state = "established";
-	} else if (SSL_in_init(ssl)) {
-	    state = "handshake";
-	} else {
-	    state = "initializing";
-	}
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("state", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(state, -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_state_string_long(ssl), -1));
 
 	/* Get server name */
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("servername", -1));
