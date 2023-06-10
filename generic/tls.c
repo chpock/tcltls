@@ -1537,12 +1537,12 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	 * after the context is created.  Use the
 	 * generic method here.
 	 */
-	method = TLS_method();
+	method = isServer ? TLS_server_method() : TLS_client_method();
 	break;
 #endif
     default:
 	/* Negotiate highest available SSL/TLS version */
-	method = TLS_method();
+	method = isServer ? TLS_server_method() : TLS_client_method();
 #if OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(NO_SSL2) && !defined(OPENSSL_NO_SSL2)
 	off |= (ENABLED(proto, TLS_PROTO_SSL2)   ? 0 : SSL_OP_NO_SSLv2);
 #endif
