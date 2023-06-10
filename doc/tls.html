@@ -277,7 +277,7 @@ used directly.</p>
 <blockquote>
     <dl>
         <dt><strong>state</strong> <em>state</em></dt>
-        <dd>State of the connection: initializing, handshake, established</dd>
+        <dd>State of the connection.</dd>
         <dt><strong>servername</strong> <em>name</em></dt>
         <dd>The name of the connected to server.</dd>
         <dt><strong>protocol</strong> <em>version</em></dt>
@@ -285,11 +285,12 @@ used directly.</p>
 	    SSL2, SSL3, TLS1, TLS1.1, TLS1.2, TLS1.3, or unknown.</dd>
         <dt><strong>renegotiation</strong> <em>state</em></dt>
         <dd>Whether protocol renegotiation is allowed or disallowed.</dd>
-        <dt><strong>alpn</strong> <em>protocol</em></dt>
-        <dd>The protocol selected after Application-Layer Protocol
-	    Negotiation (ALPN).</dd>
         <dt><strong>securitylevel</strong> <em>level</em></dt>
         <dd>The security level used for selection of ciphers, key size, etc.</dd>
+        <dt><strong>session_reused</strong> <em>boolean</em></dt>
+        <dd>Whether the session has been reused or not.</dd>
+        <dt><strong>is_server</strong> <em>boolean</em></dt>
+        <dd>Whether the connection configured as a server or client (false).</dd>
         <dt><strong>cipher</strong> <em>cipher</em></dt>
         <dd>The current cipher in use for the connection.</dd>
         <dt><strong>standard_name</strong> <em>name</em></dt>
@@ -300,20 +301,29 @@ used directly.</p>
         <dd>The number of secret bits used for cipher.</dd>
         <dt><strong>min_version</strong> <em>version</em></dt>
         <dd>The minimum protocol version for cipher.</dd>
+        <dt><strong>id</strong> <em>id</em></dt>
+        <dd>The OpenSSL cipher id.</dd>
         <dt><strong>description</strong> <em>string</em></dt>
         <dd>A text description of the cipher.</dd>
-        <dt><strong>session_reused</strong> <em>boolean</em></dt>
-        <dd>Whether the session has been reused or not.</dd>
-        <dt><strong>session_id</strong> <em>string</em></dt>
-        <dd>Unique session id for use in resuming the session.</dd>
-        <dt><strong>session_ticket</strong> <em>string</em></dt>
-        <dd>Unique session ticket for use in resuming the session.</dd>
+        <dt><strong>alpn</strong> <em>protocol</em></dt>
+        <dd>The protocol selected after Application-Layer Protocol
+	    Negotiation (ALPN).</dd>
         <dt><strong>resumable</strong> <em>boolean</em></dt>
         <dd>Can the session be resumed or not.</dd>
         <dt><strong>start_time</strong> <em>seconds</em></dt>
         <dd>Time since session started in seconds since epoch.</dd>
         <dt><strong>timeout</strong> <em>seconds</em></dt>
         <dd>Max duration of session in seconds before time-out.</dd>
+        <dt><strong>lifetime</strong> <em>seconds</em></dt>
+        <dd>Session ticket lifetime hint in seconds.</dd>
+        <dt><strong>session_id</strong> <em>string</em></dt>
+        <dd>Unique session id for use in resuming the session.</dd>
+        <dt><strong>session_ticket</strong> <em>string</em></dt>
+        <dd>Unique session ticket for use in resuming the session.</dd>
+        <dt><strong>ticket_app_data</strong> <em>string</em></dt>
+        <dd>Unique session ticket application data.</dd>
+        <dt><strong>master_key</strong> <em>binary_string</em></dt>
+        <dd>Unique session master key.</dd>
         <dt><strong>compression</strong> <em>mode</em></dt>
         <dd>Compression method.</dd>
         <dt><strong>expansion</strong> <em>mode</em></dt>
