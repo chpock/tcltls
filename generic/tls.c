@@ -435,12 +435,18 @@ PasswordCallback(char *buf, int size, int verify, void *udata) {
  *	Called when a new session is added to the cache. In TLS 1.3
  *	this may be received multiple times after the handshake. For
  *	earlier versions, this will be received during the handshake.
+ *	This is the preferred way to obtain a resumable session.
  *
  * Results:
  *	None
  *
  * Side effects:
  *	Calls callback (if defined)
+ *
+ * Return codes:
+ *	0 = error where session will be immediately removed from the internal cache.
+ *	1 = success where app retains session in session cache, and must call SSL_SESSION_free() when done.
+ *
  *-------------------------------------------------------------------
  */
 static int
@@ -450,9 +456,9 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
     Tcl_Obj *cmdPtr;
     const unsigned char *ticket;
     const unsigned char *session_id;
-    int len;
     int code;
     size_t len2;
+    unsigned int ulen;
 
     dprintf("Called");
 
@@ -466,8 +472,8 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("session", -1));
 
     /* Session id */
-    session_id = SSL_SESSION_get0_id_context(session, &len);
-    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(session_id, len));
+    session_id = SSL_SESSION_get_id(session, &ulen);
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewByteArrayObj(session_id, (int) ulen));
 
     /* Session ticket */
     SSL_SESSION_get0_ticket(session, &ticket, &len2);
@@ -492,9 +498,7 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
     Tcl_DecrRefCount(cmdPtr);
 
     Tcl_Release((ClientData) statePtr);
-    Tcl_Release((ClientData) interp);
-    /* If return non-zero, caller will have to do a SSL_SESSION_free() on the structure. */
-    return 0;
+    Tcl_Release((ClientData) interp);    return 0;
 }
 
 /*
@@ -502,8 +506,8 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
  *
  * ALPN Callback for Servers --
  *
- *	Select which protocol (http/1.1, h2, h3, etc.) to use for the
- *	incoming connection.
+ *	Perform server-side protocol (http/1.1, h2, h3, etc.) selection for the
+ *	incoming connection. Called after Hello and server callbacks
  *
  * Results:
  *	None
@@ -526,7 +530,7 @@ ALPNCallback(const SSL *ssl, const unsigned char **out, unsigned char *outlen,
     State *statePtr = (State*)arg;
     Tcl_Interp *interp	= statePtr->interp;
     Tcl_Obj *cmdPtr;
-    int code;
+    int code, res;
 
     dprintf("Called");
 
@@ -537,7 +541,13 @@ ALPNCallback(const SSL *ssl, const unsigned char **out, unsigned char *outlen,
     }
 
     /* Select protocol */
-    SSL_select_next_proto(out, outlen, statePtr->protos, statePtr->protos_len, in, inlen);
+    if (SSL_select_next_proto(out, outlen, statePtr->protos, statePtr->protos_len,
+	in, inlen) == OPENSSL_NPN_NEGOTIATED) {
+	res = SSL_TLSEXT_ERR_OK;
+    } else {
+	/* No overlap, so first client protocol used */
+	res = SSL_TLSEXT_ERR_NOACK;
+    }
 
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("alpn", -1));
@@ -559,7 +569,7 @@ ALPNCallback(const SSL *ssl, const unsigned char **out, unsigned char *outlen,
 
     Tcl_Release((ClientData) statePtr);
     Tcl_Release((ClientData) interp);
-    return SSL_TLSEXT_ERR_OK;
+    return res;
 }
 
 /*
@@ -567,7 +577,8 @@ ALPNCallback(const SSL *ssl, const unsigned char **out, unsigned char *outlen,
  *
  * SNI Callback for Servers --
  *
- *	Perform server name selection
+ *	Perform server-side SNI hostname selection after receiving SNI header.
+ *	Called after hello callback but before ALPN callback.
  *
  * Results:
  *	None
@@ -633,14 +644,14 @@ SNICallback(const SSL *ssl, int *alert, void *arg) {
 /*
  *-------------------------------------------------------------------
  *
- * Hello Callback for Servers --
+ * Hello Handshake Callback for Servers --
  *
  *	Used by server to examine the server name indication (SNI) extension
  *	provided by the client in order to select an appropriate certificate to
  *	present, and make other configuration adjustments relevant to that server
  *	name and its configuration. This includes swapping out the associated
  *	SSL_CTX pointer, modifying the server's list of permitted TLS versions,
-*	changing the server's cipher list in response to the client's cipher list, etc.
+ *	changing the server's cipher list in response to the client's cipher list, etc.
  *
  * Results:
  *	None
@@ -1301,7 +1312,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	for (i = 0; i < cnt; i++) {
 	    Tcl_GetStringFromObj(list[i], &len);
 	    if (len > 255) {
-		Tcl_AppendResult(interp, "alpn protocol name too long", (char *) NULL);
+		Tcl_AppendResult(interp, "ALPN protocol name too long", (char *) NULL);
 		Tls_Free((char *) statePtr);
 		return TCL_ERROR;
 	    }
@@ -1321,7 +1332,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	/* SSL_set_alpn_protos makes a copy of the protocol-list */
 	/* Note: This functions reverses the return value convention */
 	if (SSL_set_alpn_protos(statePtr->ssl, protos, protos_len)) {
-	    Tcl_AppendResult(interp, "failed to set alpn protocols", (char *) NULL);
+	    Tcl_AppendResult(interp, "failed to set ALPN protocols", (char *) NULL);
 	    Tls_Free((char *) statePtr);
 	    ckfree(protos);
 	    return TCL_ERROR;
