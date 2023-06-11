@@ -477,7 +477,7 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
 
     /* Session ticket */
     SSL_SESSION_get0_ticket(session, &ticket, &len2);
-    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(ticket, (int)len2));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewByteArrayObj(ticket, (int) len2));
 
     /* Lifetime - number of seconds */
     Tcl_ListObjAppendElement(interp, cmdPtr,
@@ -717,7 +717,7 @@ HelloCallback(const SSL *ssl, int *alert, void *arg) {
 
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("hello", -1));
-    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(servername, (int)len));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(servername, (int) len));
 
     Tcl_Preserve((ClientData) interp);
     Tcl_Preserve((ClientData) statePtr);
@@ -1860,7 +1860,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     /* Report the selected protocol as a result of the negotiation */
     SSL_get0_alpn_selected(statePtr->ssl, &proto, &len);
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("alpn", -1));
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj((char *)proto, (int)len));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj((char *)proto, (int) len));
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("protocol", -1));
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get_version(statePtr->ssl), -1));
 
@@ -1984,27 +1984,23 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	char buffer[SSL_MAX_MASTER_KEY_LENGTH];
 
 	/* Report the selected protocol as a result of the ALPN negotiation */
-	SSL_SESSION_get0_alpn_selected(session, &proto, &len);
+	SSL_SESSION_get0_alpn_selected(session, &proto, &len2);
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("alpn", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj((char *)proto, (int) len));
-
-	/* Peer */
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("peer", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_SESSION_get0_peer(session), -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj((char *)proto, (int) len2));
 
 	/* Resumable session */
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("resumable", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(SSL_SESSION_is_resumable(session)));
 
-	/* Start time */
+	/* Session start time (seconds since epoch) */
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("start_time", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewLongObj(SSL_SESSION_get_time(session)));
 
-	/* Timeout value */
+	/* Timeout value - SSL_CTX_get_timeout (in seconds) */
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("timeout", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewLongObj(SSL_SESSION_get_timeout(session)));
 
-	/* Lifetime hint */
+	/* Session ticket lifetime hint (in seconds) */
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("lifetime", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewLongObj(SSL_SESSION_get_ticket_lifetime_hint(session)));
 
@@ -2553,6 +2549,7 @@ static int TlsLibInit(int uninitialize) {
     /* Initialize BOTH libcrypto and libssl. */
     OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS | OPENSSL_INIT_LOAD_CRYPTO_STRINGS
 	| OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
+
 
     BIO_new_tcl(NULL, 0);
 

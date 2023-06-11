@@ -234,35 +234,51 @@ used directly.</p>
 
 <blockquote>
     <dl>
-        <dt><strong>issuer</strong> <em>dn</em></dt>
-        <dd>The distinguished name (DN) of the certificate
-            issuer.</dd>
+        <dt><strong>version</strong> <em>value</em></dt>
+        <dd>The certification version</dd>
+        <dt><strong>signature_algorithm</strong> <em>algorithm</em></dt>
+        <dd>Cipher algorithm used for certificate signature.</dd>
+        <dt><strong>digest</strong> <em>version</em></dt>
+        <dd>Certificate signature digest.</dd>
+        <dt><strong>public_key_algorithm</strong> <em>algorithm</em></dt>
+        <dd>Certificate signature public key algorithm.</dd>
+        <dt><strong>bits</strong> <em>n</em></dt>
+        <dd>Number of bits used for certificate signature key</dd>
+        <dt><strong>self_signed</strong> <em>boolean</em></dt>
+        <dd>Is certificate signature self signed.</dd>
+        <dt><strong>sha1_hash</strong> <em>hash</em></dt>
+        <dd>The SHA1 hash of the certificate.</dd>
+        <dt><strong>sha256_hash</strong> <em>hash</em></dt>
+        <dd>The SHA256 hash of the certificate.</dd>
         <dt><strong>subject</strong> <em>dn</em></dt>
-        <dd>The distinguished name (DN) of the certificate
-            subject.</dd>
+        <dd>The distinguished name (DN) of the certificate subject.</dd>
+        <dt><strong>issuer</strong> <em>dn</em></dt>
+        <dd>The distinguished name (DN) of the certificate issuer.</dd>
         <dt><strong>notBefore</strong> <em>date</em></dt>
         <dd>The begin date for the validity of the certificate.</dd>
         <dt><strong>notAfter</strong> <em>date</em></dt>
         <dd>The expiry date for the certificate.</dd>
         <dt><strong>serial</strong> <em>n</em></dt>
         <dd>The serial number of the certificate.</dd>
+        <dt><strong>certificate</strong> <em>cert</em></dt>
+        <dd>The PEM encoded certificate.</dd>
+        <dt><strong>num_extensions</strong> <em>n</em></dt>
+        <dd>Number of certificate extensions.</dd>
+        <dt><strong>extensions</strong> <em>list</em></dt>
+        <dd>List of certificate extension names.</dd>
+        <dt><strong>peername</strong> <em>name</em></dt>
+        <dd>The peername from the certificate.</dd>
+        <dt><strong>sbits</strong> <em>n</em></dt>
+        <dd>The number of bits used for the session key.</dd>
         <dt><strong>cipher</strong> <em>cipher</em></dt>
         <dd>The current cipher in use between the client and
             server channels.</dd>
-        <dt><strong>sbits</strong> <em>n</em></dt>
-        <dd>The number of bits used for the session key.</dd>
-        <dt><strong>certificate</strong> <em>cert</em></dt>
-        <dd>The PEM encoded certificate.</dd>
-        <dt><strong>sha1_hash</strong> <em>hash</em></dt>
-        <dd>The SHA1 hash of the certificate.</dd>
-        <dt><strong>sha256_hash</strong> <em>hash</em></dt>
-        <dd>The SHA256 hash of the certificate.</dd>
         <dt><strong>validation</strong> <em>result</em></dt>
         <dd>Certificate validation result.</dd>
         <dt><strong>alpn</strong> <em>protocol</em></dt>
         <dd>The protocol selected after Application-Layer Protocol
 	    Negotiation (ALPN).</dd>
-        <dt><strong>version</strong> <em>value</em></dt>
+        <dt><strong>protocol</strong> <em>value</em></dt>
         <dd>The protocol version used for the connection:
 	  SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3, or unknown</dd>
     </dl>
@@ -459,6 +475,7 @@ to handle intermediate processing by the OpenSSL library, using the
 	  same server so the right certificate can be used.
 	</dd>
 
+	<br>
 	<br>
 
 	<dt>
