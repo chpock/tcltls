@@ -93,7 +93,6 @@ ASN1_UTCTIME_tostr(ASN1_UTCTIME *tm)
 Tcl_Obj*
 Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     Tcl_Obj *certPtr = Tcl_NewListObj(0, NULL);
-    Tcl_Obj *extsPtr = Tcl_NewListObj(0, NULL);
     BIO *bio;
     int n;
     unsigned long flags;
@@ -111,7 +110,6 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     const char *shachars="0123456789ABCDEF";
     int nid, pknid, bits, num_of_exts;
     uint32_t xflags;
-    const STACK_OF(X509_EXTENSION) *exts;
 
     sha1_hash_ascii[SHA_DIGEST_LENGTH * 2] = '\0';
     sha256_hash_ascii[SHA256_DIGEST_LENGTH * 2] = '\0';
@@ -143,6 +141,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	serial[n] = 0;
 	(void)BIO_flush(bio);
 
+        /* Get certificate */
         if (PEM_write_bio_X509(bio, cert)) {
             certStr_p = certStr;
             certStr_len = 0;
@@ -239,15 +238,20 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj(num_of_exts));
 
     /* Get extensions */
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("extensions", -1));
-    exts = X509_get0_extensions(cert);
-    for (int i=0; i < num_of_exts; i++) {
-	X509_EXTENSION *ex = sk_X509_EXTENSION_value(exts, i);
-	ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
-	unsigned nid2 = OBJ_obj2nid(obj);
-	Tcl_ListObjAppendElement(interp, extsPtr, Tcl_NewStringObj(OBJ_nid2ln(nid2), -1));
+    if (num_of_exts > 0) {
+	Tcl_Obj *extsPtr = Tcl_NewListObj(0, NULL);
+	const STACK_OF(X509_EXTENSION) *exts;
+	exts = X509_get0_extensions(cert);
+
+	for (int i=0; i < num_of_exts; i++) {
+	    X509_EXTENSION *ex = sk_X509_EXTENSION_value(exts, i);
+	    ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
+	    unsigned nid2 = OBJ_obj2nid(obj);
+	    Tcl_ListObjAppendElement(interp, extsPtr, Tcl_NewStringObj(OBJ_nid2ln(nid2), -1));
+	}
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("extensions", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, extsPtr);
     }
-    Tcl_ListObjAppendElement(interp, certPtr, extsPtr);
 
     return certPtr;
 }
