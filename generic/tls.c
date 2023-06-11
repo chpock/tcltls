@@ -1507,36 +1507,32 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     switch (proto) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(NO_SSL2) && !defined(OPENSSL_NO_SSL2)
     case TLS_PROTO_SSL2:
-	method = SSLv2_method();
+	method = isServer ? SSLv2_server_method() : SSLv2_client_method();
 	break;
 #endif
 #if !defined(NO_SSL3) && !defined(OPENSSL_NO_SSL3) && !defined(OPENSSL_NO_SSL3_METHOD)
     case TLS_PROTO_SSL3:
-	method = SSLv3_method();
+	method = isServer ? SSLv3_server_method() : SSLv3_client_method();
 	break;
 #endif
 #if !defined(NO_TLS1) && !defined(OPENSSL_NO_TLS1) && !defined(OPENSSL_NO_TLS1_METHOD)
     case TLS_PROTO_TLS1:
-	method = TLSv1_method();
+	method = isServer ? TLSv1_server_method() : TLSv1_client_method();
 	break;
 #endif
 #if !defined(NO_TLS1_1) && !defined(OPENSSL_NO_TLS1_1) && !defined(OPENSSL_NO_TLS1_1_METHOD)
     case TLS_PROTO_TLS1_1:
-	method = TLSv1_1_method();
+	method = isServer ? TLSv1_1_server_method() : TLSv1_1_client_method();
 	break;
 #endif
 #if !defined(NO_TLS1_2) && !defined(OPENSSL_NO_TLS1_2) && !defined(OPENSSL_NO_TLS1_2_METHOD)
     case TLS_PROTO_TLS1_2:
-	method = TLSv1_2_method();
+	method = isServer ? TLSv1_2_server_method() : TLSv1_2_client_method();
 	break;
 #endif
 #if !defined(NO_TLS1_3) && !defined(OPENSSL_NO_TLS1_3)
     case TLS_PROTO_TLS1_3:
-	/*
-	 * The version range is constrained below,
-	 * after the context is created.  Use the
-	 * generic method here.
-	 */
+	/* Use the generic method and constraint range after context is created */
 	method = isServer ? TLS_server_method() : TLS_client_method();
 	break;
 #endif
@@ -1596,9 +1592,13 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     SSL_CTX_sess_set_cache_size(ctx, 128);
 
     /* Set user defined ciphers, cipher suites, and security level */
-    if (((ciphers != NULL) && !SSL_CTX_set_cipher_list(ctx, ciphers)) || \
-	((ciphersuites != NULL) && !SSL_CTX_set_ciphersuites(ctx, ciphersuites))) {
-	    Tcl_AppendResult(interp, "Set ciphers failed", (char *) NULL);
+    if ((ciphers != NULL) && !SSL_CTX_set_cipher_list(ctx, ciphers)) {
+	    Tcl_AppendResult(interp, "Set ciphers failed: No valid ciphers", (char *) NULL);
+	    SSL_CTX_free(ctx);
+	    return (SSL_CTX *)0;
+    }
+    if ((ciphersuites != NULL) && !SSL_CTX_set_ciphersuites(ctx, ciphersuites)) {
+	    Tcl_AppendResult(interp, "Set cipher suites failed: No valid ciphers", (char *) NULL);
 	    SSL_CTX_free(ctx);
 	    return (SSL_CTX *)0;
     }
