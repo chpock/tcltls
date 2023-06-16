@@ -222,7 +222,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
     if (!ok) {
 	errStr = (char*)X509_verify_cert_error_string(err);
     } else {
-	errStr = (char *)0;
+	errStr = NULL;
     }
 
     if (statePtr->callback == (Tcl_Obj*)NULL) {
@@ -679,9 +679,9 @@ HelloCallback(const SSL *ssl, int *alert, void *arg) {
     dprintf("Called");
 
     if (statePtr->callback == (Tcl_Obj*)NULL) {
-	return SSL_TLSEXT_ERR_OK;
+	return SSL_CLIENT_HELLO_SUCCESS;
     } else if (ssl == NULL) {
-	return SSL_TLSEXT_ERR_NOACK;
+	return SSL_CLIENT_HELLO_ERROR;
     }
 
     /* Get names */
@@ -1216,8 +1216,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	}
 	ctx = ((State *)Tcl_GetChannelInstanceData(chan))->ctx;
     } else {
-	if ((ctx = CTX_Init(statePtr, server, proto, keyfile, certfile, key, cert,
-	    key_len, cert_len, CAdir, CAfile, ciphers, ciphersuites, level, DHparams)) == (SSL_CTX*)0) {
+	if ((ctx = CTX_Init(statePtr, server, proto, keyfile, certfile, key, cert, key_len,
+	    cert_len, CAdir, CAfile, ciphers, ciphersuites, level, DHparams)) == NULL) {
 	    Tls_Free((char *) statePtr);
 	    return TCL_ERROR;
 	}
@@ -1463,44 +1463,44 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 
     if (!proto) {
 	Tcl_AppendResult(interp, "no valid protocol selected", NULL);
-	return (SSL_CTX *)0;
+	return NULL;
     }
 
     /* create SSL context */
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L || defined(NO_SSL2) || defined(OPENSSL_NO_SSL2)
     if (ENABLED(proto, TLS_PROTO_SSL2)) {
 	Tcl_AppendResult(interp, "SSL2 protocol not supported", NULL);
-	return (SSL_CTX *)0;
+	return NULL;
     }
 #endif
 #if defined(NO_SSL3) || defined(OPENSSL_NO_SSL3)
     if (ENABLED(proto, TLS_PROTO_SSL3)) {
 	Tcl_AppendResult(interp, "SSL3 protocol not supported", NULL);
-	return (SSL_CTX *)0;
+	return NULL;
     }
 #endif
 #if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1)
     if (ENABLED(proto, TLS_PROTO_TLS1)) {
 	Tcl_AppendResult(interp, "TLS 1.0 protocol not supported", NULL);
-	return (SSL_CTX *)0;
+	return NULL;
     }
 #endif
 #if defined(NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1)
     if (ENABLED(proto, TLS_PROTO_TLS1_1)) {
 	Tcl_AppendResult(interp, "TLS 1.1 protocol not supported", NULL);
-	return (SSL_CTX *)0;
+	return NULL;
     }
 #endif
 #if defined(NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2)
     if (ENABLED(proto, TLS_PROTO_TLS1_2)) {
 	Tcl_AppendResult(interp, "TLS 1.2 protocol not supported", NULL);
-	return (SSL_CTX *)0;
+	return NULL;
     }
 #endif
 #if defined(NO_TLS1_3) || defined(OPENSSL_NO_TLS1_3)
     if (ENABLED(proto, TLS_PROTO_TLS1_3)) {
 	Tcl_AppendResult(interp, "TLS 1.3 protocol not supported", NULL);
-	return (SSL_CTX *)0;
+	return NULL;
     }
 #endif
 
@@ -1595,12 +1595,12 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     if ((ciphers != NULL) && !SSL_CTX_set_cipher_list(ctx, ciphers)) {
 	    Tcl_AppendResult(interp, "Set ciphers failed: No valid ciphers", (char *) NULL);
 	    SSL_CTX_free(ctx);
-	    return (SSL_CTX *)0;
+	    return NULL;
     }
     if ((ciphersuites != NULL) && !SSL_CTX_set_ciphersuites(ctx, ciphersuites)) {
 	    Tcl_AppendResult(interp, "Set cipher suites failed: No valid ciphers", (char *) NULL);
 	    SSL_CTX_free(ctx);
-	    return (SSL_CTX *)0;
+	    return NULL;
     }
 
     /* Set security level */
@@ -1618,7 +1618,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     if (DHparams != NULL) {
 	Tcl_AppendResult(interp, "DH parameter support not available", (char *) NULL);
 	SSL_CTX_free(ctx);
-	return (SSL_CTX *)0;
+	return NULL;
     }
 #else
     {
@@ -1631,7 +1631,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 		Tcl_DStringFree(&ds);
 		Tcl_AppendResult(interp, "Could not find DH parameters file", (char *) NULL);
 		SSL_CTX_free(ctx);
-		return (SSL_CTX *)0;
+		return NULL;
 	    }
 
 	    dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
@@ -1640,7 +1640,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    if (!dh) {
 		Tcl_AppendResult(interp, "Could not read DH parameters from file", (char *) NULL);
 		SSL_CTX_free(ctx);
-		return (SSL_CTX *)0;
+		return NULL;
 	    }
 	} else {
 	    dh = get_dhParams();
@@ -1662,7 +1662,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    Tcl_AppendResult(interp, "unable to set certificate file ", certfile, ": ",
 			     REASON(), (char *) NULL);
 	    SSL_CTX_free(ctx);
-	    return (SSL_CTX *)0;
+	    return NULL;
 	}
     } else if (cert != NULL) {
 	load_private_key = 1;
@@ -1671,7 +1671,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    Tcl_AppendResult(interp, "unable to set certificate: ",
 			     REASON(), (char *) NULL);
 	    SSL_CTX_free(ctx);
-	    return (SSL_CTX *)0;
+	    return NULL;
 	}
     } else {
 	certfile = (char*)X509_get_default_cert_file();
@@ -1682,7 +1682,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    Tcl_AppendResult(interp, "unable to use default certificate file ", certfile, ": ",
 			     REASON(), (char *) NULL);
 	    SSL_CTX_free(ctx);
-	    return (SSL_CTX *)0;
+	    return NULL;
 #endif
 	}
     }
@@ -1706,7 +1706,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 		Tcl_AppendResult(interp, "unable to set public key file ", keyfile, " ",
 			         REASON(), (char *) NULL);
 		SSL_CTX_free(ctx);
-		return (SSL_CTX *)0;
+		return NULL;
 	    }
 	    Tcl_DStringFree(&ds);
 
@@ -1717,7 +1717,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 		Tcl_SetResult(interp, NULL, TCL_STATIC);
 		Tcl_AppendResult(interp, "unable to set public key: ", REASON(), (char *) NULL);
 		SSL_CTX_free(ctx);
-		return (SSL_CTX *)0;
+		return NULL;
 	    }
 	}
 	/* Now we know that a key and cert have been set against
@@ -1726,7 +1726,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    Tcl_AppendResult(interp, "private key does not match the certificate public key",
 			     (char *) NULL);
 	    SSL_CTX_free(ctx);
-	    return (SSL_CTX *)0;
+	    return NULL;
 	}
     }
 
@@ -1741,7 +1741,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	/* Don't currently care if this fails */
 	Tcl_AppendResult(interp, "SSL default verify paths: ", REASON(), (char *) NULL);
 	SSL_CTX_free(ctx);
-	return (SSL_CTX *)0;
+	return NULL;
 #endif
     }
 
