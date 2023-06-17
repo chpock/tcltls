@@ -1782,6 +1782,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     int mode;
     const unsigned char *proto;
     unsigned int len;
+    int nid;
 
     dprintf("Called");
 
@@ -1848,14 +1849,9 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     }
 
     /* Verify the X509 certificate presented by the peer */
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("validation", -1));
-    if (SSL_get_verify_result(statePtr->ssl) != X509_V_OK) {
-	/* proto = "failed"; */
-	proto = REASON();
-    } else {
-	proto = "ok";
-    }
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(proto, -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("verification", -1));
+    Tcl_ListObjAppendElement(interp, objPtr,
+	Tcl_NewStringObj(X509_verify_cert_error_string(SSL_get_verify_result(statePtr->ssl)), -1));
 
     /* Report the selected protocol as a result of the negotiation */
     SSL_get0_alpn_selected(statePtr->ssl, &proto, &len);
@@ -1863,6 +1859,20 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj((char *)proto, (int) len));
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("protocol", -1));
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get_version(statePtr->ssl), -1));
+
+    /* Valid for non-RSA signature and TLS 1.3 */
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("signature_hash", -1));
+    if (objc == 2 ? SSL_get_peer_signature_nid(statePtr->ssl, &nid) : SSL_get_signature_nid(statePtr->ssl, &nid)) {
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(OBJ_nid2ln(nid), -1));
+    } else {
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("", -1));
+    }
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("signature_type", -1));
+    if (objc == 2 ? SSL_get_peer_signature_type_nid(statePtr->ssl, &nid) : SSL_get_signature_type_nid(statePtr->ssl, &nid)) {
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(OBJ_nid2ln(nid), -1));
+    } else {
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("", -1));
+    }
 
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;

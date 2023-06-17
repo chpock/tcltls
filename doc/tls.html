@@ -273,14 +273,20 @@ used directly.</p>
         <dt><strong>cipher</strong> <em>cipher</em></dt>
         <dd>The current cipher in use between the client and
             server channels.</dd>
-        <dt><strong>validation</strong> <em>result</em></dt>
-        <dd>Certificate validation result.</dd>
+        <dt><strong>verification<em>result</em></dt>
+        <dd>Certificate verification result.</dd>
         <dt><strong>alpn</strong> <em>protocol</em></dt>
         <dd>The protocol selected after Application-Layer Protocol
 	    Negotiation (ALPN).</dd>
         <dt><strong>protocol</strong> <em>value</em></dt>
         <dd>The protocol version used for the connection:
 	  SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3, or unknown</dd>
+        <dt><strong>signature_hash</strong> <em>string</em></dt>
+        <dd>The signature hash value.</dd>
+        <dt><strong>signature_type</strong> <em>type</em></dt>
+        <dd>The signature type value.</dd>
+        <dt><strong>ca_names</strong> <em>list</em></dt>
+        <dd>List of the Certificate Authorities used to create the certificate.</dd>
     </dl>
 </blockquote>
 
@@ -362,7 +368,8 @@ used directly.</p>
     <dt><a name="tls::protocols"><strong>tls::protocols</strong></a></dt>
     <dd>Returns a list of supported protocols. Valid values are:
 	<b>ssl2</b>, <b>ssl3</b>, <b>tls1</b>, <b>tls1.1</b>, <b>tls1.2</b>,
-	and <b>tls1.3</b>.</dd>
+	and <b>tls1.3</b>. Exact list depends on OpenSSL version and
+	compile time flags.</dd>
 
     <dt><a name="tls::version"><strong>tls::version</strong></a></dt>
     <dd>Returns the OpenSSL version string.</dd>
@@ -398,9 +405,10 @@ to handle intermediate processing by the OpenSSL library, using the
 	  <strong>alpn</strong> <em>protocol</em>
 	</dt>
 	<dd>
-	  This form of callback is invoked when server selects the first
-	  -alpn specified protocol common to the client and server. If none,
-	  first client one is used.
+	  For servers, this form of callback is invoked when the client ALPN
+	  header is received and the first -alpn specified protocol common to
+	  the both the client and server is selected. If none, the first
+	  client specified protocol is used.
 	</dd>
 
 	<br>
@@ -423,7 +431,8 @@ to handle intermediate processing by the OpenSSL library, using the
 	  <strong>hello</strong> <em>servername</em>
 	</dt>
 	<dd>
-	  This form of callback is invoked during client hello message processing.
+	  For servers, this form of callback is invoked during client hello
+	  message processing.
 	</dd>
 
 	<br>
@@ -469,10 +478,10 @@ to handle intermediate processing by the OpenSSL library, using the
 	  <strong>sni</strong> <em>servername</em>
 	</dt>
 	<dd>
-	  This form of callback is invoked when the server receives the SNI
-	  header from the client where <i>servername</i> is the client
-	  specified servername. Used to allow multiple names for
-	  same server so the right certificate can be used.
+	  For servers, this form of callback is invoked when the SNI header
+	  from the client is received. Where <i>servername</i> is the client
+	  specified servername. This is used when a server supports multiple
+	  names, so the right certificate can be used.
 	</dd>
 
 	<br>
@@ -482,8 +491,9 @@ to handle intermediate processing by the OpenSSL library, using the
 	  <strong>verify</strong> <em>channel depth cert status error</em>
 	</dt>
 	<dd>
-	  This form of callback is invoked by the OpenSSL function
-	  <code>SSL_set_verify()</code>.
+	  This form of callback is invoked by OpenSSL when a new certificate
+	  is received from the peer. It allows the client to check the
+	  certificate verification result and choose whether to continue or not.
 	  <br>
 	  The <em>depth</em> argument is an integer representing the
 	  current depth on the certificate chain, with
