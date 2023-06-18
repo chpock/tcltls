@@ -1073,7 +1073,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     int ssl2 = 0, ssl3 = 0;
     int tls1 = 1, tls1_1 = 1, tls1_2 = 1, tls1_3 = 1;
     int proto = 0, level = -1;
-    int verify = 0, require = 0, request = 1;
+    int verify = 0, require = 0, request = 1, post_handshake = 0;
 
     dprintf("Called");
 
@@ -1126,6 +1126,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTSTR("-keyfile", keyfile);
 	OPTSTR("-model", model);
 	OPTOBJ("-password", password);
+	OPTBOOL("-post_handshake", post_handshake);
 	OPTBOOL("-require", require);
 	OPTBOOL("-request", request);
 	OPTINT("-securitylevel", level);
@@ -1148,6 +1149,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     }
     if (request)	    verify |= SSL_VERIFY_CLIENT_ONCE | SSL_VERIFY_PEER;
     if (request && require) verify |= SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+    if (request && post_handshake)  verify |= SSL_VERIFY_POST_HANDSHAKE;
     if (verify == 0)	verify = SSL_VERIFY_NONE;
 
     proto |= (ssl2 ? TLS_PROTO_SSL2 : 0);
@@ -1364,12 +1366,22 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	SSL_CTX_set_tlsext_servername_callback(statePtr->ctx, SNICallback);
 	SSL_CTX_set_client_hello_cb(statePtr->ctx, HelloCallback, (void *)statePtr);
 
+	/* Enable server to send cert request after handshake (TLS 1.3 only) */
+	if (request && post_handshake) {
+	    SSL_verify_client_post_handshake(statePtr->ssl);
+	}
+
 	statePtr->flags |= TLS_TCL_SERVER;
 	SSL_set_accept_state(statePtr->ssl);
     } else {
 	/* Session caching */
 	SSL_CTX_set_session_cache_mode(statePtr->ctx, SSL_SESS_CACHE_CLIENT | SSL_SESS_CACHE_NO_INTERNAL_STORE);
 	SSL_CTX_sess_set_new_cb(statePtr->ctx, SessionCallback);
+
+	/* Enable post handshake Authentication extension. TLS 1.3 only, not http/2. */
+	if (request && post_handshake) {
+	    SSL_set_post_handshake_auth(statePtr->ssl, 1);
+	}
 
 	SSL_set_connect_state(statePtr->ssl);
     }
