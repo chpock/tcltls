@@ -109,8 +109,9 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     char sha256_hash_ascii[SHA256_DIGEST_LENGTH * 2 + 1];
     unsigned char sha256_hash_binary[SHA256_DIGEST_LENGTH];
     const char *shachars="0123456789ABCDEF";
-    int nid, pknid, bits, num_of_exts;
+    int nid, pknid, bits, num_of_exts, len;
     uint32_t xflags;
+    unsigned char *bstring;
 
     sha1_hash_ascii[SHA_DIGEST_LENGTH * 2] = '\0';
     sha256_hash_ascii[SHA256_DIGEST_LENGTH * 2] = '\0';
@@ -198,6 +199,11 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewBooleanObj(X509_check_issued(cert, cert) == X509_V_OK));
     }
  
+    /* Subject Key Identifier  */
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subjectKeyIdentifier", -1));
+    bstring = X509_keyid_get0(cert, &len);
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(bstring, len));
+
     /* SHA1 - DER representation*/
     X509_digest(cert, EVP_sha1(), sha1_hash_binary, NULL);
     for (int n = 0; n < SHA_DIGEST_LENGTH; n++) {
