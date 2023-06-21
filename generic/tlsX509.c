@@ -112,6 +112,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     int nid, pknid, bits, num_of_exts, len;
     uint32_t xflags;
     unsigned char *bstring;
+    STACK_OF(GENERAL_NAME) *san;
 
     sha1_hash_ascii[SHA_DIGEST_LENGTH * 2] = '\0';
     sha256_hash_ascii[SHA256_DIGEST_LENGTH * 2] = '\0';
@@ -258,6 +259,32 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	}
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("extensions", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, extsPtr);
+    }
+
+    /* Subject Alternative Name (SAN) extension. Additional host names for a single SSL certificate. */
+    san = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
+    if (san) {
+	Tcl_Obj *namesPtr = Tcl_NewListObj(0, NULL);
+
+	for (int i=0; i < sk_GENERAL_NAME_num(san); i++)         {
+	    const GENERAL_NAME *name = sk_GENERAL_NAME_value(san, i);
+	    size_t len2;
+
+	    if (name) {
+		if (name->type == GEN_DNS) {
+		    char *dns_name;
+		    if ((len2 = ASN1_STRING_to_UTF8(&dns_name, name->d.dNSName)) > 0) {
+			Tcl_ListObjAppendElement(interp, namesPtr, Tcl_NewStringObj(dns_name, (int)len2));
+			OPENSSL_free (dns_name);
+		    }
+		} else if (name->type == GEN_IPADD) {
+		    /* name->d.iPAddress */
+		}
+	    }
+	}
+	sk_GENERAL_NAME_pop_free(san, GENERAL_NAME_free);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subject_alt_names", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, namesPtr);
     }
 
     return certPtr;
