@@ -207,7 +207,7 @@ InfoCallback(const SSL *ssl, int where, int ret) {
 static int
 VerifyCallback(int ok, X509_STORE_CTX *ctx) {
     Tcl_Obj *cmdPtr, *result;
-    char *errStr, *string;
+    char *string;
     int length;
     SSL   *ssl		= (SSL*)X509_STORE_CTX_get_ex_data(ctx, SSL_get_ex_data_X509_STORE_CTX_idx());
     X509  *cert		= X509_STORE_CTX_get_current_cert(ctx);
@@ -219,12 +219,6 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
 
     dprintf("Verify: %d", ok);
 
-    if (!ok) {
-	errStr = (char*)X509_verify_cert_error_string(err);
-    } else {
-	errStr = NULL;
-    }
-
     if (statePtr->callback == (Tcl_Obj*)NULL) {
 	if (statePtr->vflags & SSL_VERIFY_FAIL_IF_NO_PEER_CERT) {
 	    return ok;
@@ -232,15 +226,16 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
 	    return 1;
 	}
     }
-    cmdPtr = Tcl_DuplicateObj(statePtr->callback);
 
+    cmdPtr = Tcl_DuplicateObj(statePtr->callback);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("verify", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
 	Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(depth));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tls_NewX509Obj(interp, cert));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(ok));
-    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(errStr ? errStr : "", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr,
+	Tcl_NewStringObj((char*)X509_verify_cert_error_string(err), -1));
 
     Tcl_Preserve((ClientData) interp);
     Tcl_Preserve((ClientData) statePtr);
@@ -1873,7 +1868,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get_version(statePtr->ssl), -1));
 
     /* Valid for non-RSA signature and TLS 1.3 */
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("signature_hash", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("signatureHashAlgorithm", -1));
     if (objc == 2 ? SSL_get_peer_signature_nid(statePtr->ssl, &nid) : SSL_get_signature_nid(statePtr->ssl, &nid)) {
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(OBJ_nid2ln(nid), -1));
     } else {
