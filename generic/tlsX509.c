@@ -138,7 +138,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	issuer[n] = 0;
 	(void)BIO_flush(bio);
 
-	i2a_ASN1_INTEGER(bio, X509_get_serialNumber(cert));
+	i2a_ASN1_INTEGER(bio, X509_get0_serialNumber(cert));
 	n = BIO_read(bio, serial, min(BIO_pending(bio), BUFSIZ - 1));
 	n = max(n, 0);
 	serial[n] = 0;
@@ -166,25 +166,38 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
             (void)BIO_flush(bio);
         }
 
+	/* All */
+	if (X509_print_ex(bio, cert, flags, 0)) {
+	    char all[65536];
+	    n = BIO_read(bio, all, min(BIO_pending(bio), 65535));
+	    n = max(n, 0);
+	    all[n] = 0;
+	    (void)BIO_flush(bio);
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("all", -1));
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(all, n));
+	}
+
 	BIO_free(bio);
     }
 
-    strcpy(notBefore, ASN1_UTCTIME_tostr(X509_getm_notBefore(cert)));
-    strcpy(notAfter, ASN1_UTCTIME_tostr(X509_getm_notAfter(cert)));
+    strcpy(notBefore, ASN1_UTCTIME_tostr(X509_get0_notBefore(cert)));
+    strcpy(notAfter, ASN1_UTCTIME_tostr(X509_get0_notAfter(cert)));
 
     /* Version */
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("version", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewLongObj(X509_get_version(cert)+1));
 
     /* Signature algorithm */
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signature_algorithm", -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signatureAlgorithm", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(OBJ_nid2ln(X509_get_signature_nid(cert)),-1));
  
     /* Information about the signature of certificate cert */
     if (X509_get_signature_info(cert, &nid, &pknid, &bits, &xflags) == 1) {
+	ASN1_BIT_STRING *key;
+
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("digest", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(OBJ_nid2ln(nid),-1));
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("public_key_algorithm", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("publicKeyAlgorithm", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(OBJ_nid2ln(pknid),-1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("bits", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj(bits));
@@ -195,18 +208,31 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	    EVP_PKEY *pkey = X509_get_pubkey(cert);
 	}
 	
+	/* X509_get0_pubkey_bitstr returns the BIT STRING portion of |x509|'s public key. */
+	key = X509_get0_pubkey_bitstr(cert);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("publicKey", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewByteArrayObj((char *)key->data, key->length);
+	
 	/* Check if cert was issued by CA cert issuer or self signed */
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("self_signed", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewBooleanObj(X509_check_issued(cert, cert) == X509_V_OK));
     }
- 
-    /* Subject Key Identifier  */
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subjectKeyIdentifier", -1));
-    bstring = X509_keyid_get0(cert, &len);
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(bstring, len));
 
-    /* SHA1 - DER representation*/
-    X509_digest(cert, EVP_sha1(), sha1_hash_binary, NULL);
+    /* Alias  */
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("alias", -1));
+    len = 0;
+    bstring = X509_alias_get0(cert, &len);
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewByteArrayObj(bstring, len));
+
+    /* Subject Key Identifier is a hash of the encoded public key. Required for
+       CA certs. CAs use SKI for Issuer Key Identifier (AKI) extension on issued certificates. */
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subjectKeyIdentifier", -1));
+    len = 0;
+    bstring = X509_keyid_get0(cert, &len);
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewByteArrayObj(bstring, len));
+
+    /* SHA1 Fingerprint of cert - DER representation */
+    X509_digest(cert, EVP_sha1(), sha1_hash_binary, &len);
     for (int n = 0; n < SHA_DIGEST_LENGTH; n++) {
         sha1_hash_ascii[n*2]   = shachars[(sha1_hash_binary[n] & 0xF0) >> 4];
         sha1_hash_ascii[n*2+1] = shachars[(sha1_hash_binary[n] & 0x0F)];
@@ -214,8 +240,8 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("sha1_hash", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(sha1_hash_ascii, SHA_DIGEST_LENGTH * 2));
 
-    /* SHA256 - DER representation */
-    X509_digest(cert, EVP_sha256(), sha256_hash_binary, NULL);
+    /* SHA256 Fingerprint of cert - DER representation */
+    X509_digest(cert, EVP_sha256(), sha256_hash_binary, &len);
     for (int n = 0; n < SHA256_DIGEST_LENGTH; n++) {
 	sha256_hash_ascii[n*2]   = shachars[(sha256_hash_binary[n] & 0xF0) >> 4];
 	sha256_hash_ascii[n*2+1] = shachars[(sha256_hash_binary[n] & 0x0F)];
@@ -235,7 +261,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("notAfter", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj( notAfter, -1));
 
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("serial", -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("serialNumber", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj( serial, -1));
 
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("certificate", -1));
@@ -283,7 +309,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	    }
 	}
 	sk_GENERAL_NAME_pop_free(san, GENERAL_NAME_free);
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subject_alt_names", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subjectAltName", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, namesPtr);
     }
 

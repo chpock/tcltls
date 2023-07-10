@@ -236,14 +236,18 @@ used directly.</p>
 
 <blockquote>
     <dl>
+        <dt><strong>all</strong> <em>string</em></dt>
+        <dd>Dump of all certificate data.</dd>
         <dt><strong>version</strong> <em>value</em></dt>
         <dd>The certification version</dd>
-        <dt><strong>signature_algorithm</strong> <em>algorithm</em></dt>
+        <dt><strong>signatureAlgorithm</strong> <em>algorithm</em></dt>
         <dd>Cipher algorithm used for certificate signature.</dd>
         <dt><strong>digest</strong> <em>version</em></dt>
         <dd>Certificate signature digest.</dd>
-        <dt><strong>public_key_algorithm</strong> <em>algorithm</em></dt>
+        <dt><strong>publicKeyAlgorithm</strong> <em>algorithm</em></dt>
         <dd>Certificate signature public key algorithm.</dd>
+        <dt><strong>publicKey</strong> <em>string</em></dt>
+        <dd>Certificate signature public key.</dd>
         <dt><strong>bits</strong> <em>n</em></dt>
         <dd>Number of bits used for certificate signature key</dd>
         <dt><strong>self_signed</strong> <em>boolean</em></dt>
@@ -260,7 +264,7 @@ used directly.</p>
         <dd>The begin date for the validity of the certificate.</dd>
         <dt><strong>notAfter</strong> <em>date</em></dt>
         <dd>The expiry date for the certificate.</dd>
-        <dt><strong>serial</strong> <em>n</em></dt>
+        <dt><strong>serialNumber</strong> <em>n</em></dt>
         <dd>The serial number of the certificate.</dd>
         <dt><strong>certificate</strong> <em>cert</em></dt>
         <dd>The PEM encoded certificate.</dd>
@@ -283,10 +287,13 @@ used directly.</p>
         <dt><strong>protocol</strong> <em>value</em></dt>
         <dd>The protocol version used for the connection:
 	  SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3, or unknown</dd>
-        <dt><strong>signature_hash</strong> <em>string</em></dt>
-        <dd>The signature hash value.</dd>
+        <dt><strong>signatureHashAlgorithm</strong> <em>string</em></dt>
+        <dd>The signature hash algorithm.</dd>
         <dt><strong>signature_type</strong> <em>type</em></dt>
         <dd>The signature type value.</dd>
+        <dt><strong>subjectAltName</strong> <em>list</em></dt>
+        <dd>List of all of the alternative domain names, sub domains,
+	    and IP addresses that are secured by the certificate.</dd>
         <dt><strong>ca_names</strong> <em>list</em></dt>
         <dd>List of the Certificate Authorities used to create the certificate.</dd>
     </dl>
@@ -308,7 +315,7 @@ used directly.</p>
         <dd>The protocol version used for the connection:
 	    SSL2, SSL3, TLS1, TLS1.1, TLS1.2, TLS1.3, or unknown.</dd>
         <dt><strong>renegotiation</strong> <em>state</em></dt>
-        <dd>Whether protocol renegotiation is allowed or disallowed.</dd>
+        <dd>Whether protocol renegotiation is supported or not.</dd>
         <dt><strong>securitylevel</strong> <em>level</em></dt>
         <dd>The security level used for selection of ciphers, key size, etc.</dd>
         <dt><strong>session_reused</strong> <em>boolean</em></dt>
@@ -512,8 +519,7 @@ to handle intermediate processing by the OpenSSL library, using the
 	  A value of <code>1</code> means the certificate is deemed valid.
 	  <br>
 	  The <em>error</em> argument supplies the message, if any, generated
-	  by
-	  <code>X509_STORE_CTX_get_error()</code>.
+	  by <code>X509_STORE_CTX_get_error()</code>.
 	  <br>
 	  <br>
 	  The callback may override normal validation processing by explicitly
