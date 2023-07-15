@@ -71,6 +71,19 @@ ASN1_UTCTIME_tostr(ASN1_UTCTIME *tm)
 }
 
 /*
+ * Binary string to hex string
+ */
+int String_to_Hex(char* input, int len, char *output, int max) {
+    int count = 0;
+
+    for (int i = 0; i < len && count < max - 1; i++, count += 2) {
+	sprintf(output + count, "%02X", input[i] & 0xff);
+    }
+    output[count] = 0;
+    return count;
+}
+
+/*
  *------------------------------------------------------*
  *
  *	Tls_NewX509Obj --
@@ -102,13 +115,13 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     char serial[BUFSIZ];
     char notBefore[BUFSIZ];
     char notAfter[BUFSIZ];
+    char publicKey[BUFSIZ];
     char certStr[CERT_STR_SIZE], *certStr_p;
     int certStr_len, toRead;
     char sha1_hash_ascii[SHA_DIGEST_LENGTH * 2 + 1];
     unsigned char sha1_hash_binary[SHA_DIGEST_LENGTH];
     char sha256_hash_ascii[SHA256_DIGEST_LENGTH * 2 + 1];
     unsigned char sha256_hash_binary[SHA256_DIGEST_LENGTH];
-    const char *shachars="0123456789ABCDEF";
     int nid, pknid, bits, num_of_exts, len;
     uint32_t xflags;
     unsigned char *bstring;
@@ -188,14 +201,14 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewLongObj(X509_get_version(cert)+1));
 
     /* Signature algorithm */
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signatureAlgorithm", -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signature", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(OBJ_nid2ln(X509_get_signature_nid(cert)),-1));
  
     /* Information about the signature of certificate cert */
     if (X509_get_signature_info(cert, &nid, &pknid, &bits, &xflags) == 1) {
 	ASN1_BIT_STRING *key;
 
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("digest", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signingDigest", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(OBJ_nid2ln(nid),-1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("publicKeyAlgorithm", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(OBJ_nid2ln(pknid),-1));
@@ -204,14 +217,11 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("extension_flags", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj(xflags));
 	
-	if (pknid == NID_rsaEncryption || pknid == NID_dsa) {
-	    EVP_PKEY *pkey = X509_get_pubkey(cert);
-	}
-	
-	/* X509_get0_pubkey_bitstr returns the BIT STRING portion of |x509|'s public key. */
+	/* Public key - X509_get0_pubkey */
 	key = X509_get0_pubkey_bitstr(cert);
+	len = String_to_Hex(key->data, key->length, publicKey, BUFSIZ);
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("publicKey", -1));
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewByteArrayObj((char *)key->data, key->length);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(publicKey, len));
 	
 	/* Check if cert was issued by CA cert issuer or self signed */
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("self_signed", -1));
@@ -233,19 +243,13 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 
     /* SHA1 Fingerprint of cert - DER representation */
     X509_digest(cert, EVP_sha1(), sha1_hash_binary, &len);
-    for (int n = 0; n < SHA_DIGEST_LENGTH; n++) {
-        sha1_hash_ascii[n*2]   = shachars[(sha1_hash_binary[n] & 0xF0) >> 4];
-        sha1_hash_ascii[n*2+1] = shachars[(sha1_hash_binary[n] & 0x0F)];
-    }
+    len = String_to_Hex(sha1_hash_binary, len, sha1_hash_ascii, BUFSIZ);
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("sha1_hash", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(sha1_hash_ascii, SHA_DIGEST_LENGTH * 2));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(sha1_hash_ascii, len));
 
     /* SHA256 Fingerprint of cert - DER representation */
     X509_digest(cert, EVP_sha256(), sha256_hash_binary, &len);
-    for (int n = 0; n < SHA256_DIGEST_LENGTH; n++) {
-	sha256_hash_ascii[n*2]   = shachars[(sha256_hash_binary[n] & 0xF0) >> 4];
-	sha256_hash_ascii[n*2+1] = shachars[(sha256_hash_binary[n] & 0x0F)];
-    }
+    len = String_to_Hex(sha256_hash_binary, len, sha256_hash_ascii, BUFSIZ);
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("sha256_hash", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj( sha256_hash_ascii, SHA256_DIGEST_LENGTH * 2));
 
