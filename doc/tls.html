@@ -1,4 +1,4 @@
-<!doctype html public "-//W3C//DTD HTML 4.0 Transitional//EN"> 
+<!doctype html public "-//W3C//DTD HTML 4.0 Transitional//EN">
 
 <html>
 
@@ -12,7 +12,8 @@ content="text/html; charset=iso-8859-1">
 <body bgcolor="#FFFFFF">
 
 <dl>
-    <dd><a href="#NAME">NAME</a> <dl>
+    <dd><a href="#NAME">NAME</a>
+    <dl>
         <dd><b>tls</b> - binding to <b>OpenSSL</b> toolkit.</dd>
     </dl>
     </dd>
@@ -227,75 +228,88 @@ used directly.</p>
     <dt>&nbsp;</dt>
     <dt><a name="tls::status"><strong>tls::status</strong>
     <em>?-local? channel</em></a></dt>
-    <dd>Returns the current certificate status of an SSL channel. The
-        result is a list of key-value pairs describing the
-        connected peer. If the result is an empty list then the
-        SSL handshake has not yet completed.
-        If <em>-local</em> is given, then the certificate information
-        is the one used locally.</dd>
-
+    <dd>Returns the current status of the certificate for an SSL
+	channel. The result is a list of key-value pairs describing
+	the certificate. If the result is an empty list then the
+        SSL handshake has not yet completed. If <em>-local</em> is
+	specified, then the local certificate is used.</dd>
 <blockquote>
+	<b>SSL Status</b>
+    <dl>
+        <dt><strong>alpn</strong> <em>protocol</em></dt>
+        <dd>The protocol selected after Application-Layer Protocol
+	    Negotiation (ALPN).</dd>
+        <dt><strong>cipher</strong> <em>cipher</em></dt>
+        <dd>The current cipher in use between the client and
+            server channels.</dd>
+        <dt><strong>peername</strong> <em>name</em></dt>
+        <dd>The peername from the certificate.</dd>
+        <dt><strong>protocol</strong> <em>version</em></dt>
+        <dd>The protocol version used for the connection:
+	    SSL2, SSL3, TLS1, TLS1.1, TLS1.2, TLS1.3, or unknown.</dd>
+        <dt><strong>sbits</strong> <em>n</em></dt>
+        <dd>The number of bits used for the session key.</dd>
+        <dt><strong>signatureHashAlgorithm</strong> <em>algorithm</em></dt>
+        <dd>The signature hash algorithm.</dd>
+        <dt><strong>signature_type</strong> <em>type</em></dt>
+        <dd>The signature type value.</dd>
+        <dt><strong>verification</strong> <em>result</em></dt>
+        <dd>Certificate verification result.</dd>
+        <dt><strong>ca_names</strong> <em>list</em></dt>
+        <dd>List of the Certificate Authorities used to create the certificate.</dd>
+    </dl>
+</blockquote>
+<blockquote>
+	<b>Certificate Status</b>
     <dl>
         <dt><strong>all</strong> <em>string</em></dt>
-        <dd>Dump of all certificate data.</dd>
+        <dd>Dump of all certificate info.</dd>
+
         <dt><strong>version</strong> <em>value</em></dt>
-        <dd>The certification version</dd>
-        <dt><strong>signatureAlgorithm</strong> <em>algorithm</em></dt>
+        <dd>The certificate version.</dd>
+        <dt><strong>serialNumber</strong> <em>n</em></dt>
+        <dd>The serial number of the certificate as hex string.</dd>
+        <dt><strong>signature</strong> <em>algorithm</em></dt>
         <dd>Cipher algorithm used for certificate signature.</dd>
-        <dt><strong>digest</strong> <em>version</em></dt>
-        <dd>Certificate signature digest.</dd>
-        <dt><strong>publicKeyAlgorithm</strong> <em>algorithm</em></dt>
-        <dd>Certificate signature public key algorithm.</dd>
-        <dt><strong>publicKey</strong> <em>string</em></dt>
-        <dd>Certificate signature public key.</dd>
-        <dt><strong>bits</strong> <em>n</em></dt>
-        <dd>Number of bits used for certificate signature key</dd>
-        <dt><strong>self_signed</strong> <em>boolean</em></dt>
-        <dd>Is certificate signature self signed.</dd>
-        <dt><strong>sha1_hash</strong> <em>hash</em></dt>
-        <dd>The SHA1 hash of the certificate.</dd>
-        <dt><strong>sha256_hash</strong> <em>hash</em></dt>
-        <dd>The SHA256 hash of the certificate.</dd>
-        <dt><strong>subject</strong> <em>dn</em></dt>
-        <dd>The distinguished name (DN) of the certificate subject.</dd>
         <dt><strong>issuer</strong> <em>dn</em></dt>
         <dd>The distinguished name (DN) of the certificate issuer.</dd>
         <dt><strong>notBefore</strong> <em>date</em></dt>
         <dd>The begin date for the validity of the certificate.</dd>
         <dt><strong>notAfter</strong> <em>date</em></dt>
-        <dd>The expiry date for the certificate.</dd>
-        <dt><strong>serialNumber</strong> <em>n</em></dt>
-        <dd>The serial number of the certificate.</dd>
-        <dt><strong>certificate</strong> <em>cert</em></dt>
-        <dd>The PEM encoded certificate.</dd>
+        <dd>The expiration date for the certificate.</dd>
+        <dt><strong>subject</strong> <em>dn</em></dt>
+        <dd>The distinguished name (DN) of the certificate subject.
+	    Fields include: Common Name (CN), Organization (O), Locality
+	    or City (L), State or Province (S), and Country Name (C).</dd>
+
         <dt><strong>num_extensions</strong> <em>n</em></dt>
         <dd>Number of certificate extensions.</dd>
         <dt><strong>extensions</strong> <em>list</em></dt>
         <dd>List of certificate extension names.</dd>
-        <dt><strong>peername</strong> <em>name</em></dt>
-        <dd>The peername from the certificate.</dd>
-        <dt><strong>sbits</strong> <em>n</em></dt>
-        <dd>The number of bits used for the session key.</dd>
-        <dt><strong>cipher</strong> <em>cipher</em></dt>
-        <dd>The current cipher in use between the client and
-            server channels.</dd>
-        <dt><strong>verification<em>result</em></dt>
-        <dd>Certificate verification result.</dd>
-        <dt><strong>alpn</strong> <em>protocol</em></dt>
-        <dd>The protocol selected after Application-Layer Protocol
-	    Negotiation (ALPN).</dd>
-        <dt><strong>protocol</strong> <em>value</em></dt>
-        <dd>The protocol version used for the connection:
-	  SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3, or unknown</dd>
-        <dt><strong>signatureHashAlgorithm</strong> <em>string</em></dt>
-        <dd>The signature hash algorithm.</dd>
-        <dt><strong>signature_type</strong> <em>type</em></dt>
-        <dd>The signature type value.</dd>
+        <dt><strong>subjectKeyIdentifier</strong> <em>string</em></dt>
+        <dd>Hash of the public key inside the certificate.</dd>
         <dt><strong>subjectAltName</strong> <em>list</em></dt>
         <dd>List of all of the alternative domain names, sub domains,
 	    and IP addresses that are secured by the certificate.</dd>
-        <dt><strong>ca_names</strong> <em>list</em></dt>
-        <dd>List of the Certificate Authorities used to create the certificate.</dd>
+
+	<dt><strong>certificate</strong> <em>cert</em></dt>
+        <dd>The PEM encoded certificate.</dd>
+
+        <dt><strong>signatureDigest</strong> <em>version</em></dt>
+        <dd>Certificate signing digest.</dd>
+        <dt><strong>publicKeyAlgorithm</strong> <em>algorithm</em></dt>
+        <dd>Certificate signature public key algorithm.</dd>
+        <dt><strong>publicKey</strong> <em>string</em></dt>
+        <dd>Certificate signature public key as hex string.</dd>
+        <dt><strong>bits</strong> <em>n</em></dt>
+        <dd>Number of bits used for certificate signature key</dd>
+        <dt><strong>self_signed</strong> <em>boolean</em></dt>
+        <dd>Is certificate signature self signed.</dd>
+
+        <dt><strong>sha1_hash</strong> <em>hash</em></dt>
+        <dd>The SHA1 hash of the certificate as hex string.</dd>
+        <dt><strong>sha256_hash</strong> <em>hash</em></dt>
+        <dd>The SHA256 hash of the certificate as hex string.</dd>
     </dl>
 </blockquote>
 
@@ -304,8 +318,8 @@ used directly.</p>
     <dd>Returns the current connection status of an SSL channel. The
         result is a list of key-value pairs describing the
         connected peer.</dd>
-
 <blockquote>
+	<b>SSL Status</b>
     <dl>
         <dt><strong>state</strong> <em>state</em></dt>
         <dd>State of the connection.</dd>
@@ -322,6 +336,15 @@ used directly.</p>
         <dd>Whether the session has been reused or not.</dd>
         <dt><strong>is_server</strong> <em>boolean</em></dt>
         <dd>Whether the connection configured as a server or client (false).</dd>
+        <dt><strong>compression</strong> <em>mode</em></dt>
+        <dd>Compression method.</dd>
+        <dt><strong>expansion</strong> <em>mode</em></dt>
+        <dd>Expansion method.</dd>
+    </dl>
+</blockquote>
+<blockquote>
+	<b>Cipher Info</b>
+    <dl>
         <dt><strong>cipher</strong> <em>cipher</em></dt>
         <dd>The current cipher in use for the connection.</dd>
         <dt><strong>standard_name</strong> <em>name</em></dt>
@@ -336,6 +359,11 @@ used directly.</p>
         <dd>The OpenSSL cipher id.</dd>
         <dt><strong>description</strong> <em>string</em></dt>
         <dd>A text description of the cipher.</dd>
+    </dl>
+</blockquote>
+<blockquote>
+	<b>Session Info</b>
+    <dl>
         <dt><strong>alpn</strong> <em>protocol</em></dt>
         <dd>The protocol selected after Application-Layer Protocol
 	    Negotiation (ALPN).</dd>
@@ -355,16 +383,12 @@ used directly.</p>
         <dd>Unique session ticket application data.</dd>
         <dt><strong>master_key</strong> <em>binary_string</em></dt>
         <dd>Unique session master key.</dd>
-        <dt><strong>compression</strong> <em>mode</em></dt>
-        <dd>Compression method.</dd>
-        <dt><strong>expansion</strong> <em>mode</em></dt>
-        <dd>Expansion method.</dd>
         <dt><strong>session_cache_mode</strong> <em>mode</em></dt>
         <dd>Server cache mode (client, server, or both).</dd>
     </dl>
 </blockquote>
 
-    <dt><a name="tls::ciphers"><strong>tls::ciphers</strong> 
+    <dt><a name="tls::ciphers"><strong>tls::ciphers</strong>
     <em>protocol ?verbose? ?supported?</em></a></dt>
     <dd>Returns a list of supported ciphers available for <em>protocol</em>,
         where protocol must be one of <b>ssl2, ssl3, tls1, tls1.1,
@@ -415,8 +439,8 @@ to handle intermediate processing by the OpenSSL library, using the
 	</dt>
 	<dd>
 	  For servers, this form of callback is invoked when the client ALPN
-	  header is received and the first -alpn specified protocol common to
-	  the both the client and server is selected. If none, the first
+	  header is received and the first <b>-alpn</b> specified protocol common
+	  to the both the client and server is selected. If none, the first
 	  client specified protocol is used.
 	</dd>
 
