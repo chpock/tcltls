@@ -228,6 +228,25 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewBooleanObj(X509_check_issued(cert, cert) == X509_V_OK));
     }
 
+    /* Unique Ids */
+    {
+	const ASN1_BIT_STRING *iuid, *suid;
+        X509_get0_uids(cert, &iuid, &suid);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("issuerUniqueId", -1));
+	if (iuid != NULL) {
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewByteArrayObj((char *)iuid->data, iuid->length));
+	} else {
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
+	}
+
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subjectUniqueId", -1));
+	if (suid != NULL) {
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewByteArrayObj((char *)suid->data, suid->length));
+	} else {
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
+	}
+    }
+
     /* Alias  */
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("alias", -1));
     len = 0;
@@ -315,6 +334,28 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	sk_GENERAL_NAME_pop_free(san, GENERAL_NAME_free);
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subjectAltName", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, namesPtr);
+    }
+
+    /* Signature algorithm and value */
+    {
+	const X509_ALGOR *sig_alg;
+	const ASN1_BIT_STRING *sig;
+	int sig_nid;
+
+	X509_get0_signature(&sig, &sig_alg, cert);
+	/* sig_nid = X509_get_signature_nid(cert) */
+	sig_nid = OBJ_obj2nid(sig_alg->algorithm);
+
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signatureAlgorithm", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(OBJ_nid2ln(sig_nid),-1));
+
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signatureValue", -1));
+	if (sig_nid != NID_undef) {
+	    len = String_to_Hex(sig->data, sig->length, publicKey, BUFSIZ);
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(publicKey, len));
+	} else {
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
+	}
     }
 
     return certPtr;

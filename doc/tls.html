@@ -281,6 +281,10 @@ used directly.</p>
         <dd>The distinguished name (DN) of the certificate subject.
 	    Fields include: Common Name (CN), Organization (O), Locality
 	    or City (L), State or Province (S), and Country Name (C).</dd>
+        <dt><strong>issuerUniqueID</strong> <em>string</em></dt>
+        <dd>The issuer unique id.</dd>
+        <dt><strong>subjectUniqueID</strong> <em>string</em></dt>
+        <dd>The subject unique id.</dd>
 
         <dt><strong>num_extensions</strong> <em>n</em></dt>
         <dd>Number of certificate extensions.</dd>
@@ -295,6 +299,10 @@ used directly.</p>
 	<dt><strong>certificate</strong> <em>cert</em></dt>
         <dd>The PEM encoded certificate.</dd>
 
+        <dt><strong>signatureAlgorithm</strong> <em>algorithm</em></dt>
+        <dd>Cipher algorithm used for certificate signature.</dd>
+        <dt><strong>signatureValue</strong> <em>string</em></dt>
+        <dd>Certificate signature as hex string.</dd>
         <dt><strong>signatureDigest</strong> <em>version</em></dt>
         <dd>Certificate signing digest.</dd>
         <dt><strong>publicKeyAlgorithm</strong> <em>algorithm</em></dt>
