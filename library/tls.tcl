@@ -37,6 +37,7 @@ namespace eval tls {
         {* -cert iopts 1}
         {* -certfile iopts 1}
         {* -cipher iopts 1}
+        {* -ciphersuites iopts 1}
         {* -command iopts 1}
         {* -dhparams iopts 1}
         {* -key iopts 1}
@@ -44,8 +45,10 @@ namespace eval tls {
         {* -password iopts 1}
         {* -request iopts 1}
         {* -require iopts 1}
+        {* -securitylevel iopts 1}
         {* -autoservername discardOpts 1}
         {* -servername iopts 1}
+        {* -session_id iopts 1}
         {* -alpn iopts 1}
         {* -ssl2 iopts 1}
         {* -ssl3 iopts 1}

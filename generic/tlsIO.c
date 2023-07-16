@@ -99,7 +99,7 @@ static int TlsCloseProc2(ClientData instanceData, Tcl_Interp *interp, int flags)
  *
  *    Tls_WaitForConnect --
  *
- *    Sideeffects:
+ *    Side effects:
  *        Issues SSL_accept or SSL_connect
  *
  *    Result:
@@ -159,6 +159,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	rc = SSL_get_error(statePtr->ssl, err);
 
 	dprintf("Got error: %i (rc = %i)", err, rc);
+	dprintf("Got error: %s", ERR_reason_error_string(ERR_get_error()));
 
 	bioShouldRetry = 0;
 	if (err <= 0) {
@@ -802,7 +803,7 @@ static int TlsNotifyProc(ClientData instanceData, int mask) {
  *      on the underlying channel.
  *      ------------------------------------------------*
  *
- *      Sideeffects:
+ *      Side effects:
  *              May generate subsequent calls to
  *              Tcl_NotifyChannel.
  *
@@ -876,7 +877,7 @@ TlsChannelHandler (ClientData clientData, int mask) {
  *    information waiting in channel buffers.
  *    ------------------------------------------------*
  *
- *    Sideeffects:
+ *    Side effects:
  *        As of 'TlsChannelHandler'.
  *
  *    Result:

@@ -34,29 +34,10 @@
 #define CONST86
 #endif
 
-#ifdef NO_PATENTS
-#  define NO_IDEA
-#  define NO_RC2
-#  define NO_RC4
-#  define NO_RC5
-#  define NO_RSA
-#  ifndef NO_SSL2
-#    define NO_SSL2
-#  endif
-#endif
-
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
 #include <openssl/opensslv.h>
-
-/*
- * Determine if we should use the pre-OpenSSL 1.1.0 API
- */
-#undef TCLTLS_OPENSSL_PRE_1_1
-#if (defined(LIBRESSL_VERSION_NUMBER)) || OPENSSL_VERSION_NUMBER < 0x10100000L
-#  define TCLTLS_OPENSSL_PRE_1_1_API 1
-#endif
 
 #ifndef ECONNABORTED
 #define ECONNABORTED	130	/* Software caused connection abort */
@@ -150,6 +131,9 @@ typedef struct State {
 	BIO *bio;               /* Struct for SSL processing */
 	BIO *p_bio;             /* Parent BIO (that is layered on Tcl_Channel) */
 
+	char *protos;		/* List of supported protocols in protocol format */
+	unsigned int protos_len; /* Length of protos */
+
 	char *err;
 } State;
 
@@ -166,6 +150,7 @@ Tcl_ChannelType *Tls_ChannelType(void);
 Tcl_Channel     Tls_GetParent(State *statePtr, int maskFlags);
 
 Tcl_Obj         *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert);
+Tcl_Obj		*Tls_NewCAObj(Tcl_Interp *interp, const SSL *ssl, int peer);
 void            Tls_Error(State *statePtr, char *msg);
 void            Tls_Free(char *blockPtr);
 void            Tls_Clean(State *statePtr);
