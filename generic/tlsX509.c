@@ -102,7 +102,7 @@ int String_to_Hex(char* input, int len, char *output, int max) {
  *------------------------------------------------------*
  */
 
-#define CERT_STR_SIZE 16384
+#define CERT_STR_SIZE 32768
 
 Tcl_Obj*
 Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
@@ -118,17 +118,11 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     char buffer[BUFSIZ];
     char certStr[CERT_STR_SIZE], *certStr_p;
     int certStr_len, toRead;
-    char sha1_hash_ascii[SHA_DIGEST_LENGTH * 2 + 1];
     unsigned char sha1_hash_binary[SHA_DIGEST_LENGTH];
-    char sha256_hash_ascii[SHA256_DIGEST_LENGTH * 2 + 1];
     unsigned char sha256_hash_binary[SHA256_DIGEST_LENGTH];
     int nid, pknid, bits, num_of_exts, len;
     uint32_t xflags;
-    unsigned char *bstring;
     STACK_OF(GENERAL_NAME) *san;
-
-    sha1_hash_ascii[SHA_DIGEST_LENGTH * 2] = '\0';
-    sha256_hash_ascii[SHA256_DIGEST_LENGTH * 2] = '\0';
 
     certStr[0] = 0;
     if ((bio = BIO_new(BIO_s_mem())) == NULL) {
@@ -204,6 +198,40 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signature", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(OBJ_nid2ln(X509_get_signature_nid(cert)),-1));
  
+    /* SHA1 Fingerprint of cert - DER representation */
+    X509_digest(cert, EVP_sha1(), sha1_hash_binary, &len);
+    len = String_to_Hex(sha1_hash_binary, len, buffer, BUFSIZ);
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("sha1_hash", -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
+
+    /* SHA256 Fingerprint of cert - DER representation */
+    X509_digest(cert, EVP_sha256(), sha256_hash_binary, &len);
+    len = String_to_Hex(sha256_hash_binary, len, buffer, BUFSIZ);
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("sha256_hash", -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
+
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subject", -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(subject, -1));
+
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("issuer", -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(issuer, -1));
+
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("notBefore", -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(notBefore, -1));
+
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("notAfter", -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(notAfter, -1));
+
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("serialNumber", -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(serial, -1));
+
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("certificate", -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(certStr, -1));
+
+    num_of_exts = X509_get_ext_count(cert);
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("num_extensions", -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj(num_of_exts));
+
     /* Information about the signature of certificate cert */
     if (X509_get_signature_info(cert, &nid, &pknid, &bits, &xflags) == 1) {
 	ASN1_BIT_STRING *key;
@@ -246,40 +274,6 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
 	}
     }
-
-    /* SHA1 Fingerprint of cert - DER representation */
-    X509_digest(cert, EVP_sha1(), sha1_hash_binary, &len);
-    len = String_to_Hex(sha1_hash_binary, len, sha1_hash_ascii, BUFSIZ);
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("sha1_hash", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(sha1_hash_ascii, len));
-
-    /* SHA256 Fingerprint of cert - DER representation */
-    X509_digest(cert, EVP_sha256(), sha256_hash_binary, &len);
-    len = String_to_Hex(sha256_hash_binary, len, sha256_hash_ascii, BUFSIZ);
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("sha256_hash", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj( sha256_hash_ascii, SHA256_DIGEST_LENGTH * 2));
-
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subject", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj( subject, -1));
-
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("issuer", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj( issuer, -1));
-
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("notBefore", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj( notBefore, -1));
-
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("notAfter", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj( notAfter, -1));
-
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("serialNumber", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj( serial, -1));
-
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("certificate", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj( certStr, -1));
-
-    num_of_exts = X509_get_ext_count(cert);
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("num_extensions", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj(num_of_exts));
 
     /* Get extensions */
     if (num_of_exts > 0) {
@@ -324,11 +318,14 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     }
 
     /* Certificate Alias  */
-    len = 0;
-    bstring = X509_alias_get0(cert, &len);
-    len = String_to_Hex(bstring, len, buffer, BUFSIZ);
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("alias", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
+    {
+	unsigned char *bstring;
+	len = 0;
+	bstring = X509_alias_get0(cert, &len);
+	len = String_to_Hex(bstring, len, buffer, BUFSIZ);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("alias", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
+    }
 
     /* Get Subject Key id, Authority Key id */
     {
