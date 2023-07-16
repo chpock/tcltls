@@ -486,7 +486,7 @@ to handle intermediate processing by the OpenSSL library, using the
 	<br>
 
 	<dt>
-	  <strong>info</strong> <em>channel major minor message</em>
+	  <strong>info</strong> <em>channel major minor message type</em>
 	</dt>
 	<dd>
 	  This form of callback is invoked by the OpenSSL function
@@ -505,6 +505,10 @@ to handle intermediate processing by the OpenSSL library, using the
 	  <code>SSL_state_string_long()</code> or by
 	  <code>SSL_alert_desc_string_long()</code>,
 	  depending on context.
+	  <dt>For alerts, the possible values for <em>type</em> are:</dt>
+	  <dl>
+	  <dd><code>warning, fatal, and unknown</code>.</dd>
+	  </dl>
 	</dd>
 
 	<br>

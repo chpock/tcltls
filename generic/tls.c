@@ -156,22 +156,22 @@ InfoCallback(const SSL *ssl, int where, int ret) {
 	else					minor = "unknown";
     }
 
+    /* info channel major minor message type */
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("info", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
 	    Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(major, -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(minor, -1));
 
-    if (where & (SSL_CB_LOOP|SSL_CB_EXIT)) {
+    if (where & SSL_CB_ALERT) {
 	Tcl_ListObjAppendElement(interp, cmdPtr,
-	    Tcl_NewStringObj(SSL_state_string_long(ssl), -1));
-    } else if (where & SSL_CB_ALERT) {
-	const char *cp = (char *) SSL_alert_desc_string_long(ret);
-
-	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(cp, -1));
+	    Tcl_NewStringObj(SSL_alert_desc_string_long(ret), -1));
+	Tcl_ListObjAppendElement(interp, cmdPtr,
+	    Tcl_NewStringObj(SSL_alert_type_string_long(ret), -1));
     } else {
 	Tcl_ListObjAppendElement(interp, cmdPtr,
 	    Tcl_NewStringObj(SSL_state_string_long(ssl), -1));
+	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("info", -1));
     }
     Tcl_Preserve((ClientData) interp);
     Tcl_Preserve((ClientData) statePtr);
