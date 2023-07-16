@@ -499,10 +499,10 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
 /*
  *-------------------------------------------------------------------
  *
- * ALPN Callback for Servers --
+ * ALPN Callback for Servers and Clients --
  *
- *	Perform server-side protocol (http/1.1, h2, h3, etc.) selection for the
- *	incoming connection. Called after Hello and server callbacks
+ *	Perform protocol (http/1.1, h2, h3, etc.) selection for the
+ *	incoming connection. Called after Hello and server callbacks.
  *	Where 'out' is selected protocol and 'in' is the peer advertised list.
  *
  * Results:
@@ -569,6 +569,49 @@ ALPNCallback(const SSL *ssl, const unsigned char **out, unsigned char *outlen,
     Tcl_Release((ClientData) interp);
     return res;
 }
+
+/*
+ *-------------------------------------------------------------------
+ *
+ * Advertise Protocols Callback for Servers Next Protocol Negotiation --
+ *
+ *	called when a TLS server needs a list of supported protocols for Next
+ *	Protocol Negotiation.
+ *
+ * Results:
+ *	None
+ *
+ * Side effects:
+ *
+ * Return codes:
+ *	SSL_TLSEXT_ERR_OK: NPN protocol selected. The connection continues.
+ *	SSL_TLSEXT_ERR_NOACK: NPN protocol not selected. The connection continues.
+ *
+ *-------------------------------------------------------------------
+ */
+#ifdef USE_NPN
+static int
+NPNCallback(const SSL *ssl, const unsigned char **out, unsigned int *outlen, void *arg) {
+    State *statePtr = (State*)arg;
+
+    dprintf("Called");
+
+    if (ssl == NULL || arg == NULL) {
+	return SSL_TLSEXT_ERR_NOACK;
+    }
+
+    /* Set protocols list */
+    if (statePtr->protos != NULL) {
+	*out = statePtr->protos;
+	*outlen = statePtr->protos_len;
+    } else {
+	*out = NULL;
+	*outlen = 0;
+	return SSL_TLSEXT_ERR_NOACK;
+    }
+    return SSL_TLSEXT_ERR_OK;
+}
+#endif
 
 /*
  *-------------------------------------------------------------------
@@ -1366,6 +1409,9 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	SSL_CTX_set_client_hello_cb(statePtr->ctx, HelloCallback, (void *)statePtr);
 	if (statePtr->protos != NULL) {
 	    SSL_CTX_set_alpn_select_cb(statePtr->ctx, ALPNCallback, (void *)statePtr);
+#ifdef USE_NPN
+	    SSL_CTX_set_next_protos_advertised_cb(statePtr->ctx, NPNCallback, (void *)statePtr);
+#endif
 	}
 
 	/* Enable server to send cert request after handshake (TLS 1.3 only) */
@@ -1376,6 +1422,12 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	statePtr->flags |= TLS_TCL_SERVER;
 	SSL_set_accept_state(statePtr->ssl);
     } else {
+	/* Client callbacks */
+	if (statePtr->protos != NULL) {
+#ifdef USE_NPN
+	    SSL_CTX_set_next_proto_select_cb(statePtr->ctx, ALPNCallback, (void *)statePtr);
+#endif
+	}
 	/* Session caching */
 	SSL_CTX_set_session_cache_mode(statePtr->ctx, SSL_SESS_CACHE_CLIENT | SSL_SESS_CACHE_NO_INTERNAL_STORE);
 	SSL_CTX_sess_set_new_cb(statePtr->ctx, SessionCallback);
@@ -2011,6 +2063,13 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	SSL_SESSION_get0_alpn_selected(session, &proto, &len2);
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("alpn", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj((char *)proto, (int) len2));
+
+	/* Report the selected protocol as a result of the NPN negotiation */
+#ifdef USE_NPN
+	SSL_get0_next_proto_negotiated(ssl, &proto, &ulen);
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("npn", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj((char *)proto, (int) ulen));
+#endif
 
 	/* Resumable session */
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("resumable", -1));
