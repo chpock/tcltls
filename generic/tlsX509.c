@@ -115,7 +115,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     char serial[BUFSIZ];
     char notBefore[BUFSIZ];
     char notAfter[BUFSIZ];
-    char publicKey[BUFSIZ];
+    char buffer[BUFSIZ];
     char certStr[CERT_STR_SIZE], *certStr_p;
     int certStr_len, toRead;
     char sha1_hash_ascii[SHA_DIGEST_LENGTH * 2 + 1];
@@ -219,9 +219,9 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	
 	/* Public key - X509_get0_pubkey */
 	key = X509_get0_pubkey_bitstr(cert);
-	len = String_to_Hex(key->data, key->length, publicKey, BUFSIZ);
+	len = String_to_Hex(key->data, key->length, buffer, BUFSIZ);
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("publicKey", -1));
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(publicKey, len));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
 	
 	/* Check if cert was issued by CA cert issuer or self signed */
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("self_signed", -1));
@@ -246,19 +246,6 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
 	}
     }
-
-    /* Alias  */
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("alias", -1));
-    len = 0;
-    bstring = X509_alias_get0(cert, &len);
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewByteArrayObj(bstring, len));
-
-    /* Subject Key Identifier is a hash of the encoded public key. Required for
-       CA certs. CAs use SKI for Issuer Key Identifier (AKI) extension on issued certificates. */
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subjectKeyIdentifier", -1));
-    len = 0;
-    bstring = X509_keyid_get0(cert, &len);
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewByteArrayObj(bstring, len));
 
     /* SHA1 Fingerprint of cert - DER representation */
     X509_digest(cert, EVP_sha1(), sha1_hash_binary, &len);
@@ -336,6 +323,54 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	Tcl_ListObjAppendElement(interp, certPtr, namesPtr);
     }
 
+    /* Certificate Alias  */
+    len = 0;
+    bstring = X509_alias_get0(cert, &len);
+    len = String_to_Hex(bstring, len, buffer, BUFSIZ);
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("alias", -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
+
+    /* Get Subject Key id, Authority Key id */
+    {
+	ASN1_OCTET_STRING *astring;
+	/* X509_keyid_get0 */
+	astring = X509_get0_subject_key_id(cert);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subjectKeyIdentifier", -1));
+	if (astring != NULL) {
+	    len = String_to_Hex((char *)ASN1_STRING_get0_data(astring), ASN1_STRING_length(astring), buffer, BUFSIZ);
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewByteArrayObj(buffer, len));
+	} else {
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
+	}
+
+	astring = X509_get0_authority_key_id(cert);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("authorityKeyIdentifier", -1));
+	if (astring != NULL) {
+	    len = String_to_Hex((char *)ASN1_STRING_get0_data(astring), ASN1_STRING_length(astring), buffer, BUFSIZ);
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewByteArrayObj(buffer, len));
+	} else {
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
+	}
+	
+	/*  const GENERAL_NAMES *X509_get0_authority_issuer(cert);
+	const ASN1_INTEGER *X509_get0_authority_serial(cert); */
+    }
+
+    /* Get OSCP URL */
+    {
+	STACK_OF(OPENSSL_STRING) *str_stack = X509_get1_ocsp(cert);
+	Tcl_Obj *urlsPtr = Tcl_NewListObj(0, NULL);
+
+	for (int i = 0; i < sk_OPENSSL_STRING_num(str_stack); i++) {
+	    Tcl_ListObjAppendElement(interp, urlsPtr,
+		Tcl_NewStringObj(sk_OPENSSL_STRING_value(str_stack, i), -1));
+	}
+
+	X509_email_free(str_stack);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("ocsp", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, urlsPtr);
+    }
+ 
     /* Signature algorithm and value */
     {
 	const X509_ALGOR *sig_alg;
@@ -351,8 +386,8 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signatureValue", -1));
 	if (sig_nid != NID_undef) {
-	    len = String_to_Hex(sig->data, sig->length, publicKey, BUFSIZ);
-	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(publicKey, len));
+	    len = String_to_Hex(sig->data, sig->length, buffer, BUFSIZ);
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
 	} else {
 	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
 	}

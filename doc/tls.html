@@ -290,11 +290,18 @@ used directly.</p>
         <dd>Number of certificate extensions.</dd>
         <dt><strong>extensions</strong> <em>list</em></dt>
         <dd>List of certificate extension names.</dd>
+        <dt><strong>authorityKeyIdentifier</strong> <em>string</em></dt>
+        <dd>(AKI) Key identifier of the Issuing CA certificate that signed
+	    the SSL certificate. This value matches the SKI value of the
+	    Intermediate CA certificate.</dd>
         <dt><strong>subjectKeyIdentifier</strong> <em>string</em></dt>
-        <dd>Hash of the public key inside the certificate.</dd>
+        <dd>(SKI) Hash of the public key inside the certificate. Used to
+	   identify certificates that contain a particular public key.</dd>
         <dt><strong>subjectAltName</strong> <em>list</em></dt>
         <dd>List of all of the alternative domain names, sub domains,
 	    and IP addresses that are secured by the certificate.</dd>
+        <dt><strong>ocsp</strong> <em>list</em></dt>
+        <dd>List of all OCSP URLs.</dd>
 
 	<dt><strong>certificate</strong> <em>cert</em></dt>
         <dd>The PEM encoded certificate.</dd>
