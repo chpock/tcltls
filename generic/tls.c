@@ -503,6 +503,7 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
  *
  *	Perform server-side protocol (http/1.1, h2, h3, etc.) selection for the
  *	incoming connection. Called after Hello and server callbacks
+ *	Where 'out' is selected protocol and 'in' is the peer advertised list.
  *
  * Results:
  *	None
@@ -529,9 +530,7 @@ ALPNCallback(const SSL *ssl, const unsigned char **out, unsigned char *outlen,
 
     dprintf("Called");
 
-    if (statePtr->callback == (Tcl_Obj*)NULL) {
-	return SSL_TLSEXT_ERR_OK;
-    } else if (ssl == NULL) {
+    if (ssl == NULL || arg == NULL) {
 	return SSL_TLSEXT_ERR_NOACK;
     }
 
@@ -540,8 +539,12 @@ ALPNCallback(const SSL *ssl, const unsigned char **out, unsigned char *outlen,
 	in, inlen) == OPENSSL_NPN_NEGOTIATED) {
 	res = SSL_TLSEXT_ERR_OK;
     } else {
-	/* No overlap, so first client protocol used */
+	/* No overlap, so use first client protocol */
 	res = SSL_TLSEXT_ERR_NOACK;
+    }
+
+    if (statePtr->callback == (Tcl_Obj*)NULL) {
+	return SSL_TLSEXT_ERR_OK;
     }
 
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
@@ -602,15 +605,17 @@ SNICallback(const SSL *ssl, int *alert, void *arg) {
 
     dprintf("Called");
 
-    if (statePtr->callback == (Tcl_Obj*)NULL) {
-	return SSL_TLSEXT_ERR_OK;
-    } else if (ssl == NULL) {
+    if (ssl == NULL || arg == NULL) {
 	return SSL_TLSEXT_ERR_NOACK;
     }
 
     servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
     if (!servername || servername[0] == '\0') {
         return SSL_TLSEXT_ERR_NOACK;
+    }
+
+    if (statePtr->callback == (Tcl_Obj*)NULL) {
+	return SSL_TLSEXT_ERR_OK;
     }
 
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
@@ -675,7 +680,7 @@ HelloCallback(const SSL *ssl, int *alert, void *arg) {
 
     if (statePtr->callback == (Tcl_Obj*)NULL) {
 	return SSL_CLIENT_HELLO_SUCCESS;
-    } else if (ssl == NULL) {
+    } else if (ssl == NULL || arg == NULL) {
 	return SSL_CLIENT_HELLO_ERROR;
     }
 
@@ -1356,10 +1361,12 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
     if (server) {
 	/* Server callbacks */
-	SSL_CTX_set_alpn_select_cb(statePtr->ctx, ALPNCallback, (void *)statePtr);
 	SSL_CTX_set_tlsext_servername_arg(statePtr->ctx, (void *)statePtr);
 	SSL_CTX_set_tlsext_servername_callback(statePtr->ctx, SNICallback);
 	SSL_CTX_set_client_hello_cb(statePtr->ctx, HelloCallback, (void *)statePtr);
+	if (statePtr->protos != NULL) {
+	    SSL_CTX_set_alpn_select_cb(statePtr->ctx, ALPNCallback, (void *)statePtr);
+	}
 
 	/* Enable server to send cert request after handshake (TLS 1.3 only) */
 	if (request && post_handshake) {
@@ -1594,7 +1601,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     SSL_CTX_set_options(ctx, SSL_OP_ALL);	/* all SSL bug workarounds */
     SSL_CTX_set_options(ctx, off);		/* disable protocol versions */
 #if OPENSSL_VERSION_NUMBER < 0x10101000L
-    SSL_CTX_set_mode(ctx, SSL_MODE_AUTO_RETRY);	/* handle new handshakes in background */
+    SSL_CTX_set_mode(ctx, SSL_MODE_AUTO_RETRY);	/* handle new handshakes in background. On by default in OpenSSL 1.1.1. */
 #endif
     SSL_CTX_sess_set_cache_size(ctx, 128);
 
