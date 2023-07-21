@@ -114,22 +114,23 @@
  * The SSL processing context is maintained here, in the ClientData
  */
 typedef struct State {
-	Tcl_Channel self;       /* this socket channel */
+	Tcl_Channel self;	/* this socket channel */
 	Tcl_TimerToken timer;
 
-	int flags;              /* see State.flags above  */
-	int watchMask;          /* current WatchProc mask */
-	int mode;               /* current mode of parent channel */
+	int flags;		/* see State.flags above  */
+	int watchMask;		/* current WatchProc mask */
+	int mode;		/* current mode of parent channel */
 
-	Tcl_Interp *interp;     /* interpreter in which this resides */
-	Tcl_Obj *callback;      /* script called for tracing, verifying and errors */
-	Tcl_Obj *password;      /* script called for certificate password */
+	Tcl_Interp *interp;	/* interpreter in which this resides */
+	Tcl_Obj *callback;	/* script called for tracing, info, and errors */
+	Tcl_Obj *password;	/* script called for certificate password */
+	Tcl_Obj *vcmd;		/* script called to verify or validate protocol config */
 
-	int vflags;             /* verify flags */
-	SSL *ssl;               /* Struct for SSL processing */
-	SSL_CTX *ctx;           /* SSL Context */
-	BIO *bio;               /* Struct for SSL processing */
-	BIO *p_bio;             /* Parent BIO (that is layered on Tcl_Channel) */
+	int vflags;		/* verify flags */
+	SSL *ssl;		/* Struct for SSL processing */
+	SSL_CTX *ctx;		/* SSL Context */
+	BIO *bio;		/* Struct for SSL processing */
+	BIO *p_bio;		/* Parent BIO (that is layered on Tcl_Channel) */
 
 	char *protos;		/* List of supported protocols in protocol format */
 	unsigned int protos_len; /* Length of protos */

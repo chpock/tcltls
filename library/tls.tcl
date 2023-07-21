@@ -322,12 +322,61 @@ proc tls::callback {option args} {
     #log 2 [concat $option $args]
 
     switch -- $option {
-	"error"	{
+	"error" {
 	    foreach {chan msg} $args break
 
 	    log 0 "TLS/$chan: error: $msg"
 	}
-	"verify"	{
+	"info" {
+	    # poor man's lassign
+	    foreach {chan major minor state msg type} $args break
+
+	    if {$msg != ""} {
+		append state ": $msg"
+	    }
+	    # For tracing
+	    upvar #0 tls::$chan cb
+	    set cb($major) $minor
+
+	    log 2 "TLS/$chan: $major/$minor: $state"
+	}
+	"session" {
+	    foreach {session_id ticket lifetime} $args break
+
+	    log 0 "TLS/$chan: error: $msg"
+	}
+	default	{
+	    return -code error "bad option \"$option\":\
+		    must be one of error, info, or session"
+	}
+    }
+}
+
+#
+# Sample callback when return value is needed
+#
+proc tls::validate_command {option args} {
+    variable debug
+
+    #log 2 [concat $option $args]
+
+    switch -- $option {
+	"alpn" {
+	    foreach {protocol} $args break
+
+	    log 0 "TLS/$chan: alpn: $protocol"
+	}
+	"hello" {
+	    foreach {servername} $args break
+
+	    log 0 "TLS/$chan: hello: $servername"
+	}
+	"sni" {
+	    foreach {servername} $args break
+
+	    log 0 "TLS/$chan: sni: $servername"
+	}
+	"verify" {
 	    # poor man's lassign
 	    foreach {chan depth cert rc err} $args break
 
@@ -344,24 +393,12 @@ proc tls::callback {option args} {
 		return $rc
 	    }
 	}
-	"info"	{
-	    # poor man's lassign
-	    foreach {chan major minor state msg} $args break
-
-	    if {$msg != ""} {
-		append state ": $msg"
-	    }
-	    # For tracing
-	    upvar #0 tls::$chan cb
-	    set cb($major) $minor
-
-	    log 2 "TLS/$chan: $major/$minor: $state"
-	}
 	default	{
 	    return -code error "bad option \"$option\":\
-		    must be one of error, info, or verify"
+		    must be one of alpn, info, or verify"
 	}
     }
+    return 1
 }
 
 proc tls::xhandshake {chan} {
