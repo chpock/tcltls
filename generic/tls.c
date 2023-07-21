@@ -331,19 +331,6 @@ Tls_Error(State *statePtr, char *msg) {
     }
     statePtr->err = msg;
 
-    if (statePtr->callback == (Tcl_Obj*)NULL) {
-	char buf[BUFSIZ];
-	sprintf(buf, "SSL channel \"%s\": error: %s",
-	    Tcl_GetChannelName(statePtr->self), msg);
-	Tcl_SetResult(interp, buf, TCL_VOLATILE);
-#if (TCL_MAJOR_VERSION == 8) && (TCL_MINOR_VERSION < 6)
-	Tcl_BackgroundError(interp);
-#else
-	Tcl_BackgroundException(interp, TCL_ERROR);
-#endif
-	return;
-    }
-
     /* Create command to eval from callback */
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("error", -1));
