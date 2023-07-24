@@ -95,11 +95,11 @@ static Tcl_Mutex init_mx;
 #endif /* OPENSSL_THREADS */
 #endif /* TCL_THREADS */
 
+
 /********************/
 /* Callbacks        */
 /********************/
 
-
 /*
  *-------------------------------------------------------------------
  *
@@ -158,6 +158,7 @@ EvalCallback(Tcl_Interp *interp, State *statePtr, Tcl_Obj *cmdPtr) {
  *
  * Side effects:
  *	Calls callback (if defined)
+ *
  *-------------------------------------------------------------------
  */
 static void
@@ -201,7 +202,7 @@ InfoCallback(const SSL *ssl, int where, int ret) {
 	else					minor = "unknown";
     }
 
-    /* Create command to eval from callback */
+    /* Create command to eval */
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("info", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
@@ -257,6 +258,7 @@ InfoCallback(const SSL *ssl, int where, int ret) {
  * Side effects:
  *	The err field of the currently operative State is set
  *	  to a string describing the SSL negotiation failure reason
+ *
  *-------------------------------------------------------------------
  */
 static int
@@ -279,7 +281,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
 	}
     }
 
-    /* Create command to eval from callback */
+    /* Create command to eval */
     cmdPtr = Tcl_DuplicateObj(statePtr->vcmd);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("verify", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
@@ -298,7 +300,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
     Tcl_DecrRefCount(cmdPtr);
 
     statePtr->flags &= ~(TLS_TCL_CALLBACK);
-    return(ok);	/* By default, leave verification unchanged.	*/
+    return(ok);	/* By default, leave verification unchanged. */
 }
 
 /*
@@ -312,6 +314,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
  * Side effects:
  *	The err field of the currently operative State is set
  *	  to a string describing the SSL negotiation failure reason
+ *
  *-------------------------------------------------------------------
  */
 void
@@ -353,6 +356,7 @@ Tls_Error(State *statePtr, char *msg) {
  *
  * Side effects:
  *	none
+ *
  *-------------------------------------------------------------------
  */
 void KeyLogCallback(const SSL *ssl, const char *line) {
@@ -373,6 +377,7 @@ void KeyLogCallback(const SSL *ssl, const char *line) {
  *	Called when a password is needed to unpack RSA and PEM keys.
  *	Evals any bound password script and returns the result as
  *	the password string.
+ *
  *-------------------------------------------------------------------
  */
 static int
@@ -394,7 +399,7 @@ PasswordCallback(char *buf, int size, int verify, void *udata) {
 	}
     }
 
-    /* Create command to eval from callback */
+    /* Create command to eval */
     cmdPtr = Tcl_DuplicateObj(statePtr->password);
 
     Tcl_Preserve((ClientData) interp);
@@ -467,7 +472,7 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
 	return SSL_TLSEXT_ERR_NOACK;
     }
 
-    /* Create command to eval from callback */
+    /* Create command to eval */
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("session", -1));
 
@@ -542,7 +547,7 @@ ALPNCallback(const SSL *ssl, const unsigned char **out, unsigned char *outlen,
 	return res;
     }
 
-    /* Create command to eval from callback */
+    /* Create command to eval */
     cmdPtr = Tcl_DuplicateObj(statePtr->vcmd);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("alpn", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(*out, -1));
@@ -608,8 +613,8 @@ NPNCallback(const SSL *ssl, const unsigned char **out, unsigned int *outlen, voi
  *
  * SNI Callback for Servers --
  *
- *	Perform server-side SNI hostname selection after receiving SNI header.
- *	Called after hello callback but before ALPN callback.
+ *	Perform server-side SNI hostname selection after receiving SNI extension
+ *	in Client Hello. Called after hello callback but before ALPN callback.
  *
  * Results:
  *	None
@@ -642,16 +647,17 @@ SNICallback(const SSL *ssl, int *alert, void *arg) {
 	return SSL_TLSEXT_ERR_NOACK;
     }
 
+    /* Only works for TLS 1.2 and earlier */
     servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
     if (!servername || servername[0] == '\0') {
-        return SSL_TLSEXT_ERR_NOACK;
+	return SSL_TLSEXT_ERR_NOACK;
     }
 
     if (statePtr->vcmd == (Tcl_Obj*)NULL) {
 	return SSL_TLSEXT_ERR_OK;
     }
 
-    /* Create command to eval from callback */
+    /* Create command to eval */
     cmdPtr = Tcl_DuplicateObj(statePtr->vcmd);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("sni", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(servername , -1));
@@ -718,7 +724,7 @@ HelloCallback(const SSL *ssl, int *alert, void *arg) {
     /* Get names */
     if (!SSL_client_hello_get0_ext(ssl, TLSEXT_TYPE_server_name, &p, &remaining) || remaining <= 2) {
 	*alert = SSL_R_SSLV3_ALERT_ILLEGAL_PARAMETER;
-        return SSL_CLIENT_HELLO_ERROR;
+	return SSL_CLIENT_HELLO_ERROR;
     }
 
     /* Extract the length of the supplied list of names. */
@@ -726,32 +732,32 @@ HelloCallback(const SSL *ssl, int *alert, void *arg) {
     len += *(p++);
     if (len + 2 != remaining) {
 	*alert = SSL_R_SSLV3_ALERT_ILLEGAL_PARAMETER;
-        return SSL_CLIENT_HELLO_ERROR;
+	return SSL_CLIENT_HELLO_ERROR;
     }
     remaining = len;
 
     /* The list in practice only has a single element, so we only consider the first one. */
     if (remaining == 0 || *p++ != TLSEXT_NAMETYPE_host_name) {
 	*alert = SSL_R_TLSV1_ALERT_INTERNAL_ERROR;
-        return SSL_CLIENT_HELLO_ERROR;
+	return SSL_CLIENT_HELLO_ERROR;
     }
     remaining--;
 
     /* Now we can finally pull out the byte array with the actual hostname. */
     if (remaining <= 2) {
 	*alert = SSL_R_TLSV1_ALERT_INTERNAL_ERROR;
-        return SSL_CLIENT_HELLO_ERROR;
+	return SSL_CLIENT_HELLO_ERROR;
     }
     len = (*(p++) << 8);
     len += *(p++);
     if (len + 2 > remaining) {
 	*alert = SSL_R_TLSV1_ALERT_INTERNAL_ERROR;
-        return SSL_CLIENT_HELLO_ERROR;
+	return SSL_CLIENT_HELLO_ERROR;
     }
     remaining = len;
     servername = (const char *)p;
 
-    /* Create command to eval from callback */
+    /* Create command to eval */
     cmdPtr = Tcl_DuplicateObj(statePtr->vcmd);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("hello", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(servername, (int) len));
@@ -867,7 +873,7 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 	    return TCL_ERROR;
 #else
 	    ctx = SSL_CTX_new(TLS_method());
-            SSL_CTX_set_min_proto_version(ctx, TLS1_3_VERSION);
+	    SSL_CTX_set_min_proto_version(ctx, TLS1_3_VERSION);
 	    SSL_CTX_set_max_proto_version(ctx, TLS1_3_VERSION);
 	    break;
 #endif
@@ -964,16 +970,16 @@ ProtocolsObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *co
 #if OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(NO_SSL2) && !defined(OPENSSL_NO_SSL2)
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(protocols[TLS_SSL2], -1));
 #endif
-#if !defined(NO_SSL3) && !defined(OPENSSL_NO_SSL3)
+#if !defined(NO_SSL3) && !defined(OPENSSL_NO_SSL3) && !defined(OPENSSL_NO_SSL3_METHOD)
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(protocols[TLS_SSL3], -1));
 #endif
-#if !defined(NO_TLS1) && !defined(OPENSSL_NO_TLS1)
+#if !defined(NO_TLS1) && !defined(OPENSSL_NO_TLS1) && !defined(OPENSSL_NO_TLS1_METHOD)
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(protocols[TLS_TLS1], -1));
 #endif
-#if !defined(NO_TLS1_1) && !defined(OPENSSL_NO_TLS1_1)
+#if !defined(NO_TLS1_1) && !defined(OPENSSL_NO_TLS1_1) && !defined(OPENSSL_NO_TLS1_1_METHOD)
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(protocols[TLS_TLS1_1], -1));
 #endif
-#if !defined(NO_TLS1_2) && !defined(OPENSSL_NO_TLS1_2)
+#if !defined(NO_TLS1_2) && !defined(OPENSSL_NO_TLS1_2) && !defined(OPENSSL_NO_TLS1_2_METHOD)
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(protocols[TLS_TLS1_2], -1));
 #endif
 #if !defined(NO_TLS1_3) && !defined(OPENSSL_NO_TLS1_3)
@@ -1152,18 +1158,20 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTOBJ("-alpn", alpn);
 	OPTSTR("-cadir", CAdir);
 	OPTSTR("-cafile", CAfile);
+	OPTBYTE("-cert", cert, cert_len);
 	OPTSTR("-certfile", certfile);
 	OPTSTR("-cipher", ciphers);
 	OPTSTR("-ciphers", ciphers);
 	OPTSTR("-ciphersuites", ciphersuites);
 	OPTOBJ("-command", script);
 	OPTSTR("-dhparams", DHparams);
+	OPTBYTE("-key", key, key_len);
 	OPTSTR("-keyfile", keyfile);
 	OPTSTR("-model", model);
 	OPTOBJ("-password", password);
 	OPTBOOL("-post_handshake", post_handshake);
-	OPTBOOL("-require", require);
 	OPTBOOL("-request", request);
+	OPTBOOL("-require", require);
 	OPTINT("-securitylevel", level);
 	OPTBOOL("-server", server);
 	OPTSTR("-servername", servername);
@@ -1176,17 +1184,15 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTBOOL("-tls1.3", tls1_3);
 	OPTOBJ("-validatecommand", vcmd);
 	OPTOBJ("-vcmd", vcmd);
-	OPTBYTE("-cert", cert, cert_len);
-	OPTBYTE("-key", key, key_len);
 
-	OPTBAD("option", "-alpn, -cadir, -cafile, -cert, -certfile, -cipher, -ciphersuites, -command, -dhparams, -key, -keyfile, -model, -password, -require, -request, -securitylevel, -server, -servername, -session_id, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, -tls1.3, or -validatecommand");
+	OPTBAD("option", "-alpn, -cadir, -cafile, -cert, -certfile, -cipher, -ciphersuites, -command, -dhparams, -key, -keyfile, -model, -password, -post_handshake, -request, -require, -securitylevel, -server, -servername, -session_id, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, -tls1.3, or -validatecommand");
 
 	return TCL_ERROR;
     }
-    if (request)	    verify |= SSL_VERIFY_CLIENT_ONCE | SSL_VERIFY_PEER;
-    if (request && require) verify |= SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
-    if (request && post_handshake)  verify |= SSL_VERIFY_POST_HANDSHAKE;
-    if (verify == 0)	verify = SSL_VERIFY_NONE;
+    if (request)		verify |= SSL_VERIFY_CLIENT_ONCE | SSL_VERIFY_PEER;
+    if (request && require)	verify |= SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+    if (request && post_handshake)	verify |= SSL_VERIFY_POST_HANDSHAKE;
+    if (verify == 0)		verify = SSL_VERIFY_NONE;
 
     proto |= (ssl2 ? TLS_PROTO_SSL2 : 0);
     proto |= (ssl3 ? TLS_PROTO_SSL3 : 0);
@@ -1318,18 +1324,19 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     /* Set host server name */
     if (servername) {
 	/* Sets the server name indication (SNI) in ClientHello extension */
+	/* Per RFC 6066, hostname is a ASCII encoded string. */
 	if (!SSL_set_tlsext_host_name(statePtr->ssl, servername) && require) {
 	    Tcl_AppendResult(interp, "setting TLS host name extension failed", (char *) NULL);
-            Tls_Free((char *) statePtr);
-            return TCL_ERROR;
-        }
+	    Tls_Free((char *) statePtr);
+	    return TCL_ERROR;
+	}
 
 	/* Configure server host name checks in the SSL client. Set DNS hostname to
 	   name for peer certificate checks. SSL_set1_host has limitations. */
 	if (!SSL_add1_host(statePtr->ssl, servername)) {
 	    Tcl_AppendResult(interp, "setting DNS host name failed", (char *) NULL);
-            Tls_Free((char *) statePtr);
-            return TCL_ERROR;
+	    Tls_Free((char *) statePtr);
+	    return TCL_ERROR;
 	}
     }
 
@@ -1412,24 +1419,30 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	if (statePtr->protos != NULL) {
 	    SSL_CTX_set_alpn_select_cb(statePtr->ctx, ALPNCallback, (void *)statePtr);
 #ifdef USE_NPN
-	    SSL_CTX_set_next_protos_advertised_cb(statePtr->ctx, NPNCallback, (void *)statePtr);
+	    if (tls1_2 == 0 && tls1_3 == 0) {
+		SSL_CTX_set_next_protos_advertised_cb(statePtr->ctx, NPNCallback, (void *)statePtr);
+	    }
 #endif
 	}
 
 	/* Enable server to send cert request after handshake (TLS 1.3 only) */
+	/* A write operation must take place for the Certificate Request to be
+	   sent to the client, this can be done with SSL_do_handshake(). */
 	if (request && post_handshake) {
 	    SSL_verify_client_post_handshake(statePtr->ssl);
 	}
 
+	/* Set server mode */
 	statePtr->flags |= TLS_TCL_SERVER;
 	SSL_set_accept_state(statePtr->ssl);
     } else {
 	/* Client callbacks */
-	if (statePtr->protos != NULL) {
 #ifdef USE_NPN
+	if (statePtr->protos != NULL && tls1_2 == 0 && tls1_3 == 0) {
 	    SSL_CTX_set_next_proto_select_cb(statePtr->ctx, ALPNCallback, (void *)statePtr);
-#endif
 	}
+#endif
+
 	/* Session caching */
 	SSL_CTX_set_session_cache_mode(statePtr->ctx, SSL_SESS_CACHE_CLIENT | SSL_SESS_CACHE_NO_INTERNAL_STORE);
 	SSL_CTX_sess_set_new_cb(statePtr->ctx, SessionCallback);
@@ -1439,6 +1452,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	    SSL_set_post_handshake_auth(statePtr->ssl, 1);
 	}
 
+	/* Set client mode */
 	SSL_set_connect_state(statePtr->ssl);
     }
     SSL_set_bio(statePtr->ssl, statePtr->p_bio, statePtr->p_bio);
@@ -1629,8 +1643,8 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     }
 
     ERR_clear_error();
-    ctx = SSL_CTX_new(method);
 
+    ctx = SSL_CTX_new(method);
     if (!ctx) {
 	return(NULL);
     }
@@ -1661,14 +1675,14 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 
     /* Set user defined ciphers, cipher suites, and security level */
     if ((ciphers != NULL) && !SSL_CTX_set_cipher_list(ctx, ciphers)) {
-	    Tcl_AppendResult(interp, "Set ciphers failed: No valid ciphers", (char *) NULL);
-	    SSL_CTX_free(ctx);
-	    return NULL;
+	Tcl_AppendResult(interp, "Set ciphers failed: No valid ciphers", (char *) NULL);
+	SSL_CTX_free(ctx);
+	return NULL;
     }
     if ((ciphersuites != NULL) && !SSL_CTX_set_ciphersuites(ctx, ciphersuites)) {
-	    Tcl_AppendResult(interp, "Set cipher suites failed: No valid ciphers", (char *) NULL);
-	    SSL_CTX_free(ctx);
-	    return NULL;
+	Tcl_AppendResult(interp, "Set cipher suites failed: No valid ciphers", (char *) NULL);
+	SSL_CTX_free(ctx);
+	return NULL;
     }
 
     /* Set security level */
@@ -1885,6 +1899,8 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	return TCL_ERROR;
     }
     statePtr = (State *) Tcl_GetChannelInstanceData(chan);
+
+    /* Get certificate for peer or self */
     if (objc == 2) {
 	peer = SSL_get_peer_certificate(statePtr->ssl);
     } else {
@@ -2038,7 +2054,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("secret_bits", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(alg_bits));
 	/* alg_bits is actual key secret bits. If use bits and secret (algorithm) bits differ,
-           the rest of the bits are fixed, i.e. for limited export ciphers (bits < 56) */
+	   the rest of the bits are fixed, i.e. for limited export ciphers (bits < 56) */
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("min_version", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_CIPHER_get_version(cipher), -1));
 
@@ -2590,35 +2606,35 @@ static int TlsLibInit(int uninitialize) {
 #endif
 
     if (uninitialize) {
-        if (!initialized) {
-            dprintf("Asked to uninitialize, but we are not initialized");
+	if (!initialized) {
+	    dprintf("Asked to uninitialize, but we are not initialized");
 
-            return(TCL_OK);
-        }
+	    return(TCL_OK);
+	}
 
-        dprintf("Asked to uninitialize");
-
-#if defined(OPENSSL_THREADS) && defined(TCL_THREADS)
-        Tcl_MutexLock(&init_mx);
-
-        if (locks) {
-            free(locks);
-            locks = NULL;
-            locksCount = 0;
-        }
-#endif
-        initialized = 0;
+	dprintf("Asked to uninitialize");
 
 #if defined(OPENSSL_THREADS) && defined(TCL_THREADS)
-        Tcl_MutexUnlock(&init_mx);
+	Tcl_MutexLock(&init_mx);
+
+	if (locks) {
+	    free(locks);
+	    locks = NULL;
+	    locksCount = 0;
+	}
+#endif
+	initialized = 0;
+
+#if defined(OPENSSL_THREADS) && defined(TCL_THREADS)
+	Tcl_MutexUnlock(&init_mx);
 #endif
 
-        return(TCL_OK);
+	return(TCL_OK);
     }
 
     if (initialized) {
-        dprintf("Called, but using cached value");
-        return(status);
+	dprintf("Called, but using cached value");
+	return(status);
     }
 
     dprintf("Called");

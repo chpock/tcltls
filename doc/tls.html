@@ -296,16 +296,17 @@ used directly.</p>
 	<dd>List of certificate extension names.</dd>
 	<dt><strong>authorityKeyIdentifier</strong> <em>string</em></dt>
 	<dd>(AKI) Key identifier of the Issuing CA certificate that signed
-	    the SSL certificate. This value matches the SKI value of the
-	    Intermediate CA certificate.</dd>
+	    the SSL certificate as hex string. This value matches the SKI
+	    value of the Intermediate CA certificate.</dd>
 	<dt><strong>subjectKeyIdentifier</strong> <em>string</em></dt>
-	<dd>(SKI) Hash of the public key inside the certificate. Used to
-	   identify certificates that contain a particular public key.</dd>
+	<dd>(SKI) Hash of the public key inside the certificate as hex
+	   string. Used to identify certificates that contain a particular
+	   public key.</dd>
 	<dt><strong>subjectAltName</strong> <em>list</em></dt>
 	<dd>List of all of the alternative domain names, sub domains,
 	    and IP addresses that are secured by the certificate.</dd>
 	<dt><strong>ocsp</strong> <em>list</em></dt>
-	<dd>List of all OCSP URLs.</dd>
+	<dd>List of all Online Certificate Status Protocol (OCSP) URLs.</dd>
 
 	<dt><strong>certificate</strong> <em>cert</em></dt>
 	<dd>The PEM encoded certificate.</dd>
@@ -347,14 +348,14 @@ used directly.</p>
 	<dt><strong>protocol</strong> <em>version</em></dt>
 	<dd>The protocol version used for the connection:
 	    SSL2, SSL3, TLS1, TLS1.1, TLS1.2, TLS1.3, or unknown.</dd>
-	<dt><strong>renegotiation</strong> <em>state</em></dt>
+	<dt><strong>renegotiation</strong> <em>boolean</em></dt>
 	<dd>Whether protocol renegotiation is supported or not.</dd>
 	<dt><strong>securitylevel</strong> <em>level</em></dt>
 	<dd>The security level used for selection of ciphers, key size, etc.</dd>
 	<dt><strong>session_reused</strong> <em>boolean</em></dt>
 	<dd>Whether the session has been reused or not.</dd>
 	<dt><strong>is_server</strong> <em>boolean</em></dt>
-	<dd>Whether the connection configured as a server or client (false).</dd>
+	<dd>Whether the connection is configured as a server (1) or client (0).</dd>
 	<dt><strong>compression</strong> <em>mode</em></dt>
 	<dd>Compression method.</dd>
 	<dt><strong>expansion</strong> <em>mode</em></dt>
@@ -394,11 +395,11 @@ used directly.</p>
 	<dd>Max duration of session in seconds before time-out.</dd>
 	<dt><strong>lifetime</strong> <em>seconds</em></dt>
 	<dd>Session ticket lifetime hint in seconds.</dd>
-	<dt><strong>session_id</strong> <em>string</em></dt>
+	<dt><strong>session_id</strong> <em>binary_string</em></dt>
 	<dd>Unique session id for use in resuming the session.</dd>
-	<dt><strong>session_ticket</strong> <em>string</em></dt>
+	<dt><strong>session_ticket</strong> <em>binary_string</em></dt>
 	<dd>Unique session ticket for use in resuming the session.</dd>
-	<dt><strong>ticket_app_data</strong> <em>string</em></dt>
+	<dt><strong>ticket_app_data</strong> <em>binary_string</em></dt>
 	<dd>Unique session ticket application data.</dd>
 	<dt><strong>master_key</strong> <em>binary_string</em></dt>
 	<dd>Unique session master key.</dd>
@@ -432,7 +433,8 @@ used directly.</p>
 <p>
 As indicated above, individual channels can be given their own callbacks
 to handle intermediate processing by the OpenSSL library, using the
-<em>-command</em> and <em>-password</em> options passed to either of
+<strong>-command</strong>, <strong>-password</strong>, and
+<strong>-validate_command</strong> options passed to either of
 <strong>tls::socket</strong> or <strong>tls::import</strong>.
 </p>
 
@@ -497,7 +499,7 @@ to handle intermediate processing by the OpenSSL library, using the
 	  <em>ticket</em> is the session ticket info, and <em>lifetime</em>
 	  is the the ticket lifetime in seconds.
 	</dd>
-
+	<br>
 	</dl>
     </dd>
 
@@ -516,7 +518,7 @@ to handle intermediate processing by the OpenSSL library, using the
     <dt><strong>-validatecommand</strong> <em>callback</em></dt>
     <dd>
 	Invokes the specified <em>callback</em> script during handshake in
-	order to verify/validate the provided value. 
+	order to validate the provided value(s). 
 	To reject the value and abort connection, the callback should return 0.
 	To accept the value, it should return 1.  To reject the value, but
 	continue the connection, it should return 2.
@@ -531,7 +533,7 @@ to handle intermediate processing by the OpenSSL library, using the
 	</dt>
 	<dd>
 	  For servers, this form of callback is invoked when the client ALPN
-	  header is received and the first <b>-alpn</b> specified protocol common
+	  extension is received and the first <b>-alpn</b> specified protocol common
 	  to the both the client and server is selected. If none, the first
 	  client specified protocol is used.
 	</dd>
@@ -543,7 +545,7 @@ to handle intermediate processing by the OpenSSL library, using the
 	</dt>
 	<dd>
 	  For servers, this form of callback is invoked during client hello
-	  message processing. Used to select an appropriate certificate to
+	  message processing. It is used to select an appropriate certificate to
 	  present, and make other configuration adjustments relevant to that
 	  server name and its configuration. Called before SNI and ALPN callbacks.
 	</dd>
@@ -554,9 +556,8 @@ to handle intermediate processing by the OpenSSL library, using the
 	  <strong>sni</strong> <em>servername</em>
 	</dt>
 	<dd>
-	  For servers, this form of callback is invoked when the SNI header
-	  from the client is received. Where <i>servername</i> is the client
-	  specified servername. This is used when a server supports multiple
+	  For servers, this form of callback is invoked when the SNI extension
+	  from the client is received. This is used when a server supports multiple
 	  names, so the right certificate can be used. Called after hello
 	  callback but before ALPN callback.
 	</dd>
@@ -585,10 +586,6 @@ to handle intermediate processing by the OpenSSL library, using the
 	  <li>The <em>error</em> argument supplies the message, if any, generated
 	  by <code>X509_STORE_CTX_get_error()</code>.</li>
 	  </ul>
-	  <br>
-	  <br>
-	  The callback may override normal validation processing by explicitly
-	  returning one of the above <em>status</em> values.
 	</dd>
 	<br>
 	</dl>
@@ -598,19 +595,19 @@ to handle intermediate processing by the OpenSSL library, using the
 
 <p>
 Reference implementations of these callbacks are provided in the
-distribution as <strong>tls::callback</strong> and
-<strong>tls::password</strong> respectively.  Note that these are
+distribution as <strong>tls::callback</strong>, <strong>tls::password</strong>,
+and <strong>tls::validate_command</strong> respectively.  Note that these are
 <em>sample</em> implementations only.  In a more realistic deployment
-you would specify your own callback scripts on each TLS channel
-using the <em>-command</em> and <em>-password</em> options.
+you would specify your own callback scripts on each TLS channel using the
+<strong>-command</strong>, <strong>-password</strong>, and <strong>-validate_command</strong> options.
 </p>
 
 <p>
-The default behavior when the <em>-command</em> option is not specified is for
-TLS to process the associated library callbacks internally.
-The default behavior when the <em>-password</em> option is not specified is for
-TLS to process the associated library callbacks by attempting to call
-<strong>tls::password</strong>.
+The default behavior when the <strong>-command</strong> and <strong>-validate_command</strong>
+options are not specified is for TLS to process the associated library callbacks
+internally. The default behavior when the <strong>-password</strong> option is not
+specified is for TLS to process the associated library callbacks by attempting
+to call <strong>tls::password</strong>.
 The difference between these two behaviors is a consequence of maintaining
 compatibility with earlier implementations.
 </p>
@@ -625,9 +622,9 @@ certificate, even when it is invalid.
 
 <p>
 <em>
-The use of the reference callbacks <strong>tls::callback</strong> and
-<strong>tls::password</strong> is not recommended.  They may be removed
-from future releases.
+The use of the reference callbacks <strong>tls::callback</strong>,
+<strong>tls::password</strong>, and <strong>tls::validate_command</strong>
+is not recommended.  They may be removed from future releases.
 </em>
 </p>
 
@@ -642,7 +639,9 @@ It may be removed from future releases.
 
 TLS key logging can be enabled by setting the environment variable
 <b>SSLKEYLOGFILE</b> to the name of the file to log to. Then whenever TLS
-key material is generated or received it will be logged to the file.
+key material is generated or received it will be logged to the file. This
+is useful for logging key data for network logging tools to use to
+decrypt the data.
 
 <h3><a name="HTTPS EXAMPLE">HTTPS EXAMPLE</a></h3>
 
@@ -660,18 +659,11 @@ set tok [http::geturl https://www.tcl.tk/]
 
 <h3><a name="SPECIAL CONSIDERATIONS">SPECIAL CONSIDERATIONS</a></h3>
 
-<p>The capabilities of this package can vary enormously based
-upon how your OpenSSL library was configured and built. At the
-most macro-level OpenSSL supports a &quot;no patents&quot; build,
-which disables RSA, IDEA, RC(2,4,5) and SSL2 - if your OpenSSL is
-configured this way then you will need to build TLS with the
--DNO_PATENTS option - and the resultant module will function
-correctly and also support ADH certificate-less encryption,
-however you will be unable to utilize this to speak to normal Web
-Servers, which typically require RSA support. Please see <a
-href="http://www.openssl.org/">http://www.openssl.org/</a> for
-more information on the whole issue of patents and US export
-restrictions. </p>
+<p>The capabilities of this package can vary enormously based upon how your
+OpenSSL library was configured and built. New versions may obsolete older
+protocol versions, add or remove ciphers, change default values, etc. Use the
+<strong>tls::ciphers</strong> and <strong>tls::protocols</strong> commands to
+obtain the supported versions.</p>
 
 <h3><a name="SEE ALSO">SEE ALSO</a></h3>
 

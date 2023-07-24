@@ -32,6 +32,7 @@ namespace eval tls {
         {* -myaddr sopts 1}
         {0 -myport sopts 1}
         {* -type sopts 1}
+        {* -alpn iopts 1}
         {* -cadir iopts 1}
         {* -cafile iopts 1}
         {* -cert iopts 1}
@@ -43,19 +44,22 @@ namespace eval tls {
         {* -key iopts 1}
         {* -keyfile iopts 1}
         {* -password iopts 1}
+        {* -post_handshake iopts 1}
         {* -request iopts 1}
         {* -require iopts 1}
         {* -securitylevel iopts 1}
         {* -autoservername discardOpts 1}
+        {* -server iopts 1}
         {* -servername iopts 1}
         {* -session_id iopts 1}
-        {* -alpn iopts 1}
         {* -ssl2 iopts 1}
         {* -ssl3 iopts 1}
         {* -tls1 iopts 1}
         {* -tls1.1 iopts 1}
         {* -tls1.2 iopts 1}
         {* -tls1.3 iopts 1}
+        {* -validatecommand iopts 1}
+        {* -vcmd iopts 1}
     }
 
     # tls::socket and tls::init options as a humane readable string
@@ -309,6 +313,7 @@ proc tls::_accept { iopts callback chan ipaddr port } {
 	log 2 "tls::_accept - called \"$callback\" succeeded"
     }
 }
+
 #
 # Sample callback for hooking: -
 #
