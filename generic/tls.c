@@ -173,16 +173,6 @@ InfoCallback(const SSL *ssl, int where, int ret) {
     if (statePtr->callback == (Tcl_Obj*)NULL)
 	return;
 
-#if 0
-    if (where & SSL_CB_ALERT) {
-	sev = SSL_alert_type_string_long(ret);
-	if (strcmp(sev, "fatal")==0) {	/* Map to error */
-	    Tls_Error(statePtr, SSL_ERROR(ssl, 0));
-	    return;
-	}
-    }
-#endif
-
     if (where & SSL_CB_HANDSHAKE_START) {
 	major = "handshake";
 	minor = "start";
@@ -308,8 +298,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
  *
  * Tls_Error --
  *
- *	Calls callback with $fd and $msg - so the callback can decide
- *	what to do with errors.
+ *	Calls callback with list of errors.
  *
  * Side effects:
  *	The err field of the currently operative State is set
@@ -320,26 +309,34 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
 void
 Tls_Error(State *statePtr, char *msg) {
     Tcl_Interp *interp	= statePtr->interp;
-    Tcl_Obj *cmdPtr;
+    Tcl_Obj *cmdPtr, listPtr;
+    unsigned long err;
+    statePtr->err = msg;
 
     dprintf("Called");
 
     if (statePtr->callback == (Tcl_Obj*)NULL)
 	return;
 
-    if (msg && *msg) {
-	Tcl_SetErrorCode(interp, "SSL", msg, (char *)NULL);
-    } else {
-	msg = Tcl_GetStringFromObj(Tcl_GetObjResult(interp), NULL);
-    }
-    statePtr->err = msg;
-
-    /* Create command to eval from callback */
+    /* Create command to eval */
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("error", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
 	    Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
-    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(msg, -1));
+    if (msg != NULL) {
+	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(msg, -1));
+	/* Tcl_SetErrorCode(interp, "SSL", msg, (char *)NULL); */
+
+    } else if ((msg = Tcl_GetStringFromObj(Tcl_GetObjResult(interp), NULL)) != NULL) {
+	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(msg, -1));
+
+    } else {
+	listPtr = Tcl_NewListObj(0, NULL);
+	while ((err = ERR_get_error()) != 0) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj(ERR_reason_error_string(err, -1));
+	}
+	Tcl_ListObjAppendElement(interp, cmdPtr, listPtr);
+    }
 
     /* Eval callback command */
     Tcl_IncrRefCount(cmdPtr);
@@ -965,6 +962,8 @@ ProtocolsObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *co
 	return TCL_ERROR;
     }
 
+    ERR_clear_error();
+
     objPtr = Tcl_NewListObj(0, NULL);
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(NO_SSL2) && !defined(OPENSSL_NO_SSL2)
@@ -1020,6 +1019,8 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 	Tcl_WrongNumArgs(interp, 1, objv, "channel");
 	return(TCL_ERROR);
     }
+
+    ERR_clear_error();
 
     chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], NULL), NULL);
     if (chan == (Tcl_Channel) NULL) {
@@ -1140,6 +1141,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	Tcl_WrongNumArgs(interp, 1, objv, "channel ?options?");
 	return TCL_ERROR;
     }
+
+    ERR_clear_error();
 
     chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], NULL), NULL);
     if (chan == (Tcl_Channel) NULL) {
@@ -2223,6 +2226,8 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
     if (Tcl_GetIndexFromObj(interp, objv[1], commands, "command", 0,&cmd) != TCL_OK) {
 	return TCL_ERROR;
     }
+
+    ERR_clear_error();
 
     isStr = (cmd == C_STRREQ);
     switch ((enum command) cmd) {
