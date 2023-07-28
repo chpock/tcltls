@@ -18,6 +18,7 @@
  */
 
 #include "tlsInt.h"
+#include <errno.h>
 
 /*
  * Forward declarations
@@ -111,13 +112,13 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
     unsigned long backingError;
     int err, rc;
     int bioShouldRetry;
+    *errorCodePtr = 0;
 
     dprintf("WaitForConnect(%p)", (void *) statePtr);
     dprintFlags(statePtr);
 
     if (!(statePtr->flags & TLS_TCL_INIT)) {
 	dprintf("Tls_WaitForConnect called on already initialized channel -- returning with immediate success");
-	*errorCodePtr = 0;
 	return(0);
     }
 
@@ -195,15 +196,15 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	break;
     }
 
-    *errorCodePtr = EINVAL;
-
     switch (rc) {
 	case SSL_ERROR_NONE:
 	    /* The connection is up, we are done here */
 	    dprintf("The connection is up");
+	    *errorCodePtr = 0;
 	    break;
 	case SSL_ERROR_ZERO_RETURN:
-	    dprintf("SSL_ERROR_ZERO_RETURN: Connect returned an invalid value...")
+	    dprintf("SSL_ERROR_ZERO_RETURN: Connect returned an invalid value...");
+	    *errorCodePtr = EINVAL;
 	    return(-1);
 	case SSL_ERROR_SYSCALL:
 	    backingError = ERR_get_error();
@@ -308,6 +309,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
     tlsConnect = Tls_WaitForConnect(statePtr, errorCodePtr, 0);
     if (tlsConnect < 0) {
 	dprintf("Got an error waiting to connect (tlsConnect = %i, *errorCodePtr = %i)", tlsConnect, *errorCodePtr);
+	Tls_Error(statePtr, strerror(*errorCodePtr));
 
 	bytesRead = -1;
 	if (*errorCodePtr == ECONNRESET) {
@@ -395,6 +397,9 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    break;
     }
 
+    if (*errorCodePtr < 0) {
+	Tls_Error(statePtr, strerror(*errorCodePtr));
+    }
     dprintf("Input(%d) -> %d [%d]", bufSize, bytesRead, *errorCodePtr);
     return(bytesRead);
 }
@@ -438,6 +443,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
     tlsConnect = Tls_WaitForConnect(statePtr, errorCodePtr, 1);
     if (tlsConnect < 0) {
 	dprintf("Got an error waiting to connect (tlsConnect = %i, *errorCodePtr = %i)", tlsConnect, *errorCodePtr);
+	Tls_Error(statePtr, strerror(*errorCodePtr));
 
 	written = -1;
 	if (*errorCodePtr == ECONNRESET) {
@@ -538,6 +544,9 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    break;
     }
 
+    if (*errorCodePtr < 0) {
+	Tls_Error(statePtr, strerror(*errorCodePtr));
+    }
     dprintf("Output(%d) -> %d", toWrite, written);
     return(written);
 }
@@ -777,6 +786,7 @@ static int TlsNotifyProc(ClientData instanceData, int mask) {
     dprintf("Calling Tls_WaitForConnect");
     errorCode = 0;
     if (Tls_WaitForConnect(statePtr, &errorCode, 1) < 0) {
+	Tls_Error(statePtr, strerror(errorCode));
 	if (errorCode == EAGAIN) {
 	    dprintf("Async flag could be set (didn't check) and errorCode == EAGAIN:  Returning 0");
 

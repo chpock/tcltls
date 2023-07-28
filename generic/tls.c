@@ -282,14 +282,15 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
     Tcl_ListObjAppendElement(interp, cmdPtr,
 	Tcl_NewStringObj((char*)X509_verify_cert_error_string(err), -1));
 
-    statePtr->flags |= TLS_TCL_CALLBACK;
+    /* Prevent I/O while callback is in progress */
+    /* statePtr->flags |= TLS_TCL_CALLBACK; */
 
     /* Eval callback command */
     Tcl_IncrRefCount(cmdPtr);
     ok = EvalCallback(interp, statePtr, cmdPtr);
     Tcl_DecrRefCount(cmdPtr);
 
-    statePtr->flags &= ~(TLS_TCL_CALLBACK);
+    /* statePtr->flags &= ~(TLS_TCL_CALLBACK); */
     return(ok);	/* By default, leave verification unchanged. */
 }
 
@@ -309,7 +310,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
 void
 Tls_Error(State *statePtr, char *msg) {
     Tcl_Interp *interp	= statePtr->interp;
-    Tcl_Obj *cmdPtr, listPtr;
+    Tcl_Obj *cmdPtr, *listPtr;
     unsigned long err;
     statePtr->err = msg;
 
@@ -333,7 +334,7 @@ Tls_Error(State *statePtr, char *msg) {
     } else {
 	listPtr = Tcl_NewListObj(0, NULL);
 	while ((err = ERR_get_error()) != 0) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj(ERR_reason_error_string(err, -1));
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj(ERR_reason_error_string(err), -1));
 	}
 	Tcl_ListObjAppendElement(interp, cmdPtr, listPtr);
     }
@@ -359,6 +360,9 @@ Tls_Error(State *statePtr, char *msg) {
 void KeyLogCallback(const SSL *ssl, const char *line) {
     char *str = getenv(SSLKEYLOGFILE);
     FILE *fd;
+
+    dprintf("Called");
+
     if (str) {
 	fd = fopen(str, "a");
 	fprintf(fd, "%s\n",line);
@@ -386,6 +390,7 @@ PasswordCallback(char *buf, int size, int verify, void *udata) {
 
     dprintf("Called");
 
+    /* If no callback, use default callback */
     if (statePtr->password == NULL) {
 	if (Tcl_EvalEx(interp, "tls::password", -1, TCL_EVAL_GLOBAL) == TCL_OK) {
 	    char *ret = (char *) Tcl_GetStringResult(interp);
