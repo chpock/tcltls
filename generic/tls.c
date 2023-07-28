@@ -326,7 +326,6 @@ Tls_Error(State *statePtr, char *msg) {
 	    Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
     if (msg != NULL) {
 	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(msg, -1));
-	/* Tcl_SetErrorCode(interp, "SSL", msg, (char *)NULL); */
 
     } else if ((msg = Tcl_GetStringFromObj(Tcl_GetObjResult(interp), NULL)) != NULL) {
 	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(msg, -1));
@@ -1035,7 +1034,9 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
     /* Make sure to operate on the topmost channel */
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
-	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan), "\": not a TLS channel", NULL);
+	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
+	    "\": not a TLS channel", NULL);
+	Tcl_SetErrorCode(interp, "TLS", "HANDSHAKE", "CHANNEL", "INVALID", (char *) NULL);
 	return(TCL_ERROR);
     }
     statePtr = (State *)Tcl_GetChannelInstanceData(chan);
@@ -1057,6 +1058,7 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 	}
 
 	Tcl_AppendResult(interp, "handshake failed: ", errStr, (char *) NULL);
+	Tcl_SetErrorCode(interp, "TLS", "HANDSHAKE", "FAILED", (char *) NULL);
 	dprintf("Returning TCL_ERROR with handshake failed: %s", errStr);
 	return(TCL_ERROR);
     } else {
@@ -1272,6 +1274,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	    Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
 		"\": not a TLS channel", NULL);
+	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "CHANNEL", "INVALID", (char *) NULL);
 	    Tls_Free((char *) statePtr);
 	    return TCL_ERROR;
 	}
@@ -1325,6 +1328,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     if (!statePtr->ssl) {
 	/* SSL library error */
 	Tcl_AppendResult(interp, "couldn't construct ssl session: ", REASON(), (char *) NULL);
+	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "INIT", "FAILED", (char *) NULL);
 	Tls_Free((char *) statePtr);
 	return TCL_ERROR;
     }
@@ -1335,6 +1339,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	/* Per RFC 6066, hostname is a ASCII encoded string. */
 	if (!SSL_set_tlsext_host_name(statePtr->ssl, servername) && require) {
 	    Tcl_AppendResult(interp, "setting TLS host name extension failed", (char *) NULL);
+	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "SNI", "FAILED", (char *) NULL);
 	    Tls_Free((char *) statePtr);
 	    return TCL_ERROR;
 	}
@@ -1343,6 +1348,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	   name for peer certificate checks. SSL_set1_host has limitations. */
 	if (!SSL_add1_host(statePtr->ssl, servername)) {
 	    Tcl_AppendResult(interp, "setting DNS host name failed", (char *) NULL);
+	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "HOSTNAME", "FAILED", (char *) NULL);
 	    Tls_Free((char *) statePtr);
 	    return TCL_ERROR;
 	}
@@ -1353,6 +1359,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	/* SSL_set_session() */
 	if (!SSL_SESSION_set1_id_context(SSL_get_session(statePtr->ssl), session_id, (unsigned int) strlen(session_id))) {
 	    Tcl_AppendResult(interp, "Resume session id ", session_id, " failed", (char *) NULL);
+	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "SESSION", "FAILED", (char *) NULL);
             Tls_Free((char *) statePtr);
             return TCL_ERROR;
 	}
@@ -1375,6 +1382,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	    Tcl_GetStringFromObj(list[i], &len);
 	    if (len > 255) {
 		Tcl_AppendResult(interp, "ALPN protocol name too long", (char *) NULL);
+		Tcl_SetErrorCode(interp, "TLS", "IMPORT", "ALPN", "FAILED", (char *) NULL);
 		Tls_Free((char *) statePtr);
 		return TCL_ERROR;
 	    }
@@ -1395,6 +1403,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	/* Note: This functions reverses the return value convention */
 	if (SSL_set_alpn_protos(statePtr->ssl, protos, protos_len)) {
 	    Tcl_AppendResult(interp, "failed to set ALPN protocols", (char *) NULL);
+	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "ALPN", "FAILED", (char *) NULL);
 	    Tls_Free((char *) statePtr);
 	    ckfree(protos);
 	    return TCL_ERROR;
@@ -1513,6 +1522,7 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
 		"\": not a TLS channel", NULL);
+	    Tcl_SetErrorCode(interp, "TLS", "UNIMPORT", "CHANNEL", "INVALID", (char *) NULL);
 	return TCL_ERROR;
     }
 
@@ -1904,6 +1914,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
 		"\": not a TLS channel", NULL);
+	Tcl_SetErrorCode(interp, "TLS", "STATUS", "CHANNEL", "INVALID", (char *) NULL);
 	return TCL_ERROR;
     }
     statePtr = (State *) Tcl_GetChannelInstanceData(chan);
@@ -1924,6 +1935,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     /* Peer cert chain (client only) */
     STACK_OF(X509)* ssl_certs = SSL_get_peer_cert_chain(statePtr->ssl);
     if (!peer && (ssl_certs == NULL || sk_X509_num(ssl_certs) == 0)) {
+	Tcl_SetErrorCode(interp, "TLS", "STATUS", "CERTIFICATE", (char *) NULL);
 	return TCL_ERROR;
     }
 
@@ -2005,7 +2017,9 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     /* Make sure to operate on the topmost channel */
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
-	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan), "\": not a TLS channel", NULL);
+	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
+	    "\": not a TLS channel", NULL);
+	Tcl_SetErrorCode(interp, "TLS", "CONNECTION", "CHANNEL", "INVALID", (char *) NULL);
 	return(TCL_ERROR);
     }
 
