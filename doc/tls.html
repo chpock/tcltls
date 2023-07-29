@@ -469,10 +469,9 @@ to handle intermediate processing by the OpenSSL library, using the
 	</dt>
 	<dd>
 	  This form of callback is invoked by the OpenSSL function
-	  <code>SSL_CTX_set_info_callback()</code>.
+	  <code>SSL_CTX_set_info_callback()</code> during connection setup
+	  and use.
 	  <br>
-	  The <em>major</em> and <em>minor</em> arguments are used to
-	  represent the state information bitmask.
 	  <ul>
 	  <li>Possible values for <em>major</em> are:
 	  <code>handshake, alert, connect, accept</code>.</li>
@@ -482,9 +481,24 @@ to handle intermediate processing by the OpenSSL library, using the
 	  be generated either by <code>SSL_state_string_long()</code> or by
 	  <code>SSL_alert_desc_string_long()</code>, depending on context.</li>
 	  <li>For alerts, the possible values for <em>type</em> are:
-	  <code>warning, fatal, and unknown</code>.</li>
+	  <code>warning, fatal, and unknown</code>. For others,
+	  <code>info</code> is used.</li>
 	  </ul>
 	</dd>
+
+	<dt>
+	  <strong>message</strong> <em>channel direction version content_type data</em>
+	</dt>
+	<dd>
+	  This form of callback is invoked by the OpenSSL function
+	  <code>SSL_set_msg_callback()</code> whenever a message is sent or
+	  received. It is only available when
+	  OpenSSL is complied with the <em>enable-ssl-trace</em> option.
+	  Where <em>direction</em> is Sent or Received, <em>version</em> is the
+	  protocol version, <em>content_type</em> is the message content type,
+	  and <em>data</em> is more info on the message from the <code>SSL_trace</code> API.
+	</dd>
+	<br>
 
 	<dt>
 	  <strong>session</strong> <em>session_id ticket lifetime</em>
@@ -530,9 +544,9 @@ to handle intermediate processing by the OpenSSL library, using the
 	</dt>
 	<dd>
 	  For servers, this form of callback is invoked when the client ALPN
-	  extension is received and the first <b>-alpn</b> specified protocol common
-	  to the both the client and server is selected. If none, the first
-	  client specified protocol is used.
+	  extension is received. Where <em>protocol</em> is the first
+	  <b>-alpn</b> specified protocol common to the both the client and
+	  server. If none, the first client specified protocol is used.
 	</dd>
 
 	<br>
@@ -554,9 +568,10 @@ to handle intermediate processing by the OpenSSL library, using the
 	</dt>
 	<dd>
 	  For servers, this form of callback is invoked when the SNI extension
-	  from the client is received. This is used when a server supports multiple
-	  names, so the right certificate can be used. Called after hello
-	  callback but before ALPN callback.
+	  from the client is received. Where <em>servername</em> is the client
+	  provided server name from the <b>-servername</b> option. This is
+	  used when a server supports multiple names, so the right certificate
+	  can be used. Called after hello callback but before ALPN callback.
 	</dd>
 
 	<br>
@@ -567,7 +582,8 @@ to handle intermediate processing by the OpenSSL library, using the
 	<dd>
 	  This form of callback is invoked by OpenSSL when a new certificate
 	  is received from the peer. It allows the client to check the
-	  certificate chain verification results and choose whether to continue or not.
+	  certificate verification results and choose whether to continue
+	  or not. It is called for each certificate in the certificate chain.
 	  <ul>
 	  <li>The <em>depth</em> argument is an integer representing the
 	  current depth on the certificate chain, with

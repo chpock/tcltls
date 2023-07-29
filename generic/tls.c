@@ -151,7 +151,7 @@ EvalCallback(Tcl_Interp *interp, State *statePtr, Tcl_Obj *cmdPtr) {
  *
  * InfoCallback --
  *
- *	monitors SSL connection process
+ *	Monitors SSL connection process
  *
  * Results:
  *	None
@@ -220,11 +220,128 @@ InfoCallback(const SSL *ssl, int where, int ret) {
 /*
  *-------------------------------------------------------------------
  *
+ * MessageCallback --
+ *
+ *	Monitors SSL protocol messages
+ *
+ * Results:
+ *	None
+ *
+ * Side effects:
+ *	Calls callback (if defined)
+ *
+ *-------------------------------------------------------------------
+ */
+#ifndef OPENSSL_NO_SSL_TRACE
+static void
+MessageCallback(int write_p, int version, int content_type, const void *buf, size_t len, SSL *ssl, void *arg) {
+    State *statePtr = (State*)arg;
+    Tcl_Interp *interp	= statePtr->interp;
+    Tcl_Obj *cmdPtr;
+    char *ver, *type;
+    BIO *bio;
+    char buffer[15000];
+    buffer[0] = 0;
+
+    dprintf("Called");
+
+    if (statePtr->callback == (Tcl_Obj*)NULL)
+	return;
+
+    switch(version) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(NO_SSL2) && !defined(OPENSSL_NO_SSL2)
+    case SSL2_VERSION:
+	ver = "SSLv2";
+	break;
+#endif
+#if !defined(NO_SSL3) && !defined(OPENSSL_NO_SSL3)
+    case SSL3_VERSION:
+	ver = "SSLv3";
+	break;
+#endif
+    case TLS1_VERSION:
+	ver = "TLSv1";
+	break;
+    case TLS1_1_VERSION:
+	ver = "TLSv1.1";
+	break;
+    case TLS1_2_VERSION:
+	ver = "TLSv1.2";
+	break;
+    case TLS1_3_VERSION:
+	ver = "TLSv1.3";
+	break;
+    case 0:
+        ver = "none";
+	break;
+    default:
+	ver = "unknown";
+	break;
+    }
+
+    switch (content_type) {
+    case SSL3_RT_HEADER:
+	type = "Header";
+        break;
+    case SSL3_RT_INNER_CONTENT_TYPE:
+	type = "Inner Content Type";
+        break;
+    case SSL3_RT_CHANGE_CIPHER_SPEC:
+	type = "Change Cipher";
+        break;
+    case SSL3_RT_ALERT:
+	type = "Alert";
+        break;
+    case SSL3_RT_HANDSHAKE:
+	type = "Handshake";
+        break;
+    case SSL3_RT_APPLICATION_DATA:
+	type = "App Data";
+        break;
+    case DTLS1_RT_HEARTBEAT:
+	type = "Heartbeat";
+        break;
+    default:
+	type = "unknown";
+    }
+
+    /* Needs compile time option "enable-ssl-trace". */
+    if ((bio = BIO_new(BIO_s_mem())) != NULL) {
+	int n;
+	SSL_trace(write_p, version, content_type, buf, len, ssl, (void *)bio);
+	n = BIO_read(bio, buffer, min(BIO_pending(bio), 14999));
+	n = (n<0) ? 0 : n;
+	buffer[n] = 0;
+	(void)BIO_flush(bio);
+ 	BIO_free(bio);
+   }
+
+    /* Create command to eval */
+    cmdPtr = Tcl_DuplicateObj(statePtr->callback);
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("message", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr,
+	    Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(write_p ? "Sent" : "Received", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(ver, -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(type, -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(buffer, -1));
+
+    /* Eval callback command */
+    Tcl_IncrRefCount(cmdPtr);
+    EvalCallback(interp, statePtr, cmdPtr);
+    Tcl_DecrRefCount(cmdPtr);
+}
+#endif
+
+/*
+ *-------------------------------------------------------------------
+ *
  * VerifyCallback --
  *
  *	Monitors SSL certificate validation process. Used to control the
  *	behavior when the SSL_VERIFY_PEER flag is set. This is called
- *	whenever a certificate is inspected or decided invalid.
+ *	whenever a certificate is inspected or decided invalid. Called for
+ *	each certificate in the cert chain.
  *
  * Checks:
  *	certificate chain is checked starting with the deepest nesting level
@@ -1423,6 +1540,14 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     SSL_set_app_data(statePtr->ssl, (void *)statePtr);	/* point back to us */
     SSL_set_verify(statePtr->ssl, verify, VerifyCallback);
     SSL_set_info_callback(statePtr->ssl, InfoCallback);
+
+    /* Callback for observing protocol messages */
+#ifndef OPENSSL_NO_SSL_TRACE
+    /* void SSL_CTX_set_msg_callback_arg(statePtr->ctx, (void *)statePtr);
+    void SSL_CTX_set_msg_callback(statePtr->ctx, MessageCallback); */
+    SSL_set_msg_callback_arg(statePtr->ssl, (void *)statePtr);
+    SSL_set_msg_callback(statePtr->ssl, MessageCallback);
+#endif
 
     /* Create Tcl_Channel BIO Handler */
     statePtr->p_bio	= BIO_new_tcl(statePtr, BIO_NOCLOSE);
