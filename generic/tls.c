@@ -491,14 +491,23 @@ void KeyLogCallback(const SSL *ssl, const char *line) {
  *
  * Password Callback --
  *
- *	Called when a password is needed to unpack RSA and PEM keys.
- *	Evals any bound password script and returns the result as
- *	the password string.
+ *	Called when a password for a private key loading/storing a PEM
+ *	certificate with encryption. Evals callback script and returns
+ *	the result as the password string in buf.
+ *
+ * Results:
+ *	None
+ *
+ * Side effects:
+ *	Calls callback (if defined)
+ *
+ * Returns:
+ *	Password size in bytes or -1 for an error.
  *
  *-------------------------------------------------------------------
  */
 static int
-PasswordCallback(char *buf, int size, int verify, void *udata) {
+PasswordCallback(char *buf, int size, int rwflag, void *udata) {
     State *statePtr	= (State *) udata;
     Tcl_Interp *interp	= statePtr->interp;
     Tcl_Obj *cmdPtr;
@@ -519,11 +528,14 @@ PasswordCallback(char *buf, int size, int verify, void *udata) {
 
     /* Create command to eval */
     cmdPtr = Tcl_DuplicateObj(statePtr->password);
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("password", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(rwflag));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(size));
 
     Tcl_Preserve((ClientData) interp);
     Tcl_Preserve((ClientData) statePtr);
 
-    /* Eval callback and success for ok, abort for error, continue for continue */
+    /* Eval callback command */
     Tcl_IncrRefCount(cmdPtr);
     code = Tcl_EvalObjEx(interp, cmdPtr, TCL_EVAL_GLOBAL);
     if (code != TCL_OK) {
@@ -537,17 +549,20 @@ PasswordCallback(char *buf, int size, int verify, void *udata) {
 
     Tcl_Release((ClientData) statePtr);
 
+    /* If successful, pass back password string and truncate if too long */
     if (code == TCL_OK) {
-	char *ret = (char *) Tcl_GetStringResult(interp);
-	if (strlen(ret) < size - 1) {
-	    strncpy(buf, ret, (size_t) size);
-	    Tcl_Release((ClientData) interp);
-	    return (int)strlen(ret);
+	int len;
+	char *ret = (char *) Tcl_GetStringFromObj(Tcl_GetObjResult(interp), &len);
+	if (len > size-1) {
+	    len = size-1;
 	}
+	strncpy(buf, ret, (size_t) len);
+	buf[len] = '\0';
+	Tcl_Release((ClientData) interp);
+	return(len);
     }
     Tcl_Release((ClientData) interp);
     return -1;
-	verify = verify;
 }
 
 /*

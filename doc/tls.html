@@ -122,7 +122,8 @@ used directly.</p>
     <dl>
 	<dt><strong>-alpn</strong> <em>list</em></dt>
 	<dd>List of protocols to offer during Application-Layer
-	    Protocol Negotiation (ALPN). For example: h2, http/1.1, etc.</dd>
+	    Protocol Negotiation (ALPN). For example: <em>h2</em> and
+	    <em>http/1.1</em>, but not <em>h3</em> or <em>quic</em>.</dd>
 	<dt><strong>-cadir</strong> <em>dir</em></dt>
 	<dd>Set the CA certificates path. The default directory is platform
 	    specific and can be set at compile time. This can be overridden
@@ -436,6 +437,8 @@ to handle intermediate processing by the OpenSSL library, using the
 <strong>-command</strong>, <strong>-password</strong>, and
 <strong>-validate_command</strong> options passed to either of
 <strong>tls::socket</strong> or <strong>tls::import</strong>.
+If the callback generates an error, the <b>bgerror</b> command with be
+invoked with the error information.
 </p>
 
 <blockquote>
@@ -443,11 +446,10 @@ to handle intermediate processing by the OpenSSL library, using the
 
     <dt><strong>-command</strong> <em>callback</em></dt>
     <dd>
-	Invokes the specified <em>callback</em> script at
-	several points during the OpenSSL handshake.
-	Values returned from the callback are ignored.
-	Arguments appended to the script upon callback take one of the
-	following forms:
+	Invokes the specified <em>callback</em> script at several points
+	during the OpenSSL handshake and use. See below for the possible
+	arguments passed to the callback script. Values returned from the
+	callback are ignored.
 
 	<br>
 	<br>
@@ -479,7 +481,7 @@ to handle intermediate processing by the OpenSSL library, using the
 	  <code>start, done, read, write, loop, exit</code>.</li>
 	  <li>The <em>message</em> argument is a descriptive string which may
 	  be generated either by <code>SSL_state_string_long()</code> or by
-	  <code>SSL_alert_desc_string_long()</code>, depending on context.</li>
+	  <code>SSL_alert_desc_string_long()</code>, depending on the context.</li>
 	  <li>For alerts, the possible values for <em>type</em> are:
 	  <code>warning, fatal, and unknown</code>. For others,
 	  <code>info</code> is used.</li>
@@ -519,8 +521,24 @@ to handle intermediate processing by the OpenSSL library, using the
     <dt><strong>-password</strong> <em>callback</em></dt>
     <dd>
 	Invokes the specified <em>callback</em> script when OpenSSL needs to
-	obtain a password.  The callback should return the password as a string.
-	No arguments are appended to the script upon callback.
+	obtain a password. See below for the possible arguments passed to
+	the callback script. See below for valid return values.
+
+	<br>
+	<br>
+
+	<dl>
+
+	<dt>
+	  <strong>password</strong> <em>rwflag size</em>
+	</dt>
+	<dd>
+	  Invoked when loading or storing a PEM certificate with encryption.
+	  Where <em>rwflag</em> is 0 for reading/decryption or 1 for
+	  writing/encryption (can prompt user to confirm) and
+	  <em>size</em> is the max password length in bytes.
+	  The callback should return the password as a string.
+	</dd>
     </dd>
 
     <br>
@@ -529,10 +547,11 @@ to handle intermediate processing by the OpenSSL library, using the
     <dt><strong>-validatecommand</strong> <em>callback</em></dt>
     <dd>
 	Invokes the specified <em>callback</em> script during handshake in
-	order to validate the provided value(s). 
+	order to validate the provided value(s). See below for the possible
+	arguments passed to the callback script.
 	To reject the value and abort connection, the callback should return 0.
-	To accept the value, it should return 1.  To reject the value, but
-	continue the connection, it should return 2.
+	To accept the value and continue the connection, it should return 1.
+	To reject the value, but continue the connection, it should return 2.
 
 	<br>
 	<br>
@@ -547,6 +566,7 @@ to handle intermediate processing by the OpenSSL library, using the
 	  extension is received. Where <em>protocol</em> is the first
 	  <b>-alpn</b> specified protocol common to the both the client and
 	  server. If none, the first client specified protocol is used.
+	  Called after hello and ALPN callbacks.
 	</dd>
 
 	<br>
