@@ -32,6 +32,7 @@ namespace eval tls {
         {* -myaddr sopts 1}
         {0 -myport sopts 1}
         {* -type sopts 1}
+        {* -alpn iopts 1}
         {* -cadir iopts 1}
         {* -cafile iopts 1}
         {* -cert iopts 1}
@@ -43,19 +44,22 @@ namespace eval tls {
         {* -key iopts 1}
         {* -keyfile iopts 1}
         {* -password iopts 1}
+        {* -post_handshake iopts 1}
         {* -request iopts 1}
         {* -require iopts 1}
         {* -securitylevel iopts 1}
         {* -autoservername discardOpts 1}
+        {* -server iopts 1}
         {* -servername iopts 1}
         {* -session_id iopts 1}
-        {* -alpn iopts 1}
         {* -ssl2 iopts 1}
         {* -ssl3 iopts 1}
         {* -tls1 iopts 1}
         {* -tls1.1 iopts 1}
         {* -tls1.2 iopts 1}
         {* -tls1.3 iopts 1}
+        {* -validatecommand iopts 1}
+        {* -vcmd iopts 1}
     }
 
     # tls::socket and tls::init options as a humane readable string
@@ -309,6 +313,7 @@ proc tls::_accept { iopts callback chan ipaddr port } {
 	log 2 "tls::_accept - called \"$callback\" succeeded"
     }
 }
+
 #
 # Sample callback for hooking: -
 #
@@ -322,12 +327,67 @@ proc tls::callback {option args} {
     #log 2 [concat $option $args]
 
     switch -- $option {
-	"error"	{
+	"error" {
 	    foreach {chan msg} $args break
 
 	    log 0 "TLS/$chan: error: $msg"
 	}
-	"verify"	{
+	"info" {
+	    # poor man's lassign
+	    foreach {chan major minor msg type} $args break
+
+	    if {$msg != ""} {
+		append state ": $msg"
+	    }
+	    # For tracing
+	    upvar #0 tls::$chan cb
+	    set cb($major) $minor
+
+	    log 2 "TLS/$chan: $major/$minor: $state"
+	}
+	"message" {
+	    # poor man's lassign
+	    foreach {chan direction version content_type msg} $args break
+
+	    log 0 "TLS/$chan: info: $direction $msg"
+	}
+	"session" {
+	    foreach {chan session_id ticket lifetime} $args break
+
+	    log 0 "TLS/$chan: session: lifetime $lifetime"
+	}
+	default	{
+	    return -code error "bad option \"$option\":\
+		    must be one of error, info, or session"
+	}
+    }
+}
+
+#
+# Sample callback when return value is needed
+#
+proc tls::validate_command {option args} {
+    variable debug
+
+    #log 2 [concat $option $args]
+
+    switch -- $option {
+	"alpn" {
+	    foreach {chan protocol match} $args break
+
+	    log 0 "TLS/$chan: alpn: $protocol $match"
+	}
+	"hello" {
+	    foreach {chan servername} $args break
+
+	    log 0 "TLS/$chan: hello: $servername"
+	}
+	"sni" {
+	    foreach {chan servername} $args break
+
+	    log 0 "TLS/$chan: sni: $servername"
+	}
+	"verify" {
 	    # poor man's lassign
 	    foreach {chan depth cert rc err} $args break
 
@@ -344,24 +404,12 @@ proc tls::callback {option args} {
 		return $rc
 	    }
 	}
-	"info"	{
-	    # poor man's lassign
-	    foreach {chan major minor state msg} $args break
-
-	    if {$msg != ""} {
-		append state ": $msg"
-	    }
-	    # For tracing
-	    upvar #0 tls::$chan cb
-	    set cb($major) $minor
-
-	    log 2 "TLS/$chan: $major/$minor: $state"
-	}
 	default	{
 	    return -code error "bad option \"$option\":\
-		    must be one of error, info, or verify"
+		    must be one of alpn, info, or verify"
 	}
     }
+    return 1
 }
 
 proc tls::xhandshake {chan} {
@@ -382,7 +430,7 @@ proc tls::xhandshake {chan} {
     }
 }
 
-proc tls::password {} {
+proc tls::password {rwflag size} {
     log 0 "TLS/Password: did you forget to set your passwd!"
     # Return the worlds best kept secret password.
     return "secret"

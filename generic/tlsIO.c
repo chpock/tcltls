@@ -18,6 +18,7 @@
  */
 
 #include "tlsInt.h"
+#include <errno.h>
 
 /*
  * Forward declarations
@@ -36,8 +37,9 @@ static Tcl_ChannelType *tlsChannelType = NULL;
  *
  *    This procedure is invoked by the generic IO level
  *       to set blocking and nonblocking modes
+ *
  * Results:
- *    0 if successful, errno when failed.
+ *    0 if successful or POSIX error code if failed.
  *
  * Side effects:
  *    Sets the device into blocking or nonblocking mode.
@@ -67,7 +69,7 @@ static int TlsBlockModeProc(ClientData instanceData, int mode) {
  *    Note: we leave the underlying socket alone, is this right?
  *
  * Results:
- *    0 if successful, the value of Tcl_GetErrno() if failed.
+ *    0 if successful or POSIX error code if failed.
  *
  * Side effects:
  *    Closes the socket of the channel.
@@ -87,7 +89,14 @@ static int TlsCloseProc(ClientData instanceData, Tcl_Interp *interp) {
 	interp = interp;
 }
 
-static int TlsCloseProc2(ClientData instanceData, Tcl_Interp *interp, int flags) {
+static int TlsCloseProc2(ClientData instanceData,    /* The socket state. */
+    Tcl_Interp *interp,		/* For errors - can be NULL. */
+    int flags)			/* Flags to close read and/or write side of channel */
+{
+    State *statePtr = (State *) instanceData;
+
+    dprintf("TlsCloseProc2(%p)", (void *) statePtr);
+
     if ((flags & (TCL_CLOSE_READ|TCL_CLOSE_WRITE)) == 0) {
 	return TlsCloseProc(instanceData, interp);
     }
@@ -97,13 +106,13 @@ static int TlsCloseProc2(ClientData instanceData, Tcl_Interp *interp, int flags)
 /*
  *------------------------------------------------------*
  *
- *    Tls_WaitForConnect --
+ * Tls_WaitForConnect --
  *
- *    Side effects:
- *        Issues SSL_accept or SSL_connect
+ * Result:
+ *    0 if successful, -1 if failed.
  *
- *    Result:
- *        None.
+ * Side effects:
+ *    Issues SSL_accept or SSL_connect
  *
  *------------------------------------------------------*
  */
@@ -111,13 +120,13 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
     unsigned long backingError;
     int err, rc;
     int bioShouldRetry;
+    *errorCodePtr = 0;
 
     dprintf("WaitForConnect(%p)", (void *) statePtr);
     dprintFlags(statePtr);
 
     if (!(statePtr->flags & TLS_TCL_INIT)) {
 	dprintf("Tls_WaitForConnect called on already initialized channel -- returning with immediate success");
-	*errorCodePtr = 0;
 	return(0);
     }
 
@@ -195,15 +204,15 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	break;
     }
 
-    *errorCodePtr = EINVAL;
-
     switch (rc) {
 	case SSL_ERROR_NONE:
 	    /* The connection is up, we are done here */
 	    dprintf("The connection is up");
+	    *errorCodePtr = 0;
 	    break;
 	case SSL_ERROR_ZERO_RETURN:
-	    dprintf("SSL_ERROR_ZERO_RETURN: Connect returned an invalid value...")
+	    dprintf("SSL_ERROR_ZERO_RETURN: Connect returned an invalid value...");
+	    *errorCodePtr = EINVAL;
 	    return(-1);
 	case SSL_ERROR_SYSCALL:
 	    backingError = ERR_get_error();
@@ -278,9 +287,8 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
  *       to read input from a SSL socket based channel.
  *
  * Results:
- *    The number of bytes read is returned or -1 on error. An output
- *    argument contains the POSIX error code on error, or zero if no
- *    error occurred.
+ *    Returns the number of bytes read or -1 on error. Sets errorCodePtr
+ *    to a POSIX error code if an error occurred, or 0 if none.
  *
  * Side effects:
  *    Reads input from the input device of the channel.
@@ -308,6 +316,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
     tlsConnect = Tls_WaitForConnect(statePtr, errorCodePtr, 0);
     if (tlsConnect < 0) {
 	dprintf("Got an error waiting to connect (tlsConnect = %i, *errorCodePtr = %i)", tlsConnect, *errorCodePtr);
+	Tls_Error(statePtr, strerror(*errorCodePtr));
 
 	bytesRead = -1;
 	if (*errorCodePtr == ECONNRESET) {
@@ -395,6 +404,9 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    break;
     }
 
+    if (*errorCodePtr < 0) {
+	Tls_Error(statePtr, strerror(*errorCodePtr));
+    }
     dprintf("Input(%d) -> %d [%d]", bufSize, bytesRead, *errorCodePtr);
     return(bytesRead);
 }
@@ -408,8 +420,8 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
  *       to write output to a SSL socket based channel.
  *
  * Results:
- *    The number of bytes written is returned. An output argument is
- *    set to a POSIX error code if an error occurred, or zero.
+ *    Returns the number of bytes written or -1 on error. Sets errorCodePtr
+ *    to a POSIX error code if an error occurred, or 0 if none.
  *
  * Side effects:
  *    Writes output on the output device of the channel.
@@ -438,6 +450,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
     tlsConnect = Tls_WaitForConnect(statePtr, errorCodePtr, 1);
     if (tlsConnect < 0) {
 	dprintf("Got an error waiting to connect (tlsConnect = %i, *errorCodePtr = %i)", tlsConnect, *errorCodePtr);
+	Tls_Error(statePtr, strerror(*errorCodePtr));
 
 	written = -1;
 	if (*errorCodePtr == ECONNRESET) {
@@ -538,6 +551,9 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    break;
     }
 
+    if (*errorCodePtr < 0) {
+	Tls_Error(statePtr, strerror(*errorCodePtr));
+    }
     dprintf("Output(%d) -> %d", toWrite, written);
     return(written);
 }
@@ -547,16 +563,14 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
  *
  * TlsSetOptionProc --
  *
- *    Computes an option value for a SSL socket based channel, or a
+ *    Sets an option value for a SSL socket based channel, or a
  *    list of all options and their values.
  *
  * Results:
- *    A standard Tcl result. The value of the specified option or a
- *    list of all options and    their values is returned in the
- *    supplied DString.
+ *    TCL_OK if successful or TCL_ERROR if failed.
  *
  * Side effects:
- *    None.
+ *    Updates channel option to new value.
  *
  *-------------------------------------------------------------------
  */
@@ -584,7 +598,7 @@ TlsSetOptionProc(ClientData instanceData,    /* Socket state. */
     /*
      * Request for a specific option has to fail, we don't have any.
      */
-    return TCL_ERROR;
+    return Tcl_BadChannelOption(interp, optionName, "");
 }
 
 /*
@@ -592,12 +606,12 @@ TlsSetOptionProc(ClientData instanceData,    /* Socket state. */
  *
  * TlsGetOptionProc --
  *
- *    Computes an option value for a SSL socket based channel, or a
+ *    Gets an option value for a SSL socket based channel, or a
  *    list of all options and their values.
  *
  * Results:
  *    A standard Tcl result. The value of the specified option or a
- *    list of all options and    their values is returned in the
+ *    list of all options and their values is returned in the
  *    supplied DString.
  *
  * Side effects:
@@ -610,7 +624,7 @@ TlsGetOptionProc(ClientData instanceData,    /* Socket state. */
     Tcl_Interp *interp,		/* For errors - can be NULL. */
     const char *optionName,	/* Name of the option to retrieve the value for, or
 				 * NULL to get all options and their values. */
-    Tcl_DString *dsPtr)		/* Where to store the computed value initialized by caller. */
+    Tcl_DString *optionValue)	/* Where to store the computed value initialized by caller. */
 {
     State *statePtr = (State *) instanceData;
 
@@ -619,7 +633,7 @@ TlsGetOptionProc(ClientData instanceData,    /* Socket state. */
 
     getOptionProc = Tcl_ChannelGetOptionProc(Tcl_GetChannelType(downChan));
     if (getOptionProc != NULL) {
-	return (*getOptionProc)(Tcl_GetChannelInstanceData(downChan), interp, optionName, dsPtr);
+	return (*getOptionProc)(Tcl_GetChannelInstanceData(downChan), interp, optionName, optionValue);
     } else if (optionName == (char*) NULL) {
 	/*
 	 * Request is query for all options, this is ok.
@@ -629,7 +643,7 @@ TlsGetOptionProc(ClientData instanceData,    /* Socket state. */
     /*
      * Request for a specific option has to fail, we don't have any.
      */
-    return TCL_ERROR;
+    return Tcl_BadChannelOption(interp, optionName, "");
 }
 
 /*
@@ -650,8 +664,8 @@ TlsGetOptionProc(ClientData instanceData,    /* Socket state. */
  */
 static void
 TlsWatchProc(ClientData instanceData,    /* The socket state. */
-    int mask)		/* Events of interest; an OR-ed combination of
-			* TCL_READABLE, TCL_WRITABLE and TCL_EXCEPTION. */
+    int mask)			/* Events of interest; an OR-ed combination of
+				 * TCL_READABLE, TCL_WRITABLE and TCL_EXCEPTION. */
 {
     Tcl_Channel     downChan;
     State *statePtr = (State *) instanceData;
@@ -701,12 +715,12 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
 
     if ((mask & TCL_READABLE) &&
 	((Tcl_InputBuffered(statePtr->self) > 0) || (BIO_ctrl_pending(statePtr->bio) > 0))) {
-	    /*
-	     * There is interest in readable events and we actually have
-	     * data waiting, so generate a timer to flush that.
-	     */
-	    dprintf("Creating a new timer since data appears to be waiting");
-	    statePtr->timer = Tcl_CreateTimerHandler(TLS_TCL_DELAY, TlsChannelHandlerTimer, (ClientData) statePtr);
+	/*
+	 * There is interest in readable events and we actually have
+	 * data waiting, so generate a timer to flush that.
+	 */
+	dprintf("Creating a new timer since data appears to be waiting");
+	statePtr->timer = Tcl_CreateTimerHandler(TLS_TCL_DELAY, TlsChannelHandlerTimer, (ClientData) statePtr);
     }
 }
 
@@ -719,14 +733,17 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
  *    from the SSL socket based channel.
  *
  * Results:
- *    The appropriate Tcl_File or NULL if not present.
+ *    The appropriate Tcl_File handle or NULL if none.
  *
  * Side effects:
  *    None.
  *
  *-------------------------------------------------------------------
  */
-static int TlsGetHandleProc(ClientData instanceData, int direction, ClientData *handlePtr) {
+static int TlsGetHandleProc(ClientData instanceData,    /* Socket state. */
+    int direction,		/* TCL_READABLE or TCL_WRITABLE */
+    ClientData *handlePtr)	/* Handle associated with the channel */
+{
     State *statePtr = (State *) instanceData;
 
     return(Tcl_GetChannelHandle(Tls_GetParent(statePtr, TLS_TCL_FASTPATH), direction, handlePtr));
@@ -741,14 +758,17 @@ static int TlsGetHandleProc(ClientData instanceData, int direction, ClientData *
  *    on the underlying channel.
  *
  * Results:
- *    None.
+ *    Type of event or 0 if failed
  *
  * Side effects:
  *    May process the incoming event by itself.
  *
  *-------------------------------------------------------------------
  */
-static int TlsNotifyProc(ClientData instanceData, int mask) {
+static int TlsNotifyProc(ClientData instanceData,    /* Socket state. */
+    int mask)			/* type of event that occurred:
+				 * OR-ed combination of TCL_READABLE or TCL_WRITABLE */
+{
     State *statePtr = (State *) instanceData;
     int errorCode;
 
@@ -777,6 +797,7 @@ static int TlsNotifyProc(ClientData instanceData, int mask) {
     dprintf("Calling Tls_WaitForConnect");
     errorCode = 0;
     if (Tls_WaitForConnect(statePtr, &errorCode, 1) < 0) {
+	Tls_Error(statePtr, strerror(errorCode));
 	if (errorCode == EAGAIN) {
 	    dprintf("Async flag could be set (didn't check) and errorCode == EAGAIN:  Returning 0");
 
@@ -813,7 +834,7 @@ static int TlsNotifyProc(ClientData instanceData, int mask) {
  *------------------------------------------------------*
  */
 static void
-TlsChannelHandler (ClientData clientData, int mask) {
+TlsChannelHandler(ClientData clientData, int mask) {
     State *statePtr = (State *) clientData;
 
     dprintf("HANDLER(0x%x)", mask);
