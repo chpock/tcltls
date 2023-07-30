@@ -684,6 +684,7 @@ ALPNCallback(const SSL *ssl, const unsigned char **out, unsigned char *outlen,
     cmdPtr = Tcl_DuplicateObj(statePtr->vcmd);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("alpn", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(*out, -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewBooleanObj(res == SSL_TLSEXT_ERR_OK));
 
     /* Eval callback command */
     Tcl_IncrRefCount(cmdPtr);

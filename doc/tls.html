@@ -559,14 +559,14 @@ invoked with the error information.
 	<dl>
 
 	<dt>
-	  <strong>alpn</strong> <em>protocol</em>
+	  <strong>alpn</strong> <em>protocol match</em>
 	</dt>
 	<dd>
 	  For servers, this form of callback is invoked when the client ALPN
-	  extension is received. Where <em>protocol</em> is the first
-	  <b>-alpn</b> specified protocol common to the both the client and
-	  server. If none, the first client specified protocol is used.
-	  Called after hello and ALPN callbacks.
+	  extension is received. If <em>match</em> is true, <em>protocol</em>
+	  is the first <b>-alpn</b> specified protocol common to the both the
+	  client and server. If not, the first client specified protocol is
+	  used. Called after hello and ALPN callbacks.
 	</dd>
 
 	<br>
