@@ -34,43 +34,6 @@ static int max(int a, int b)
 }
 
 /*
- * ASN1_UTCTIME_tostr --
- */
-static char *
-ASN1_UTCTIME_tostr(ASN1_UTCTIME *tm)
-{
-    static char bp[128];
-    char *v;
-    int gmt=0;
-    static char *mon[12]={
-        "Jan","Feb","Mar","Apr","May","Jun", "Jul","Aug","Sep","Oct","Nov","Dec"};
-    int i;
-    int y=0,M=0,d=0,h=0,m=0,s=0;
-
-    i=tm->length;
-    v=(char *)tm->data;
-
-    if (i < 10) goto err;
-    if (v[i-1] == 'Z') gmt=1;
-    for (i=0; i<10; i++)
-        if ((v[i] > '9') || (v[i] < '0')) goto err;
-    y= (v[0]-'0')*10+(v[1]-'0');
-    if (y < 70) y+=100;
-    M= (v[2]-'0')*10+(v[3]-'0');
-    if ((M > 12) || (M < 1)) goto err;
-    d= (v[4]-'0')*10+(v[5]-'0');
-    h= (v[6]-'0')*10+(v[7]-'0');
-    m=  (v[8]-'0')*10+(v[9]-'0');
-    if ((v[10] >= '0') && (v[10] <= '9') && (v[11] >= '0') && (v[11] <= '9'))
-        s=  (v[10]-'0')*10+(v[11]-'0');
-
-    sprintf(bp,"%s %2d %02d:%02d:%02d %d%s", mon[M-1],d,h,m,s,y+1900,(gmt)?" GMT":"");
-    return bp;
- err:
-    return "Bad time value";
-}
-
-/*
  * Binary string to hex string
  */
 int String_to_Hex(char* input, int len, char *output, int max) {
@@ -92,7 +55,7 @@ int String_to_Hex(char* input, int len, char *output, int max) {
  *	Converts a X509 certificate into a Tcl_Obj
  *	------------------------------------------------*
  *
- *	Sideeffects:
+ *	Side effects:
  *		None
  *
  *	Result:
@@ -124,32 +87,36 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     uint32_t xflags;
     STACK_OF(GENERAL_NAME) *san;
 
-    certStr[0] = 0;
-    if ((bio = BIO_new(BIO_s_mem())) == NULL) {
-	subject[0] = 0;
-	issuer[0]  = 0;
-	serial[0]  = 0;
-    } else {
+    certStr[0]   = 0;
+    subject[0]   = 0;
+    issuer[0]    = 0;
+    serial[0]    = 0;
+    notBefore[0] = 0;
+    notAfter[0]  = 0;
+    if ((bio = BIO_new(BIO_s_mem())) != NULL) {
 	flags = XN_FLAG_RFC2253 | ASN1_STRFLGS_UTF8_CONVERT;
 	flags &= ~ASN1_STRFLGS_ESC_MSB;
 
-	X509_NAME_print_ex(bio, X509_get_subject_name(cert), 0, flags);
-	n = BIO_read(bio, subject, min(BIO_pending(bio), BUFSIZ - 1));
-	n = max(n, 0);
-	subject[n] = 0;
-	(void)BIO_flush(bio);
+	/* Get subject name */
+	if (X509_NAME_print_ex(bio, X509_get_subject_name(cert), 0, flags) > 0) {
+	    n = BIO_read(bio, subject, min(BIO_pending(bio), BUFSIZ - 1));
+	    subject[max(n, 0)] = 0;
+	    (void)BIO_flush(bio);
+	}
 
-	X509_NAME_print_ex(bio, X509_get_issuer_name(cert), 0, flags);
-	n = BIO_read(bio, issuer, min(BIO_pending(bio), BUFSIZ - 1));
-	n = max(n, 0);
-	issuer[n] = 0;
-	(void)BIO_flush(bio);
+	/* Get issuer name */
+	if (X509_NAME_print_ex(bio, X509_get_issuer_name(cert), 0, flags) > 0) {
+	    n = BIO_read(bio, issuer, min(BIO_pending(bio), BUFSIZ - 1));
+	    issuer[max(n, 0)] = 0;
+	    (void)BIO_flush(bio);
+	}
 
-	i2a_ASN1_INTEGER(bio, X509_get0_serialNumber(cert));
-	n = BIO_read(bio, serial, min(BIO_pending(bio), BUFSIZ - 1));
-	n = max(n, 0);
-	serial[n] = 0;
-	(void)BIO_flush(bio);
+	/* Get serial number */
+	if (i2a_ASN1_INTEGER(bio, X509_get0_serialNumber(cert)) > 0) {
+	    n = BIO_read(bio, serial, min(BIO_pending(bio), BUFSIZ - 1));
+	    serial[max(n, 0)] = 0;
+	    (void)BIO_flush(bio);
+	}
 
         /* Get certificate */
         if (PEM_write_bio_X509(bio, cert)) {
@@ -173,22 +140,32 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
             (void)BIO_flush(bio);
         }
 
-	/* All */
+	/* Get all cert info */
 	if (X509_print_ex(bio, cert, flags, 0)) {
 	    char all[65536];
 	    n = BIO_read(bio, all, min(BIO_pending(bio), 65535));
-	    n = max(n, 0);
-	    all[n] = 0;
+	    all[max(n, 0)] = 0;
 	    (void)BIO_flush(bio);
 	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("all", -1));
 	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(all, n));
 	}
 
+	/* Get Validity - Not Before */
+	if (ASN1_TIME_print(bio, X509_get_notBefore(cert))) {
+	    n = BIO_read(bio, notBefore, min(BIO_pending(bio), BUFSIZ - 1));
+	    notBefore[max(n, 0)] = 0;
+	    (void)BIO_flush(bio);
+	}
+
+	/* Get Validity - Not After */
+	if (ASN1_TIME_print(bio, X509_get_notAfter(cert))) {
+	    n = BIO_read(bio, notAfter, min(BIO_pending(bio), BUFSIZ - 1));
+	    notAfter[max(n, 0)] = 0;
+	    (void)BIO_flush(bio);
+	}
+
 	BIO_free(bio);
     }
-
-    strcpy(notBefore, ASN1_UTCTIME_tostr(X509_get0_notBefore(cert)));
-    strcpy(notAfter, ASN1_UTCTIME_tostr(X509_get0_notAfter(cert)));
 
     /* Version */
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("version", -1));
@@ -197,7 +174,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     /* Signature algorithm */
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signature", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(OBJ_nid2ln(X509_get_signature_nid(cert)),-1));
- 
+
     /* SHA1 Fingerprint of cert - DER representation */
     X509_digest(cert, EVP_sha1(), sha1_hash_binary, &len);
     len = String_to_Hex(sha1_hash_binary, len, buffer, BUFSIZ);
@@ -244,13 +221,13 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj(bits));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("extension_flags", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj(xflags));
-	
+
 	/* Public key - X509_get0_pubkey */
 	key = X509_get0_pubkey_bitstr(cert);
 	len = String_to_Hex(key->data, key->length, buffer, BUFSIZ);
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("publicKey", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
-	
+
 	/* Check if cert was issued by CA cert issuer or self signed */
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("self_signed", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewBooleanObj(X509_check_issued(cert, cert) == X509_V_OK));
