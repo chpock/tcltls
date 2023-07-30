@@ -608,6 +608,8 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
     /* Create command to eval */
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("session", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr,
+	    Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
 
     /* Session id */
     session_id = SSL_SESSION_get_id(session, &ulen);
@@ -683,6 +685,8 @@ ALPNCallback(const SSL *ssl, const unsigned char **out, unsigned char *outlen,
     /* Create command to eval */
     cmdPtr = Tcl_DuplicateObj(statePtr->vcmd);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("alpn", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr,
+	    Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(*out, -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewBooleanObj(res == SSL_TLSEXT_ERR_OK));
 
@@ -794,6 +798,8 @@ SNICallback(const SSL *ssl, int *alert, void *arg) {
     /* Create command to eval */
     cmdPtr = Tcl_DuplicateObj(statePtr->vcmd);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("sni", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr,
+	    Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(servername , -1));
 
     /* Eval callback command */
@@ -894,6 +900,8 @@ HelloCallback(const SSL *ssl, int *alert, void *arg) {
     /* Create command to eval */
     cmdPtr = Tcl_DuplicateObj(statePtr->vcmd);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("hello", -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr,
+	    Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(servername, (int) len));
 
     /* Eval callback command */

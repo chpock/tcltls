@@ -334,7 +334,7 @@ proc tls::callback {option args} {
 	}
 	"info" {
 	    # poor man's lassign
-	    foreach {chan major minor state msg type} $args break
+	    foreach {chan major minor msg type} $args break
 
 	    if {$msg != ""} {
 		append state ": $msg"
@@ -345,10 +345,16 @@ proc tls::callback {option args} {
 
 	    log 2 "TLS/$chan: $major/$minor: $state"
 	}
-	"session" {
-	    foreach {session_id ticket lifetime} $args break
+	"message" {
+	    # poor man's lassign
+	    foreach {chan direction version content_type msg} $args break
 
-	    log 0 "TLS/$chan: error: $msg"
+	    log 0 "TLS/$chan: info: $direction $msg"
+	}
+	"session" {
+	    foreach {chan session_id ticket lifetime} $args break
+
+	    log 0 "TLS/$chan: session: lifetime $lifetime"
 	}
 	default	{
 	    return -code error "bad option \"$option\":\
@@ -367,17 +373,17 @@ proc tls::validate_command {option args} {
 
     switch -- $option {
 	"alpn" {
-	    foreach {protocol} $args break
+	    foreach {chan protocol match} $args break
 
-	    log 0 "TLS/$chan: alpn: $protocol"
+	    log 0 "TLS/$chan: alpn: $protocol $match"
 	}
 	"hello" {
-	    foreach {servername} $args break
+	    foreach {chan servername} $args break
 
 	    log 0 "TLS/$chan: hello: $servername"
 	}
 	"sni" {
-	    foreach {servername} $args break
+	    foreach {chan servername} $args break
 
 	    log 0 "TLS/$chan: sni: $servername"
 	}
@@ -424,7 +430,7 @@ proc tls::xhandshake {chan} {
     }
 }
 
-proc tls::password {} {
+proc tls::password {rwflag size} {
     log 0 "TLS/Password: did you forget to set your passwd!"
     # Return the worlds best kept secret password.
     return "secret"

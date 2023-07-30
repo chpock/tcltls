@@ -503,7 +503,7 @@ invoked with the error information.
 	<br>
 
 	<dt>
-	  <strong>session</strong> <em>session_id ticket lifetime</em>
+	  <strong>session</strong> <em>channel session_id ticket lifetime</em>
 	</dt>
 	<dd>
 	  This form of callback is invoked by the OpenSSL function
@@ -559,7 +559,7 @@ invoked with the error information.
 	<dl>
 
 	<dt>
-	  <strong>alpn</strong> <em>protocol match</em>
+	  <strong>alpn</strong> <em>channel protocol match</em>
 	</dt>
 	<dd>
 	  For servers, this form of callback is invoked when the client ALPN
@@ -572,7 +572,7 @@ invoked with the error information.
 	<br>
 
 	<dt>
-	  <strong>hello</strong> <em>servername</em>
+	  <strong>hello</strong> <em>channel servername</em>
 	</dt>
 	<dd>
 	  For servers, this form of callback is invoked during client hello
@@ -584,7 +584,7 @@ invoked with the error information.
 	<br>
 
 	<dt>
-	  <strong>sni</strong> <em>servername</em>
+	  <strong>sni</strong> <em>channel servername</em>
 	</dt>
 	<dd>
 	  For servers, this form of callback is invoked when the SNI extension
