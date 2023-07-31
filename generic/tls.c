@@ -2102,9 +2102,37 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     }
 
     /* Verify the X509 certificate presented by the peer */
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("verification", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("verifyResult", -1));
     Tcl_ListObjAppendElement(interp, objPtr,
 	Tcl_NewStringObj(X509_verify_cert_error_string(SSL_get_verify_result(statePtr->ssl)), -1));
+
+    /* Verify mode */
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("verifyMode", -1));
+    /* SSL_CTX_get_verify_mode(ctx) */
+    mode = SSL_get_verify_mode(statePtr->ssl);
+    if (mode && SSL_VERIFY_NONE) {
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("none", -1));
+    } else {
+	Tcl_Obj *listObjPtr = Tcl_NewListObj(0, NULL);
+	if (mode && SSL_VERIFY_PEER) {
+	    Tcl_ListObjAppendElement(interp, listObjPtr, Tcl_NewStringObj("peer", -1));
+	}
+	if (mode && SSL_VERIFY_FAIL_IF_NO_PEER_CERT) {
+	    Tcl_ListObjAppendElement(interp, listObjPtr, Tcl_NewStringObj("fail if no peer cert", -1));
+	}
+	if (mode && SSL_VERIFY_CLIENT_ONCE) {
+	    Tcl_ListObjAppendElement(interp, listObjPtr, Tcl_NewStringObj("client once", -1));
+	}
+	if (mode && SSL_VERIFY_POST_HANDSHAKE) {
+	    Tcl_ListObjAppendElement(interp, listObjPtr, Tcl_NewStringObj("post handshake", -1));
+	}
+	Tcl_ListObjAppendElement(interp, objPtr, listObjPtr);
+    }
+
+    /* Verify mode depth */
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("verifyDepth", -1));
+    /* SSL_CTX_get_verify_depth(ctx) */
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(SSL_get_verify_depth(statePtr->ssl)));
 
     /* Report the selected protocol as a result of the negotiation */
     SSL_get0_alpn_selected(statePtr->ssl, &proto, &len);
@@ -2120,7 +2148,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     } else {
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("", -1));
     }
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("signature_type", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("signatureType", -1));
     if (objc == 2 ? SSL_get_peer_signature_type_nid(statePtr->ssl, &nid) : SSL_get_signature_type_nid(statePtr->ssl, &nid)) {
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(OBJ_nid2ln(nid), -1));
     } else {

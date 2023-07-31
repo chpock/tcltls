@@ -256,9 +256,14 @@ used directly.</p>
 	<dd>The number of bits used for the session key.</dd>
 	<dt><strong>signatureHashAlgorithm</strong> <em>algorithm</em></dt>
 	<dd>The signature hash algorithm.</dd>
-	<dt><strong>signature_type</strong> <em>type</em></dt>
+	<dt><strong>signatureType</strong> <em>type</em></dt>
 	<dd>The signature type value.</dd>
-	<dt><strong>verification</strong> <em>result</em></dt>
+	<dt><strong>verifyDepth</strong> <em>n</em></dt>
+	<dd>Maximum depth for the certificate chain verification.
+	    Default is -1, to check all.</dd>
+	<dt><strong>verifyMode</strong> <em>list</em></dt>
+	<dd>List of certificate verification modes.</dd>
+	<dt><strong>verifyResult</strong> <em>result</em></dt>
 	<dd>Certificate verification result.</dd>
 	<dt><strong>ca_names</strong> <em>list</em></dt>
 	<dd>List of the Certificate Authorities used to create the certificate.</dd>
