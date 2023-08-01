@@ -71,20 +71,16 @@ Tcl_Obj*
 Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     Tcl_Obj *certPtr = Tcl_NewListObj(0, NULL);
     BIO *bio;
-    int n;
-    unsigned long flags;
+    int nid, pknid, bits, num_of_exts, len;
+    uint32_t xflags;
     char subject[BUFSIZ];
     char issuer[BUFSIZ];
     char serial[BUFSIZ];
     char notBefore[BUFSIZ];
     char notAfter[BUFSIZ];
     char buffer[BUFSIZ];
-    char certStr[CERT_STR_SIZE], *certStr_p;
-    int certStr_len, toRead;
-    unsigned char sha1_hash_binary[SHA_DIGEST_LENGTH];
-    unsigned char sha256_hash_binary[SHA256_DIGEST_LENGTH];
-    int nid, pknid, bits, num_of_exts, len;
-    uint32_t xflags;
+    char certStr[CERT_STR_SIZE];
+    unsigned char md[EVP_MAX_MD_SIZE];
     STACK_OF(GENERAL_NAME) *san;
 
     certStr[0]   = 0;
@@ -94,7 +90,8 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     notBefore[0] = 0;
     notAfter[0]  = 0;
     if ((bio = BIO_new(BIO_s_mem())) != NULL) {
-	flags = XN_FLAG_RFC2253 | ASN1_STRFLGS_UTF8_CONVERT;
+	int n;
+	unsigned long flags = XN_FLAG_RFC2253 | ASN1_STRFLGS_UTF8_CONVERT;
 	flags &= ~ASN1_STRFLGS_ESC_MSB;
 
 	/* Get subject name */
@@ -120,10 +117,10 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 
         /* Get certificate */
         if (PEM_write_bio_X509(bio, cert)) {
-            certStr_p = certStr;
-            certStr_len = 0;
+            char *certStr_p = certStr;
+            int certStr_len = 0;
             while (1) {
-                toRead = min(BIO_pending(bio), CERT_STR_SIZE - certStr_len - 1);
+                int toRead = min(BIO_pending(bio), CERT_STR_SIZE - certStr_len - 1);
                 toRead = min(toRead, BUFSIZ);
                 if (toRead == 0) {
                     break;
@@ -151,14 +148,14 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	}
 
 	/* Get Validity - Not Before */
-	if (ASN1_TIME_print(bio, X509_get_notBefore(cert))) {
+	if (ASN1_TIME_print(bio, X509_get0_notBefore(cert))) {
 	    n = BIO_read(bio, notBefore, min(BIO_pending(bio), BUFSIZ - 1));
 	    notBefore[max(n, 0)] = 0;
 	    (void)BIO_flush(bio);
 	}
 
 	/* Get Validity - Not After */
-	if (ASN1_TIME_print(bio, X509_get_notAfter(cert))) {
+	if (ASN1_TIME_print(bio, X509_get0_notAfter(cert))) {
 	    n = BIO_read(bio, notAfter, min(BIO_pending(bio), BUFSIZ - 1));
 	    notAfter[max(n, 0)] = 0;
 	    (void)BIO_flush(bio);
@@ -176,14 +173,14 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(OBJ_nid2ln(X509_get_signature_nid(cert)),-1));
 
     /* SHA1 Fingerprint of cert - DER representation */
-    X509_digest(cert, EVP_sha1(), sha1_hash_binary, &len);
-    len = String_to_Hex(sha1_hash_binary, len, buffer, BUFSIZ);
+    X509_digest(cert, EVP_sha1(), md, &len);
+    len = String_to_Hex(md, len, buffer, BUFSIZ);
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("sha1_hash", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
 
     /* SHA256 Fingerprint of cert - DER representation */
-    X509_digest(cert, EVP_sha256(), sha256_hash_binary, &len);
-    len = String_to_Hex(sha256_hash_binary, len, buffer, BUFSIZ);
+    X509_digest(cert, EVP_sha256(), md, &len);
+    len = String_to_Hex(md, len, buffer, BUFSIZ);
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("sha256_hash", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
 
@@ -294,14 +291,13 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	Tcl_ListObjAppendElement(interp, certPtr, namesPtr);
     }
 
-    /* Certificate Alias  */
+    /* Certificate Alias as UTF-8 string */
     {
 	unsigned char *bstring;
 	len = 0;
 	bstring = X509_alias_get0(cert, &len);
-	len = String_to_Hex(bstring, len, buffer, BUFSIZ);
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("alias", -1));
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj((char *)bstring, len));
     }
 
     /* Get Subject Key id, Authority Key id */
@@ -312,7 +308,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subjectKeyIdentifier", -1));
 	if (astring != NULL) {
 	    len = String_to_Hex((char *)ASN1_STRING_get0_data(astring), ASN1_STRING_length(astring), buffer, BUFSIZ);
-	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewByteArrayObj(buffer, len));
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
 	} else {
 	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
 	}
@@ -321,7 +317,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("authorityKeyIdentifier", -1));
 	if (astring != NULL) {
 	    len = String_to_Hex((char *)ASN1_STRING_get0_data(astring), ASN1_STRING_length(astring), buffer, BUFSIZ);
-	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewByteArrayObj(buffer, len));
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
 	} else {
 	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
 	}
@@ -365,6 +361,25 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	} else {
 	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
 	}
+    }
+
+    /* Certificate purposes */
+    {
+	Tcl_Obj *purpPtr = Tcl_NewListObj(0, NULL);
+	for (int j = 0; j < X509_PURPOSE_get_count(); j++) {
+	    X509_PURPOSE *ptmp = X509_PURPOSE_get0(j);
+	    Tcl_Obj *tmpPtr = Tcl_NewListObj(0, NULL);
+
+	    for (int i = 0; i < 2; i++) {
+		int idret = X509_check_purpose(cert, X509_PURPOSE_get_id(ptmp), i);
+		Tcl_ListObjAppendElement(interp, tmpPtr, Tcl_NewStringObj(i ? "CA" : "nonCA", -1));
+		Tcl_ListObjAppendElement(interp, tmpPtr, Tcl_NewStringObj(idret ? "Yes" : "No", -1));
+	    }
+	    Tcl_ListObjAppendElement(interp, purpPtr, Tcl_NewStringObj(X509_PURPOSE_get0_name(ptmp), -1));
+	    Tcl_ListObjAppendElement(interp, purpPtr, tmpPtr);
+	}
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("certificatePurpose", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, purpPtr);
     }
 
     return certPtr;
