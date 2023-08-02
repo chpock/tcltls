@@ -82,6 +82,8 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     char certStr[CERT_STR_SIZE];
     unsigned char md[EVP_MAX_MD_SIZE];
     STACK_OF(GENERAL_NAME) *san;
+    STACK_OF(DIST_POINT) *crl;
+    STACK_OF(OPENSSL_STRING) *ocsp;
 
     certStr[0]   = 0;
     subject[0]   = 0;
@@ -164,11 +166,11 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	BIO_free(bio);
     }
 
-    /* Version */
+    /* Version of the encoded certificate */
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("version", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewLongObj(X509_get_version(cert)+1));
 
-    /* Signature algorithm */
+    /* Signature algorithm used by the CA to sign the certificate. Must match signatureAlgorithm. */
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signature", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(OBJ_nid2ln(X509_get_signature_nid(cert)),-1));
 
@@ -184,29 +186,30 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("sha256_hash", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
 
+    /* The subject identifies the entity associated with the public key stored in the subject public key field.  */
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subject", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(subject, -1));
 
+    /* The issuer identifies the entity that has signed and issued the certificate. */
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("issuer", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(issuer, -1));
 
+    /* Certificate validity period is the time interval during which the CA
+   warrants that it will maintain information about the status of the certificate. */
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("notBefore", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(notBefore, -1));
-
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("notAfter", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(notAfter, -1));
 
+    /* Unique number assigned by CA to certificate. */
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("serialNumber", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(serial, -1));
 
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("certificate", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(certStr, -1));
 
-    num_of_exts = X509_get_ext_count(cert);
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("num_extensions", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj(num_of_exts));
-
     /* Information about the signature of certificate cert */
+    /* Contains the public key and identify the algorithm with which the key is used */
     if (X509_get_signature_info(cert, &nid, &pknid, &bits, &xflags) == 1) {
 	ASN1_BIT_STRING *key;
 
@@ -230,7 +233,8 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewBooleanObj(X509_check_issued(cert, cert) == X509_V_OK));
     }
 
-    /* Unique Ids */
+    /* Unique Ids -  The unique identifiers are present in the certificate to handle the
+	possibility of reuse of subject and/or issuer names over time.*/
     {
 	const ASN1_BIT_STRING *iuid, *suid;
         X509_get0_uids(cert, &iuid, &suid);
@@ -249,7 +253,12 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	}
     }
 
-    /* Get extensions */
+    /* Count of extensions */
+    num_of_exts = X509_get_ext_count(cert);
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("num_extensions", -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj(num_of_exts));
+
+    /* Get extension names */
     if (num_of_exts > 0) {
 	Tcl_Obj *extsPtr = Tcl_NewListObj(0, NULL);
 	const STACK_OF(X509_EXTENSION) *exts;
@@ -265,7 +274,94 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	Tcl_ListObjAppendElement(interp, certPtr, extsPtr);
     }
 
-    /* Subject Alternative Name (SAN) extension. Additional host names for a single SSL certificate. */
+    /* Certificate Alias as UTF-8 string */
+    {
+	unsigned char *bstring;
+	len = 0;
+	bstring = X509_alias_get0(cert, &len);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("alias", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj((char *)bstring, len));
+    }
+
+    /* Get Subject Key id, Authority Key id. The Authority Key Identifier (AKI) of a
+	certificate should be the Subject Key Identifier (SKI) of its signer (the CA). */
+    {
+	/* Identifies certificates that contain a particular public key */
+	ASN1_OCTET_STRING *astring;
+	/* X509_keyid_get0 */
+	astring = X509_get0_subject_key_id(cert);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subjectKeyIdentifier", -1));
+	if (astring != NULL) {
+	    len = String_to_Hex((char *)ASN1_STRING_get0_data(astring), ASN1_STRING_length(astring), buffer, BUFSIZ);
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
+	} else {
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
+	}
+
+	/* Identifies the public key corresponding to the private key used to sign a certificate */
+	astring = X509_get0_authority_key_id(cert);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("authorityKeyIdentifier", -1));
+	if (astring != NULL) {
+	    len = String_to_Hex((char *)ASN1_STRING_get0_data(astring), ASN1_STRING_length(astring), buffer, BUFSIZ);
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
+	} else {
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
+	}
+	
+	/*  const GENERAL_NAMES *X509_get0_authority_issuer(cert);
+	const ASN1_INTEGER *X509_get0_authority_serial(cert); */
+    }
+ 
+    /* Signature algorithm and value */
+    /* The signatureAlgorithm field contains the identifier for the cryptographic algorithm
+	used by the CA to sign this certificate. The signatureValue field contains a digital
+	signature computed upon the ASN.1 DER encoded tbsCertificate. */
+    {
+	const X509_ALGOR *sig_alg;
+	const ASN1_BIT_STRING *sig;
+	int sig_nid;
+
+	X509_get0_signature(&sig, &sig_alg, cert);
+	/* sig_nid = X509_get_signature_nid(cert) */
+	sig_nid = OBJ_obj2nid(sig_alg->algorithm);
+
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signatureAlgorithm", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(OBJ_nid2ln(sig_nid),-1));
+
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signatureValue", -1));
+	if (sig_nid != NID_undef) {
+	    len = String_to_Hex(sig->data, sig->length, buffer, BUFSIZ);
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
+	} else {
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
+	}
+    }
+
+    /* Key usage extension defines the purpose (e.g., encipherment, signature, certificate
+	signing) of the key contained in the certificate. */
+    {
+	Tcl_Obj *purpPtr = Tcl_NewListObj(0, NULL);
+	for (int j = 0; j < X509_PURPOSE_get_count(); j++) {
+	    X509_PURPOSE *ptmp = X509_PURPOSE_get0(j);
+	    Tcl_Obj *tmpPtr = Tcl_NewListObj(0, NULL);
+
+	    for (int i = 0; i < 2; i++) {
+		int idret = X509_check_purpose(cert, X509_PURPOSE_get_id(ptmp), i);
+		Tcl_ListObjAppendElement(interp, tmpPtr, Tcl_NewStringObj(i ? "CA" : "nonCA", -1));
+		Tcl_ListObjAppendElement(interp, tmpPtr, Tcl_NewStringObj(idret ? "Yes" : "No", -1));
+	    }
+	    Tcl_ListObjAppendElement(interp, purpPtr, Tcl_NewStringObj(X509_PURPOSE_get0_name(ptmp), -1));
+	    Tcl_ListObjAppendElement(interp, purpPtr, tmpPtr);
+	}
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("certificatePurpose", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, purpPtr);
+    }
+
+    /* Certificate Policies - indicates the issuing CA considers its issuerDomainPolicy
+	equivalent to the subject CA's subjectDomainPolicy. */
+
+    /* Subject Alternative Name (SAN) extension. Additional URLs, DNS name, or IP addresses
+	bound to certificate. */
     san = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
     if (san) {
 	Tcl_Obj *namesPtr = Tcl_NewListObj(0, NULL);
@@ -291,95 +387,53 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	Tcl_ListObjAppendElement(interp, certPtr, namesPtr);
     }
 
-    /* Certificate Alias as UTF-8 string */
-    {
-	unsigned char *bstring;
-	len = 0;
-	bstring = X509_alias_get0(cert, &len);
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("alias", -1));
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj((char *)bstring, len));
+    /* Get the STACK of all crl distribution point entries for this certificate. */
+    /* CRL_DIST_POINTS is typedef on STACK_OF(DIST_POINT). */
+    crl = X509_get_ext_d2i(cert, NID_crl_distribution_points, NULL, NULL);
+    if (crl) {
+	Tcl_Obj *namesPtr = Tcl_NewListObj(0, NULL);
+
+	for (int i=0; i < sk_GENERAL_NAME_num(crl); i++)         {
+	    const GENERAL_NAME *name = sk_GENERAL_NAME_value(crl, i);
+	    size_t len2;
+
+	    if (name) {
+		if (name->type == GEN_DNS) {
+		    char *dns_name;
+		    if ((len2 = ASN1_STRING_to_UTF8(&dns_name, name->d.dNSName)) > 0) {
+			Tcl_ListObjAppendElement(interp, namesPtr, Tcl_NewStringObj(dns_name, (int)len2));
+			OPENSSL_free (dns_name);
+		    }
+		} else if (name->type == GEN_IPADD) {
+		    /* name->d.iPAddress */
+		}
+	    }
+	}
+	sk_GENERAL_NAME_pop_free(crl, GENERAL_NAME_free);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("cRLDistributionPoints", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, namesPtr);
     }
 
-    /* Get Subject Key id, Authority Key id */
-    {
-	ASN1_OCTET_STRING *astring;
-	/* X509_keyid_get0 */
-	astring = X509_get0_subject_key_id(cert);
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subjectKeyIdentifier", -1));
-	if (astring != NULL) {
-	    len = String_to_Hex((char *)ASN1_STRING_get0_data(astring), ASN1_STRING_length(astring), buffer, BUFSIZ);
-	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
-	} else {
-	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
-	}
 
-	astring = X509_get0_authority_key_id(cert);
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("authorityKeyIdentifier", -1));
-	if (astring != NULL) {
-	    len = String_to_Hex((char *)ASN1_STRING_get0_data(astring), ASN1_STRING_length(astring), buffer, BUFSIZ);
-	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
-	} else {
-	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
-	}
-	
-	/*  const GENERAL_NAMES *X509_get0_authority_issuer(cert);
-	const ASN1_INTEGER *X509_get0_authority_serial(cert); */
-    }
+    /* Issuer Alternative Name */
+    /* Subject Directory Attributes */
+
+    /* Basic Constraints - identifies whether the subject of the certificate is a CA and
+	the maximum depth of valid certification paths that include this certificate. */
 
     /* Get OSCP URL */
-    {
-	STACK_OF(OPENSSL_STRING) *str_stack = X509_get1_ocsp(cert);
+    ocsp = X509_get1_ocsp(cert);
+    if (ocsp) {
 	Tcl_Obj *urlsPtr = Tcl_NewListObj(0, NULL);
 
-	for (int i = 0; i < sk_OPENSSL_STRING_num(str_stack); i++) {
+	for (int i = 0; i < sk_OPENSSL_STRING_num(ocsp); i++) {
 	    Tcl_ListObjAppendElement(interp, urlsPtr,
-		Tcl_NewStringObj(sk_OPENSSL_STRING_value(str_stack, i), -1));
+		Tcl_NewStringObj(sk_OPENSSL_STRING_value(ocsp, i), -1));
 	}
 
-	X509_email_free(str_stack);
+	X509_email_free(ocsp);
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("ocsp", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, urlsPtr);
-    }
- 
-    /* Signature algorithm and value */
-    {
-	const X509_ALGOR *sig_alg;
-	const ASN1_BIT_STRING *sig;
-	int sig_nid;
-
-	X509_get0_signature(&sig, &sig_alg, cert);
-	/* sig_nid = X509_get_signature_nid(cert) */
-	sig_nid = OBJ_obj2nid(sig_alg->algorithm);
-
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signatureAlgorithm", -1));
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(OBJ_nid2ln(sig_nid),-1));
-
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signatureValue", -1));
-	if (sig_nid != NID_undef) {
-	    len = String_to_Hex(sig->data, sig->length, buffer, BUFSIZ);
-	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
-	} else {
-	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
-	}
-    }
-
-    /* Certificate purposes */
-    {
-	Tcl_Obj *purpPtr = Tcl_NewListObj(0, NULL);
-	for (int j = 0; j < X509_PURPOSE_get_count(); j++) {
-	    X509_PURPOSE *ptmp = X509_PURPOSE_get0(j);
-	    Tcl_Obj *tmpPtr = Tcl_NewListObj(0, NULL);
-
-	    for (int i = 0; i < 2; i++) {
-		int idret = X509_check_purpose(cert, X509_PURPOSE_get_id(ptmp), i);
-		Tcl_ListObjAppendElement(interp, tmpPtr, Tcl_NewStringObj(i ? "CA" : "nonCA", -1));
-		Tcl_ListObjAppendElement(interp, tmpPtr, Tcl_NewStringObj(idret ? "Yes" : "No", -1));
-	    }
-	    Tcl_ListObjAppendElement(interp, purpPtr, Tcl_NewStringObj(X509_PURPOSE_get0_name(ptmp), -1));
-	    Tcl_ListObjAppendElement(interp, purpPtr, tmpPtr);
-	}
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("certificatePurpose", -1));
-	Tcl_ListObjAppendElement(interp, certPtr, purpPtr);
     }
 
     return certPtr;
