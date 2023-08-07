@@ -365,25 +365,47 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     san = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
     if (san) {
 	Tcl_Obj *namesPtr = Tcl_NewListObj(0, NULL);
+	bio = BIO_new(BIO_s_mem());
 
-	for (int i=0; i < sk_GENERAL_NAME_num(san); i++)         {
+	for (int i=0; i < sk_GENERAL_NAME_num(san); i++) {
 	    const GENERAL_NAME *name = sk_GENERAL_NAME_value(san, i);
-	    size_t len2;
 
-	    if (name) {
-		if (name->type == GEN_DNS) {
-		    char *dns_name;
-		    if ((len2 = ASN1_STRING_to_UTF8(&dns_name, name->d.dNSName)) > 0) {
-			Tcl_ListObjAppendElement(interp, namesPtr, Tcl_NewStringObj(dns_name, (int)len2));
-			OPENSSL_free (dns_name);
-		    }
-		} else if (name->type == GEN_IPADD) {
-		    /* name->d.iPAddress */
+	    if (name && bio) {
+		if (GENERAL_NAME_print(bio, name)) {
+		    int n = BIO_read(bio, buffer, min(BIO_pending(bio), BUFSIZ));
+		    buffer[max(n, 0)] = 0;
+		    (void)BIO_flush(bio);
+		    Tcl_ListObjAppendElement(interp, namesPtr, Tcl_NewStringObj(buffer, n));
 		}
 	    }
 	}
+	BIO_free(bio);
 	sk_GENERAL_NAME_pop_free(san, GENERAL_NAME_free);
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subjectAltName", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, namesPtr);
+    }
+
+    /* Issuer Alternative Name */
+    san = X509_get_ext_d2i(cert, NID_issuer_alt_name, NULL, NULL);
+    if (san) {
+	Tcl_Obj *namesPtr = Tcl_NewListObj(0, NULL);
+	bio = BIO_new(BIO_s_mem());
+
+	for (int i=0; i < sk_GENERAL_NAME_num(san); i++) {
+	    const GENERAL_NAME *name = sk_GENERAL_NAME_value(san, i);
+
+	    if (name && bio) {
+		if (GENERAL_NAME_print(bio, name)) {
+		    int n = BIO_read(bio, buffer, min(BIO_pending(bio), BUFSIZ));
+		    buffer[max(n, 0)] = 0;
+		    (void)BIO_flush(bio);
+		    Tcl_ListObjAppendElement(interp, namesPtr, Tcl_NewStringObj(buffer, n));
+		}
+	    }
+	}
+	BIO_free(bio);
+	sk_GENERAL_NAME_pop_free(san, GENERAL_NAME_free);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("issuerAltName", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, namesPtr);
     }
 
@@ -393,29 +415,36 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     if (crl) {
 	Tcl_Obj *namesPtr = Tcl_NewListObj(0, NULL);
 
-	for (int i=0; i < sk_GENERAL_NAME_num(crl); i++)         {
-	    const GENERAL_NAME *name = sk_GENERAL_NAME_value(crl, i);
-	    size_t len2;
+	for (int i=0; i < sk_DIST_POINT_num(crl); i++) {
+	    DIST_POINT *dp = sk_DIST_POINT_value(crl, i);
+	    DIST_POINT_NAME *distpoint = dp->distpoint;
 
-	    if (name) {
-		if (name->type == GEN_DNS) {
-		    char *dns_name;
-		    if ((len2 = ASN1_STRING_to_UTF8(&dns_name, name->d.dNSName)) > 0) {
-			Tcl_ListObjAppendElement(interp, namesPtr, Tcl_NewStringObj(dns_name, (int)len2));
-			OPENSSL_free (dns_name);
+	    if (distpoint->type == 0) {
+		/* fullname GENERALIZEDNAME */
+		for (int j = 0; j < sk_GENERAL_NAME_num(distpoint->name.fullname); j++) {
+		    GENERAL_NAME *gen = sk_GENERAL_NAME_value(distpoint->name.fullname, j);
+		    int type;
+		    ASN1_STRING *uri = GENERAL_NAME_get0_value(gen, &type);
+		    if (type == GEN_URI) {
+			Tcl_ListObjAppendElement(interp, namesPtr,
+			    Tcl_NewStringObj((char*)ASN1_STRING_get0_data(uri), ASN1_STRING_length(uri)));
 		    }
-		} else if (name->type == GEN_IPADD) {
-		    /* name->d.iPAddress */
+		}
+	    } else if (distpoint->type == 1) {
+		/* relativename X509NAME */
+		STACK_OF(X509_NAME_ENTRY) *sk_relname = distpoint->name.relativename;
+		for (int j = 0; j < sk_X509_NAME_ENTRY_num(sk_relname); j++) {
+		    X509_NAME_ENTRY *e = sk_X509_NAME_ENTRY_value(sk_relname, j);
+		    ASN1_STRING *d = X509_NAME_ENTRY_get_data(e);
+		    Tcl_ListObjAppendElement(interp, namesPtr, Tcl_NewStringObj((char*)ASN1_STRING_data(d), ASN1_STRING_length(d)));
 		}
 	    }
 	}
-	sk_GENERAL_NAME_pop_free(crl, GENERAL_NAME_free);
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("cRLDistributionPoints", -1));
+	CRL_DIST_POINTS_free(crl);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("crlDistributionPoints", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, namesPtr);
     }
 
-
-    /* Issuer Alternative Name */
     /* Subject Directory Attributes */
 
     /* Basic Constraints - identifies whether the subject of the certificate is a CA and
