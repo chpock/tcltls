@@ -2074,21 +2074,27 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     } else {
 	peer = SSL_get_certificate(statePtr->ssl);
     }
+    /* Get X509 certificate info */
     if (peer) {
 	objPtr = Tls_NewX509Obj(interp, peer);
-	if (objc == 2) { X509_free(peer); }
+	if (objc == 2) {
+	    X509_free(peer);
+	    peer = NULL;
+	}
     } else {
 	objPtr = Tcl_NewListObj(0, NULL);
     }
 
     /* Peer cert chain (client only) */
     STACK_OF(X509)* ssl_certs = SSL_get_peer_cert_chain(statePtr->ssl);
-    if (!peer && (ssl_certs == NULL || sk_X509_num(ssl_certs) == 0)) {
+    if (ssl_certs == NULL || sk_X509_num(ssl_certs) == 0) {
 	Tcl_SetErrorCode(interp, "TLS", "STATUS", "CERTIFICATE", (char *) NULL);
+	Tcl_IncrRefCount(objPtr);
+	Tcl_DecrRefCount(objPtr);
 	return TCL_ERROR;
     }
 
-    /* Peer name from cert */
+    /* Peer name */
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("peername", -1));
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get0_peername(statePtr->ssl), -1));
 
@@ -2248,9 +2254,9 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_CIPHER_standard_name(cipher), -1));
 
 	bits = SSL_CIPHER_get_bits(cipher, &alg_bits);
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("bits", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(bits));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("secret_bits", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(bits));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("algorithm_bits", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(alg_bits));
 	/* alg_bits is actual key secret bits. If use bits and secret (algorithm) bits differ,
 	   the rest of the bits are fixed, i.e. for limited export ciphers (bits < 56) */
