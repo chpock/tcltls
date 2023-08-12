@@ -386,6 +386,8 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
 	} else {
 	    return 1;
 	}
+    } else if (cert == NULL || ssl == NULL) {
+	return 0;
     }
 
     /* Create command to eval */
@@ -857,7 +859,7 @@ HelloCallback(const SSL *ssl, int *alert, void *arg) {
 
     if (statePtr->vcmd == (Tcl_Obj*)NULL) {
 	return SSL_CLIENT_HELLO_SUCCESS;
-    } else if (ssl == NULL || arg == NULL) {
+    } else if (ssl == (const SSL *)NULL || arg == (void *)NULL) {
 	return SSL_CLIENT_HELLO_ERROR;
     }
 
@@ -2310,9 +2312,14 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("lifetime", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewLongObj(SSL_SESSION_get_ticket_lifetime_hint(session)));
 
-	/* Session id */
+	/* Session id - TLSv1.2 and below only */
 	session_id = SSL_SESSION_get_id(session, &ulen);
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_id", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewByteArrayObj(session_id, (int) ulen));
+
+	/* Session context */
+	session_id = SSL_SESSION_get0_id_context(session, &ulen);
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_context", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewByteArrayObj(session_id, (int) ulen));
 
 	/* Session ticket - client only */

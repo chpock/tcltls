@@ -200,6 +200,15 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("publicKey", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
 
+	if (X509_pubkey_digest(cert, EVP_get_digestbynid(pknid), md, &n)) {
+	    len = String_to_Hex(md, (int)n, buffer, BUFSIZ);
+	} else {
+	    len = 0;
+	}
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("publicKeyHash", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
+	
+
 	/* Check if cert was issued by CA cert issuer or self signed */
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("self_signed", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewBooleanObj(X509_check_issued(cert, cert) == X509_V_OK));
@@ -443,8 +452,15 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     /* Basic Constraints identifies whether the subject of the cert is a CA and
 	the max depth of valid cert paths that include this cert.
 	RFC 5280 section 4.2.1.9 (basicConstraints, NID_basic_constraints) */
-    if (xflags & EXFLAG_BCONS || xflags & EXFLAG_CA) {
+    if (xflags & EXFLAG_BCONS) {
+	long len2 = X509_get_pathlen(cert);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("pathLen", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewLongObj(len2));
     }
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("basicConstraintsCA", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewBooleanObj(xflags & EXFLAG_CA));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("basicConstraintsCritical", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewBooleanObj(xflags & EXFLAG_CRITICAL));
 
     /* Name Constraints is only used in CA certs to indicate a name space within
 	which all subject names in subsequent certificates in a certification path
