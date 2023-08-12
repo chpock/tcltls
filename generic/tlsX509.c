@@ -12,6 +12,9 @@
 #include <openssl/asn1.h>
 #include "tlsInt.h"
 
+/* Define maximum certificate size. Max PEM size 100kB and DER size is 24kB. */
+#define CERT_STR_SIZE 32768
+
 /*
  *  Ensure these are not macros - known to be defined on Win32
  */
@@ -45,6 +48,22 @@ int String_to_Hex(char* input, int len, char *output, int max) {
     output[count] = 0;
     return count;
 }
+
+/*
+ * BIO to Buffer
+ */
+int BIO_to_Buffer(int result, BIO *bio, void *buffer) {
+    int len = 0;
+
+    if (result) {
+	len = BIO_read(bio, buffer, min(BIO_pending(bio), BUFSIZ));
+	(void)BIO_flush(bio);
+	if (len < 0) {
+	    len = 0;
+	}
+    }
+    return len;
+}
 
 /*
  *------------------------------------------------------*
@@ -65,110 +84,24 @@ int String_to_Hex(char* input, int len, char *output, int max) {
  *------------------------------------------------------*
  */
 
-#define CERT_STR_SIZE 32768
 
 Tcl_Obj*
 Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     Tcl_Obj *certPtr = Tcl_NewListObj(0, NULL);
-    BIO *bio;
-    int mdnid, pknid, bits, num_of_exts, len;
+    BIO *bio = BIO_new(BIO_s_mem());
+    int mdnid, pknid, bits, len;
     uint32_t xflags, usage;
-    char subject[BUFSIZ];
-    char issuer[BUFSIZ];
-    char serial[BUFSIZ];
-    char notBefore[BUFSIZ];
-    char notAfter[BUFSIZ];
     char buffer[BUFSIZ];
-    char certStr[CERT_STR_SIZE];
     unsigned char md[EVP_MAX_MD_SIZE];
     STACK_OF(GENERAL_NAME) *san;
     STACK_OF(DIST_POINT) *crl;
     STACK_OF(OPENSSL_STRING) *ocsp;
+    unsigned long flags = XN_FLAG_RFC2253 | ASN1_STRFLGS_UTF8_CONVERT;
+    flags &= ~ASN1_STRFLGS_ESC_MSB;
 
-    certStr[0]   = 0;
-    subject[0]   = 0;
-    issuer[0]    = 0;
-    serial[0]    = 0;
-    notBefore[0] = 0;
-    notAfter[0]  = 0;
-    if ((bio = BIO_new(BIO_s_mem())) != NULL) {
-	int n;
-	unsigned long flags = XN_FLAG_RFC2253 | ASN1_STRFLGS_UTF8_CONVERT;
-	flags &= ~ASN1_STRFLGS_ESC_MSB;
-
-	/* Get subject name */
-	if (X509_NAME_print_ex(bio, X509_get_subject_name(cert), 0, flags) > 0) {
-	    n = BIO_read(bio, subject, min(BIO_pending(bio), BUFSIZ - 1));
-	    subject[max(n, 0)] = 0;
-	    (void)BIO_flush(bio);
-	}
-
-	/* Get issuer name */
-	if (X509_NAME_print_ex(bio, X509_get_issuer_name(cert), 0, flags) > 0) {
-	    n = BIO_read(bio, issuer, min(BIO_pending(bio), BUFSIZ - 1));
-	    issuer[max(n, 0)] = 0;
-	    (void)BIO_flush(bio);
-	}
-
-	/* Get serial number */
-	if (i2a_ASN1_INTEGER(bio, X509_get0_serialNumber(cert)) > 0) {
-	    n = BIO_read(bio, serial, min(BIO_pending(bio), BUFSIZ - 1));
-	    serial[max(n, 0)] = 0;
-	    (void)BIO_flush(bio);
-	}
-
-        /* Get certificate */
-        if (PEM_write_bio_X509(bio, cert)) {
-            char *certStr_p = certStr;
-            int certStr_len = 0;
-            while (1) {
-                int toRead = min(BIO_pending(bio), CERT_STR_SIZE - certStr_len - 1);
-                toRead = min(toRead, BUFSIZ);
-                if (toRead == 0) {
-                    break;
-                }
-                dprintf("Reading %i bytes from the certificate...", toRead);
-                n = BIO_read(bio, certStr_p, toRead);
-                if (n <= 0) {
-                    break;
-                }
-                certStr_len += n;
-                certStr_p   += n;
-            }
-            *certStr_p = '\0';
-            (void)BIO_flush(bio);
-        }
-
-	/* Get all cert info */
-	if (X509_print_ex(bio, cert, flags, 0)) {
-	    char all[65536];
-	    n = BIO_read(bio, all, min(BIO_pending(bio), 65535));
-	    all[max(n, 0)] = 0;
-	    (void)BIO_flush(bio);
-	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("all", -1));
-	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(all, n));
-	}
-
-	/* Get Validity - Not Before */
-	if (ASN1_TIME_print(bio, X509_get0_notBefore(cert))) {
-	    n = BIO_read(bio, notBefore, min(BIO_pending(bio), BUFSIZ - 1));
-	    notBefore[max(n, 0)] = 0;
-	    (void)BIO_flush(bio);
-	}
-
-	/* Get Validity - Not After */
-	if (ASN1_TIME_print(bio, X509_get0_notAfter(cert))) {
-	    n = BIO_read(bio, notAfter, min(BIO_pending(bio), BUFSIZ - 1));
-	    notAfter[max(n, 0)] = 0;
-	    (void)BIO_flush(bio);
-	}
-
-	BIO_free(bio);
+    if (bio == NULL || certPtr == NULL) {
+	return NULL;
     }
-
-    /* The certificate data */
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("certificate", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(certStr, -1));
 
     /* Signature algorithm and value - RFC 5280 section 4.1.1.2 and 4.1.1.3 */
     /* The signatureAlgorithm field contains the identifier for the cryptographic algorithm
@@ -200,8 +133,9 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewLongObj(X509_get_version(cert)+1));
 
     /* Unique number assigned by CA to certificate - RFC 5280 section 4.1.2.2 */
+    len = BIO_to_Buffer(i2a_ASN1_INTEGER(bio, X509_get0_serialNumber(cert)), bio, buffer);
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("serialNumber", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(serial, -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
 
     /* Signature algorithm used by the CA to sign the certificate. Must match
 	signatureAlgorithm. RFC 5280 section 4.1.2.3 */
@@ -210,33 +144,42 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 
     /* The issuer identifies the entity that has signed and issued the certificate.
 	RFC 5280 section 4.1.2.4 */
+    len = BIO_to_Buffer(X509_NAME_print_ex(bio, X509_get_issuer_name(cert), 0, flags), bio, buffer);
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("issuer", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(issuer, -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
 
     /* Certificate validity period is the time interval during which the CA
 	warrants that it will maintain information about the status of the certificate.
 	RFC 5280 section 4.1.2.5 */
+    /* Get Validity - Not Before */
+    len = BIO_to_Buffer(ASN1_TIME_print(bio, X509_get0_notBefore(cert)), bio, buffer);
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("notBefore", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(notBefore, -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
+
+    /* Get Validity - Not After */
+    len = BIO_to_Buffer(ASN1_TIME_print(bio, X509_get0_notAfter(cert)), bio, buffer);
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("notAfter", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(notAfter, -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
 
     /* The subject identifies the entity associated with the public key stored
 	in the subject public key field. RFC 5280 section 4.1.2.6 */
+    len = BIO_to_Buffer(X509_NAME_print_ex(bio, X509_get_subject_name(cert), 0, flags), bio, buffer);
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subject", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(subject, -1));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
 
     /* SHA1 Fingerprint of cert - DER representation */
-    X509_digest(cert, EVP_sha1(), md, &len);
+    if (X509_digest(cert, EVP_sha1(), md, &len)) {
     len = String_to_Hex(md, len, buffer, BUFSIZ);
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("sha1_hash", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
+    }
 
     /* SHA256 Fingerprint of cert - DER representation */
-    X509_digest(cert, EVP_sha256(), md, &len);
+    if (X509_digest(cert, EVP_sha256(), md, &len)) {
     len = String_to_Hex(md, len, buffer, BUFSIZ);
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("sha256_hash", -1));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
+    }
 
     /* Subject Public Key Info specifies the public key and identifies the
 	algorithm with which the key is used. RFC 5280 section 4.1.2.7 */
@@ -251,8 +194,6 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	/* Effective security bits */
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("bits", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj(bits));
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("extension_flags", -1));
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj(xflags));
 
 	key = X509_get0_pubkey_bitstr(cert);
 	len = String_to_Hex(key->data, key->length, buffer, BUFSIZ);
@@ -271,6 +212,10 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("signatureHash", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(buffer, len));
     }
+
+    xflags = X509_get_extension_flags(cert);
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("extension_flags", -1));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj(xflags));
 
 	/* Check if cert was issued by CA cert issuer or self signed */
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("selfIssued", -1));
@@ -302,16 +247,16 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     }
 
     /* X509 v3 Extensions - RFC 5280 section 4.1.2.9 */
-    num_of_exts = X509_get_ext_count(cert);
+    len = X509_get_ext_count(cert);
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("num_extensions", -1));
-    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj(num_of_exts));
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj(len));
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("extensions", -1));
-    if (num_of_exts > 0) {
+    if (len > 0) {
 	Tcl_Obj *extsPtr = Tcl_NewListObj(0, NULL);
 	const STACK_OF(X509_EXTENSION) *exts;
 	exts = X509_get0_extensions(cert);
 
-	for (int i=0; i < num_of_exts; i++) {
+	for (int i=0; i < len; i++) {
 	    X509_EXTENSION *ex = sk_X509_EXTENSION_value(exts, i);
 	    ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
 	    unsigned nid2 = OBJ_obj2nid(obj);
@@ -323,7 +268,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     }
 
     /* Authority Key Identifier (AKI) of a certificate should be the Subject Key
-	Identifier (SKI) of its signer (the CA). RFC 5280 section 4.2.1.1 */
+	Identifier (SKI) of its signer (the CA). RFC 5280 section 4.2.1.1, NID_authority_key_identifier */
     {
 	ASN1_OCTET_STRING *astring = X509_get0_authority_key_id(cert);
 	if (astring != NULL) {
@@ -336,7 +281,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     }
 
     /* Subject Key Identifier (SKI) provides a means of identifying certificates
-	that contain a particular public key. RFC 5280 section 4.2.1.2 */
+	that contain a particular public key. RFC 5280 section 4.2.1.2, NID_subject_key_identifier */
     {
 	ASN1_OCTET_STRING *astring = X509_get0_subject_key_id(cert);
 	if (astring != NULL) {
@@ -349,10 +294,10 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     }
 
     /* Key usage extension defines the purpose (e.g., encipherment, signature, certificate
-	signing) of the key contained in the certificate. RFC 5280 section 4.2.1.3 */
+	signing) of the key contained in the certificate. RFC 5280 section 4.2.1.3, NID_key_usage */
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("keyUsage", -1));
     usage = X509_get_key_usage(cert);
-    if ((xflags & EXFLAG_KUSAGE) || usage < 0xffff) {
+    if (xflags & EXFLAG_KUSAGE && usage < 0xffffff) {
 	Tcl_Obj *tmpPtr = Tcl_NewListObj(0, NULL);
 	if (usage & KU_DIGITAL_SIGNATURE) {
 	    Tcl_ListObjAppendElement(interp, tmpPtr, Tcl_NewStringObj("Digital Signature", -1));
@@ -435,19 +380,19 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     }
 
     /* Certificate Policies - indicates the issuing CA considers its issuerDomainPolicy
-	equivalent to the subject CA's subjectDomainPolicy. RFC 5280 section 4.2.1.4 */
+	equivalent to the subject CA's subjectDomainPolicy. RFC 5280 section 4.2.1.4, NID_certificate_policies */
     if (xflags & EXFLAG_INVALID_POLICY) {
 	/* Reject cert */
     }
 
-    /* Policy Mappings - RFC 5280 section 4.2.1.5 */
+    /* Policy Mappings - RFC 5280 section 4.2.1.5, NID_policy_mappings */
 
     /* Subject Alternative Name (SAN) contains additional URLs, DNS name, or IP
-	addresses bound to certificate. RFC 5280 section 4.2.1.6 */
+	addresses bound to certificate. RFC 5280 section 4.2.1.6, NID_subject_alt_name */
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subjectAltName", -1));
     san = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
     if (san) {
 	Tcl_Obj *namesPtr = Tcl_NewListObj(0, NULL);
-	bio = BIO_new(BIO_s_mem());
 
 	for (int i=0; i < sk_GENERAL_NAME_num(san); i++) {
 	    const GENERAL_NAME *name = sk_GENERAL_NAME_value(san, i);
@@ -461,18 +406,18 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 		}
 	    }
 	}
-	BIO_free(bio);
 	sk_GENERAL_NAME_pop_free(san, GENERAL_NAME_free);
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("subjectAltName", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, namesPtr);
+    } else {
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
     }
 
     /* Issuer Alternative Name (issuerAltName) is used to associate Internet
-	style identities with the certificate issuer. RFC 5280 section 4.2.1.7 */
+	style identities with the certificate issuer. RFC 5280 section 4.2.1.7, NID_issuer_alt_name */
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("issuerAltName", -1));
     san = X509_get_ext_d2i(cert, NID_issuer_alt_name, NULL, NULL);
     if (san) {
 	Tcl_Obj *namesPtr = Tcl_NewListObj(0, NULL);
-	bio = BIO_new(BIO_s_mem());
 
 	for (int i=0; i < sk_GENERAL_NAME_num(san); i++) {
 	    const GENERAL_NAME *name = sk_GENERAL_NAME_value(san, i);
@@ -486,10 +431,10 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 		}
 	    }
 	}
-	BIO_free(bio);
 	sk_GENERAL_NAME_pop_free(san, GENERAL_NAME_free);
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("issuerAltName", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, namesPtr);
+    } else {
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
     }
 
     /* Subject Directory Attributes provides identification attributes (e.g., nationality)
@@ -503,17 +448,17 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 
     /* Name Constraints is only used in CA certs to indicate a name space within
 	which all subject names in subsequent certificates in a certification path
-	MUST be located. RFC 5280 section 4.2.1.10 */
+	MUST be located. RFC 5280 section 4.2.1.10, NID_name_constraints */
 
     /* Policy Constraints is only used in CA certs to limit the length of a
-	cert chain that may be issued from that CA. RFC 5280 section 4.2.1.11 */
+	cert chain that may be issued from that CA. RFC 5280 section 4.2.1.11, NID_policy_constraints */
 
     /* Extended Key Usage indicates one or more purposes for which the certified
 	public key may be used, in addition to or in place of the basic purposes.
-	RFC 5280 section 4.2.1.12 */
+	RFC 5280 section 4.2.1.12, NID_ext_key_usage */
     Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("extendedKeyUsage", -1));
+    if (xflags & EXFLAG_XKUSAGE) {
     usage = X509_get_extended_key_usage(cert);
-    if ((xflags & EXFLAG_XKUSAGE) || usage < 0xffff) {
 	Tcl_Obj *tmpPtr = Tcl_NewListObj(0, NULL);
 	if (usage & XKU_SSL_SERVER) {
 	    Tcl_ListObjAppendElement(interp, tmpPtr, Tcl_NewStringObj("TLS Web Server Authentication", -1));
@@ -544,11 +489,12 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	}
 	Tcl_ListObjAppendElement(interp, certPtr, tmpPtr);
     } else {
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewIntObj((int)X509_get_extended_key_usage(cert)));
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
     }
 
     /* CRL Distribution Points extension identifies how CRL information is
 	obtained. RFC 5280 section 4.2.1.13*/
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("crlDistributionPoints", -1));
     crl = X509_get_ext_d2i(cert, NID_crl_distribution_points, NULL, NULL);
     if (crl) {
 	Tcl_Obj *namesPtr = Tcl_NewListObj(0, NULL);
@@ -579,15 +525,20 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	    }
 	}
 	CRL_DIST_POINTS_free(crl);
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("crlDistributionPoints", -1));
 	Tcl_ListObjAppendElement(interp, certPtr, namesPtr);
+    } else {
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
     }
 
     /* Freshest CRL extension */
     if (xflags & EXFLAG_FRESHEST) {
     }
 
-    /* Get OSCP URL */
+    /* Authority Information Access indicates how to access info and services
+	for the certificate issuer. THis includes on-line validation services
+	and CA policy data. RFC 5280 section 4.2.2.1, NID_info_access */
+    /* Get On-line Certificate Status Protocol (OSCP) URL */
+    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("ocsp", -1));
     ocsp = X509_get1_ocsp(cert);
     if (ocsp) {
 	Tcl_Obj *urlsPtr = Tcl_NewListObj(0, NULL);
@@ -598,11 +549,18 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	}
 
 	X509_email_free(ocsp);
-	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("ocsp", -1));
+	/* sk_OPENSSL_STRING_free(ocsp); */
 	Tcl_ListObjAppendElement(interp, certPtr, urlsPtr);
+    } else {
+	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
     }
 
-    /* Certificate Alias as UTF-8 string */
+    /* CA Issuers URL caIssuers */
+
+    /* Subject Information Access - RFC 5280 section 4.2.2.2, NID_sinfo_access */
+
+    /* Certificate Alias as UTF-8 string. If uses a PKCS#12 structure, alias
+	will reflect the friendlyName attribute (RFC 2985). */
     {
 	unsigned char *bstring;
 	len = 0;
@@ -611,5 +569,30 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj((char *)bstring, len));
     }
 
+    /* All data */
+    {
+	char certStr[CERT_STR_SIZE];
+	len = 0;
+
+	/* Get certificate */
+	if (PEM_write_bio_X509(bio, cert)) {
+	    len = BIO_read(bio, certStr, min(BIO_pending(bio), CERT_STR_SIZE));
+	    (void)BIO_flush(bio);
+	    if (len < 0) {len = 0;}
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("certificate", -1));
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(certStr, len));
+	}
+
+	/* Get all cert info */
+	if (X509_print_ex(bio, cert, flags, 0)) {
+	    len = BIO_read(bio, certStr, min(BIO_pending(bio), CERT_STR_SIZE));
+	    (void)BIO_flush(bio);
+	    if (len < 0) {len = 0;}
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("all", -1));
+	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj(certStr, len));
+	}
+    }
+
+    BIO_free(bio);
     return certPtr;
 }
