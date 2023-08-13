@@ -2373,6 +2373,22 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_cache_mode", -1));
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(proto, -1));
 
+    /* CA List */
+    listPtr = Tcl_NewListObj(0, NULL);
+    STACK_OF(X509_NAME) *ca_list;
+    if ((ca_list = SSL_get_client_CA_list(ssl)) != NULL) {
+	char buffer[BUFSIZ];
+	for (int i = 0; i < sk_X509_NAME_num(ca_list); i++) {
+	    X509_NAME *name = sk_X509_NAME_value(ca_list, i);
+	    if (name) {
+		X509_NAME_oneline(name, buffer, BUFSIZ);
+		Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj(buffer, -1));
+	    }
+	}
+    }
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("caList", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, listPtr);
+
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
 	clientData = clientData;
