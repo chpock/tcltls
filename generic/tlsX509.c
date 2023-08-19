@@ -95,7 +95,6 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     char buffer[BUFSIZ];
     unsigned char md[EVP_MAX_MD_SIZE];
     STACK_OF(GENERAL_NAME) *names;
-    STACK_OF(DIST_POINT) *crl;
     STACK_OF(OPENSSL_STRING) *ocsp;
     unsigned long flags = XN_FLAG_RFC2253 | ASN1_STRFLGS_UTF8_CONVERT;
     flags &= ~ASN1_STRFLGS_ESC_MSB;
@@ -429,39 +428,43 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 
     /* CRL Distribution Points identifies where CRL information can be obtained.
 	RFC 5280 section 4.2.1.13*/
-    listPtr = Tcl_NewListObj(0, NULL);
-    if (crl = X509_get_ext_d2i(cert, NID_crl_distribution_points, NULL, NULL)) {
-	Tcl_Obj *namesPtr = Tcl_NewListObj(0, NULL);
+    {
+	STACK_OF(DIST_POINT) *crl;
+	listPtr = Tcl_NewListObj(0, NULL);
 
-	for (int i=0; i < sk_DIST_POINT_num(crl); i++) {
-	    DIST_POINT *dp = sk_DIST_POINT_value(crl, i);
-	    DIST_POINT_NAME *distpoint = dp->distpoint;
+	if (crl = X509_get_ext_d2i(cert, NID_crl_distribution_points, NULL, NULL)) {
+	    Tcl_Obj *namesPtr = Tcl_NewListObj(0, NULL);
 
-	    if (distpoint->type == 0) {
-		/* fullname GENERALIZEDNAME */
-		for (int j = 0; j < sk_GENERAL_NAME_num(distpoint->name.fullname); j++) {
-		    GENERAL_NAME *gen = sk_GENERAL_NAME_value(distpoint->name.fullname, j);
-		    int type;
-		    ASN1_STRING *uri = GENERAL_NAME_get0_value(gen, &type);
-		    if (type == GEN_URI) {
+	    for (int i=0; i < sk_DIST_POINT_num(crl); i++) {
+		DIST_POINT *dp = sk_DIST_POINT_value(crl, i);
+		DIST_POINT_NAME *distpoint = dp->distpoint;
+
+		if (distpoint->type == 0) {
+		    /* fullname GENERALIZEDNAME */
+		    for (int j = 0; j < sk_GENERAL_NAME_num(distpoint->name.fullname); j++) {
+			GENERAL_NAME *gen = sk_GENERAL_NAME_value(distpoint->name.fullname, j);
+			int type;
+			ASN1_STRING *uri = GENERAL_NAME_get0_value(gen, &type);
+			if (type == GEN_URI) {
+			    Tcl_ListObjAppendElement(interp, listPtr,
+				Tcl_NewStringObj((char*)ASN1_STRING_get0_data(uri), ASN1_STRING_length(uri)));
+			}
+		    }
+		} else if (distpoint->type == 1) {
+		    /* relativename X509NAME */
+		    STACK_OF(X509_NAME_ENTRY) *sk_relname = distpoint->name.relativename;
+		    for (int j = 0; j < sk_X509_NAME_ENTRY_num(sk_relname); j++) {
+			X509_NAME_ENTRY *e = sk_X509_NAME_ENTRY_value(sk_relname, j);
+			ASN1_STRING *d = X509_NAME_ENTRY_get_data(e);
 			Tcl_ListObjAppendElement(interp, listPtr,
-			    Tcl_NewStringObj((char*)ASN1_STRING_get0_data(uri), ASN1_STRING_length(uri)));
+			    Tcl_NewStringObj((char*)ASN1_STRING_data(d), ASN1_STRING_length(d)));
 		    }
 		}
-	    } else if (distpoint->type == 1) {
-		/* relativename X509NAME */
-		STACK_OF(X509_NAME_ENTRY) *sk_relname = distpoint->name.relativename;
-		for (int j = 0; j < sk_X509_NAME_ENTRY_num(sk_relname); j++) {
-		    X509_NAME_ENTRY *e = sk_X509_NAME_ENTRY_value(sk_relname, j);
-		    ASN1_STRING *d = X509_NAME_ENTRY_get_data(e);
-		    Tcl_ListObjAppendElement(interp, listPtr,
-			Tcl_NewStringObj((char*)ASN1_STRING_data(d), ASN1_STRING_length(d)));
-		}
 	    }
+	    CRL_DIST_POINTS_free(crl);
 	}
-	CRL_DIST_POINTS_free(crl);
+	LAPPEND_LIST(interp, certPtr, "crlDistributionPoints", listPtr);
     }
-    LAPPEND_LIST(interp, certPtr, "crlDistributionPoints", listPtr);
 
     /* Freshest CRL extension */
     if (xflags & EXFLAG_FRESHEST) {
@@ -470,17 +473,45 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     /* Authority Information Access indicates how to access info and services
 	for the certificate issuer. RFC 5280 section 4.2.2.1, NID_info_access */
     /* Get On-line Certificate Status Protocol (OSCP) URL */
-    listPtr = Tcl_NewListObj(0, NULL);
-    if (ocsp = X509_get1_ocsp(cert)) {
-	for (int i = 0; i < sk_OPENSSL_STRING_num(ocsp); i++) {
-	    Tcl_ListObjAppendElement(interp, listPtr,
-		Tcl_NewStringObj(sk_OPENSSL_STRING_value(ocsp, i), -1));
-	}
-	X509_email_free(ocsp);
-    }
-    LAPPEND_LIST(interp, certPtr, "ocsp", listPtr);
+    {
+	STACK_OF(OPENSSL_STRING) *ocsp;
+	listPtr = Tcl_NewListObj(0, NULL);
 
-    /* CA Issuers URL caIssuers */
+	if (ocsp = X509_get1_ocsp(cert)) {
+	    for (int i = 0; i < sk_OPENSSL_STRING_num(ocsp); i++) {
+		Tcl_ListObjAppendElement(interp, listPtr,
+		    Tcl_NewStringObj(sk_OPENSSL_STRING_value(ocsp, i), -1));
+	    }
+	    X509_email_free(ocsp);
+	    /* sk_OPENSSL_STRING_free(ocsp); */
+	}
+	LAPPEND_LIST(interp, certPtr, "ocsp", listPtr);
+    }
+
+    /* CA Issuers URL, caIssuers */
+    {
+	STACK_OF(ACCESS_DESCRIPTION) *ads;
+	listPtr = Tcl_NewListObj(0, NULL);
+
+	if (ads = X509_get_ext_d2i(cert, NID_info_access, NULL, NULL)) {
+	    for (int i = 0; i < sk_ACCESS_DESCRIPTION_num(ads); i++) {
+		ACCESS_DESCRIPTION *ad = sk_ACCESS_DESCRIPTION_value(ads, i);
+		if (OBJ_obj2nid(ad->method) == NID_ad_ca_issuers && ad->location) {
+		    if (ad->location->type == GEN_URI) {
+			unsigned char *buf;
+
+			len = ASN1_STRING_to_UTF8(&buf, ad->location->d.uniformResourceIdentifier);
+			Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj(buf, len));
+			OPENSSL_free(buf);
+			break;
+		    }
+		}
+	    }
+	    /* sk_ACCESS_DESCRIPTION_pop_free(ads, ACCESS_DESCRIPTION_free); */
+	    AUTHORITY_INFO_ACCESS_free(ads);
+	}
+	LAPPEND_LIST(interp, certPtr, "caIssuers", listPtr);
+    }
 
     /* Subject Information Access - RFC 5280 section 4.2.2.2, NID_sinfo_access */
 
