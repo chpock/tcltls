@@ -2186,11 +2186,10 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
     Tcl_Channel chan;		/* The channel to set a mode on. */
     State *statePtr;		/* client state for ssl socket */
-    Tcl_Obj *objPtr;
+    Tcl_Obj *objPtr, *listPtr;
     const SSL *ssl;
     const SSL_CIPHER *cipher;
     const SSL_SESSION *session;
-    const unsigned char *proto;
     long mode;
 
     if (objc != 2) {
@@ -2285,7 +2284,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	const unsigned char *ticket;
 	size_t len2;
 	unsigned int ulen;
-	const unsigned char *session_id;
+	const unsigned char *session_id, *proto;
 	char buffer[SSL_MAX_MASTER_KEY_LENGTH];
 
 	/* Report the selected protocol as a result of the ALPN negotiation */
@@ -2362,22 +2361,27 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     }
 
     /* Server info */
-    mode = SSL_CTX_get_session_cache_mode(statePtr->ctx);
-    if (mode & SSL_SESS_CACHE_OFF) {
-	proto = "off";
-    } else if (mode & SSL_SESS_CACHE_CLIENT) {
-	proto = "client";
-    } else if (mode & SSL_SESS_CACHE_SERVER) {
-	proto = "server";
-    } else if (mode & SSL_SESS_CACHE_BOTH) {
-	proto = "both";
-    } else {
-	proto = "unknown";
+    {
+	mode = SSL_CTX_get_session_cache_mode(statePtr->ctx);
+	char *msg;
+	
+	if (mode & SSL_SESS_CACHE_OFF) {
+	    msg = "off";
+	} else if (mode & SSL_SESS_CACHE_CLIENT) {
+	    msg = "client";
+	} else if (mode & SSL_SESS_CACHE_SERVER) {
+	    msg = "server";
+	} else if (mode & SSL_SESS_CACHE_BOTH) {
+	    msg = "both";
+	} else {
+	    msg = "unknown";
+	}
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_cache_mode", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(msg, -1));
     }
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_cache_mode", -1));
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(proto, -1));
 
     /* CA List */
+    /* IF not a server, same as SSL_get0_peer_CA_list. If server same as SSL_CTX_get_client_CA_list */
     listPtr = Tcl_NewListObj(0, NULL);
     STACK_OF(X509_NAME) *ca_list;
     if ((ca_list = SSL_get_client_CA_list(ssl)) != NULL) {
