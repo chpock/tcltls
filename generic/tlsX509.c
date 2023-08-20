@@ -32,11 +32,11 @@
     if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
     Tcl_ListObjAppendElement(interp, obj, Tcl_NewBooleanObj(value)); \
 }
-#define LAPPEND_LIST(interp, obj, text, listObj) {\
+#define LAPPEND_OBJ(interp, obj, text, listObj) {\
     if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
     Tcl_ListObjAppendElement(interp, obj, listObj); \
 }
-
+
 /*
  * Binary string to hex string
  */
@@ -68,6 +68,302 @@ int BIO_to_Buffer(int result, BIO *bio, void *buffer, int size) {
 }
 
 /*
+ * Get X509 Certificate Extensions
+ */
+Tcl_Obj *Tls_x509Extensions(Tcl_Interp *interp, X509 *cert) {
+    const STACK_OF(X509_EXTENSION) *exts;
+    Tcl_Obj *listPtr = Tcl_NewListObj(0, NULL);
+
+    if (listPtr == NULL) {
+	return NULL;
+    }
+
+    if (exts = X509_get0_extensions(cert)) {
+	for (int i=0; i < X509_get_ext_count(cert); i++) {
+	    X509_EXTENSION *ex = sk_X509_EXTENSION_value(exts, i);
+	    ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
+	    /* ASN1_OCTET_STRING *data = X509_EXTENSION_get_data(ex); */
+	    int critical = X509_EXTENSION_get_critical(ex);
+	    LAPPEND_BOOL(interp, listPtr, OBJ_nid2ln(OBJ_obj2nid(obj)), critical);
+	}
+    }
+    return listPtr;
+}
+
+/*
+ * Get Authority and Subject Key Identifiers
+ */
+Tcl_Obj *Tls_x509Identifier(ASN1_OCTET_STRING *astring) {
+    Tcl_Obj *resultPtr = NULL;
+    int len = 0;
+    char buffer[1024];
+
+    if (astring != NULL) {
+	len = String_to_Hex((char *)ASN1_STRING_get0_data(astring),
+	    ASN1_STRING_length(astring), buffer, 1024);
+    }
+    resultPtr = Tcl_NewStringObj(buffer, len);
+    return resultPtr;
+}
+
+/*
+ * Get Key Usage
+ */
+Tcl_Obj *Tls_x509KeyUsage(Tcl_Interp *interp, X509 *cert, uint32_t xflags) {
+    uint32_t usage = X509_get_key_usage(cert);
+    Tcl_Obj *listPtr = Tcl_NewListObj(0, NULL);
+
+    if (listPtr == NULL) {
+	return NULL;
+    }
+
+    if ((xflags & EXFLAG_KUSAGE) && usage < 0xffffff) {
+	if (usage & KU_DIGITAL_SIGNATURE) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Digital Signature", -1));
+	}
+	if (usage & KU_NON_REPUDIATION) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Non-Repudiation", -1));
+	}
+	if (usage & KU_KEY_ENCIPHERMENT) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Key Encipherment", -1));
+	}
+	if (usage & KU_DATA_ENCIPHERMENT) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Data Encipherment", -1));
+	}
+	if (usage & KU_KEY_AGREEMENT) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Key Agreement", -1));
+	}
+	if (usage & KU_KEY_CERT_SIGN) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Certificate Signing", -1));
+	}
+	if (usage & KU_CRL_SIGN) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("CRL Signing", -1));
+	}
+	if (usage & KU_ENCIPHER_ONLY) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Encipher Only", -1));
+	}
+	if (usage & KU_DECIPHER_ONLY) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Decipher Only", -1));
+	}
+    }
+    return listPtr;
+}
+
+/*
+ * Get Certificate Purpose
+ */
+char *Tls_x509Purpose(X509 *cert) {
+    char *purpose = NULL;
+
+    if (X509_check_purpose(cert, X509_PURPOSE_SSL_CLIENT, 0) > 0) {
+	purpose = "SSL Client";
+    } else if (X509_check_purpose(cert, X509_PURPOSE_SSL_SERVER, 0) > 0) {
+	purpose = "SSL Server";
+    } else if (X509_check_purpose(cert, X509_PURPOSE_NS_SSL_SERVER, 0) > 0) {
+	purpose = "MSS SSL Server";
+    } else if (X509_check_purpose(cert, X509_PURPOSE_SMIME_SIGN, 0) > 0) {
+	purpose = "SMIME Signing";
+    } else if (X509_check_purpose(cert, X509_PURPOSE_SMIME_ENCRYPT, 0) > 0) {
+	purpose = "SMIME Encryption";
+    } else if (X509_check_purpose(cert, X509_PURPOSE_CRL_SIGN, 0) > 0) {
+	purpose = "CRL Signing";
+    } else if (X509_check_purpose(cert, X509_PURPOSE_ANY, 0) > 0) {
+	purpose = "Any";
+    } else if (X509_check_purpose(cert, X509_PURPOSE_OCSP_HELPER, 0) > 0) {
+	purpose = "OCSP Helper";
+    } else if (X509_check_purpose(cert, X509_PURPOSE_TIMESTAMP_SIGN, 0) > 0) {
+	purpose = "Timestamp Signing";
+    } else {
+	purpose = "";
+    }
+    return purpose;
+}
+
+/*
+ * For each purpose, get certificate applicability
+ */
+Tcl_Obj *Tls_x509Purposes(Tcl_Interp *interp, X509 *cert) {
+    Tcl_Obj *listPtr = Tcl_NewListObj(0, NULL);
+    X509_PURPOSE *ptmp;
+
+    if (listPtr == NULL) {
+	return NULL;
+    }
+
+    for (int i = 0; i < X509_PURPOSE_get_count(); i++) {
+	ptmp = X509_PURPOSE_get0(i);
+	Tcl_Obj *tmpPtr = Tcl_NewListObj(0, NULL);
+
+	for (int j = 0; j < 2; j++) {
+	    int idret = X509_check_purpose(cert, X509_PURPOSE_get_id(ptmp), j);
+	    Tcl_ListObjAppendElement(interp, tmpPtr, Tcl_NewStringObj(j ? "CA" : "nonCA", -1));
+	    Tcl_ListObjAppendElement(interp, tmpPtr, Tcl_NewStringObj(idret == 1 ? "Yes" : "No", -1));
+	}
+	LAPPEND_OBJ(interp, listPtr, X509_PURPOSE_get0_name(ptmp), tmpPtr);
+    }
+    return listPtr;
+}
+
+/*
+ * Get Subject Alternate Names (SAN) and Issuer Alternate Names
+ */
+Tcl_Obj *Tls_x509Names(Tcl_Interp *interp, X509 *cert, int nid, BIO *bio) {
+    STACK_OF(GENERAL_NAME) *names;
+    Tcl_Obj *listPtr = Tcl_NewListObj(0, NULL);
+    int len;
+    char buffer[1024];
+
+    if (listPtr == NULL) {
+	return NULL;
+    }
+
+    if (names = X509_get_ext_d2i(cert, nid, NULL, NULL)) {
+	for (int i=0; i < sk_GENERAL_NAME_num(names); i++) {
+	    const GENERAL_NAME *name = sk_GENERAL_NAME_value(names, i);
+
+	    len = BIO_to_Buffer(name && GENERAL_NAME_print(bio, name), bio, buffer, 1024);
+	    LAPPEND_STR(interp, listPtr, NULL, buffer, len);
+	}
+	sk_GENERAL_NAME_pop_free(names, GENERAL_NAME_free);
+    }
+    return listPtr;
+}
+
+/*
+ * Get EXtended Key Usage
+ */
+Tcl_Obj *Tls_x509ExtKeyUsage(Tcl_Interp *interp, X509 *cert, uint32_t xflags) {
+    uint32_t usage = X509_get_key_usage(cert);
+    Tcl_Obj *listPtr = Tcl_NewListObj(0, NULL);
+
+    if (listPtr == NULL) {
+	return NULL;
+    }
+
+    if (xflags & EXFLAG_XKUSAGE) {
+	usage = X509_get_extended_key_usage(cert);
+
+	if (usage & XKU_SSL_SERVER) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("TLS Web Server Authentication", -1));
+	}
+	if (usage & XKU_SSL_CLIENT) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("TLS Web Client Authentication", -1));
+	}
+	if (usage & XKU_SMIME) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("E-mail Protection", -1));
+	}
+	if (usage & XKU_CODE_SIGN) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Code Signing", -1));
+	}
+	if (usage & XKU_SGC) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("SGC", -1));
+	}
+	if (usage & XKU_OCSP_SIGN) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("OCSP Signing", -1));
+	}
+	if (usage & XKU_TIMESTAMP) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Time Stamping", -1));
+	}
+	if (usage & XKU_DVCS ) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("DVCS", -1));
+	}
+	if (usage & XKU_ANYEKU) {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Any Extended Key Usage", -1));
+	}
+    }
+    return listPtr;
+}
+
+/*
+ * Get CRL Distribution Points
+ */
+Tcl_Obj *Tls_x509CrlDp(Tcl_Interp *interp, X509 *cert) {
+    STACK_OF(DIST_POINT) *crl;
+    Tcl_Obj *listPtr = Tcl_NewListObj(0, NULL);
+
+    if (listPtr == NULL) {
+	return NULL;
+    }
+
+    if (crl = X509_get_ext_d2i(cert, NID_crl_distribution_points, NULL, NULL)) {
+	for (int i=0; i < sk_DIST_POINT_num(crl); i++) {
+	    DIST_POINT *dp = sk_DIST_POINT_value(crl, i);
+	    DIST_POINT_NAME *distpoint = dp->distpoint;
+
+	    if (distpoint->type == 0) {
+		/* full-name GENERALIZEDNAME */
+		for (int j = 0; j < sk_GENERAL_NAME_num(distpoint->name.fullname); j++) {
+		    GENERAL_NAME *gen = sk_GENERAL_NAME_value(distpoint->name.fullname, j);
+		    int type;
+		    ASN1_STRING *uri = GENERAL_NAME_get0_value(gen, &type);
+		    if (type == GEN_URI) {
+			LAPPEND_STR(interp, listPtr, NULL, ASN1_STRING_get0_data(uri), ASN1_STRING_length(uri));
+		    }
+		}
+	    } else if (distpoint->type == 1) {
+		/* relative-name X509NAME */
+		STACK_OF(X509_NAME_ENTRY) *sk_relname = distpoint->name.relativename;
+		for (int j = 0; j < sk_X509_NAME_ENTRY_num(sk_relname); j++) {
+		    X509_NAME_ENTRY *e = sk_X509_NAME_ENTRY_value(sk_relname, j);
+		    ASN1_STRING *d = X509_NAME_ENTRY_get_data(e);
+		    LAPPEND_STR(interp, listPtr, NULL, ASN1_STRING_data(d), ASN1_STRING_length(d));
+		}
+	    }
+	}
+	CRL_DIST_POINTS_free(crl);
+    }
+    return listPtr;
+}
+
+/*
+ * Get On-line Certificate Status Protocol (OSCP) URL
+ */
+Tcl_Obj *Tls_x509Oscp(Tcl_Interp *interp, X509 *cert) {
+    STACK_OF(OPENSSL_STRING) *ocsp;
+    Tcl_Obj *listPtr = Tcl_NewListObj(0, NULL);
+
+    if (listPtr == NULL) {
+	return NULL;
+    }
+
+    if (ocsp = X509_get1_ocsp(cert)) {
+	for (int i = 0; i < sk_OPENSSL_STRING_num(ocsp); i++) {
+	    LAPPEND_STR(interp, listPtr, NULL, sk_OPENSSL_STRING_value(ocsp, i), -1);
+	}
+	X509_email_free(ocsp);
+    }
+    return listPtr;
+}
+
+/*
+ * Get Certificate Authority (CA) Issuers URL
+ */
+Tcl_Obj *Tls_x509CaIssuers(Tcl_Interp *interp, X509 *cert) {
+    STACK_OF(ACCESS_DESCRIPTION) *ads;
+    ACCESS_DESCRIPTION *ad;
+    Tcl_Obj *listPtr = Tcl_NewListObj(0, NULL);
+    unsigned char *buf;
+    int len;
+
+    if (ads = X509_get_ext_d2i(cert, NID_info_access, NULL, NULL)) {
+	for (int i = 0; i < sk_ACCESS_DESCRIPTION_num(ads); i++) {
+	    ad = sk_ACCESS_DESCRIPTION_value(ads, i);
+	    if (OBJ_obj2nid(ad->method) == NID_ad_ca_issuers && ad->location) {
+		if (ad->location->type == GEN_URI) {
+		    len = ASN1_STRING_to_UTF8(&buf, ad->location->d.uniformResourceIdentifier);
+		    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj(buf, len));
+		    OPENSSL_free(buf);
+		    break;
+		}
+	    }
+	}
+	/* sk_ACCESS_DESCRIPTION_pop_free(ads, ACCESS_DESCRIPTION_free); */
+	AUTHORITY_INFO_ACCESS_free(ads);
+    }
+    return listPtr;
+}
+
+/*
  *------------------------------------------------------*
  *
  *	Tls_NewX509Obj --
@@ -88,18 +384,16 @@ int BIO_to_Buffer(int result, BIO *bio, void *buffer, int size) {
 
 Tcl_Obj*
 Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
-    Tcl_Obj *certPtr = Tcl_NewListObj(0, NULL), *listPtr;
+    Tcl_Obj *certPtr = Tcl_NewListObj(0, NULL);
     BIO *bio = BIO_new(BIO_s_mem());
     int mdnid, pknid, bits, len;
-    uint32_t xflags, usage;
+    uint32_t xflags;
     char buffer[BUFSIZ];
     unsigned char md[EVP_MAX_MD_SIZE];
-    STACK_OF(GENERAL_NAME) *names;
-    STACK_OF(OPENSSL_STRING) *ocsp;
     unsigned long flags = XN_FLAG_RFC2253 | ASN1_STRFLGS_UTF8_CONVERT;
     flags &= ~ASN1_STRFLGS_ESC_MSB;
 
-    if (bio == NULL || certPtr == NULL) {
+    if (interp == NULL || cert == NULL || bio == NULL || certPtr == NULL) {
 	return NULL;
     }
 
@@ -219,122 +513,28 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     }
 
     /* X509 v3 Extensions - RFC 5280 section 4.1.2.9 */
-    len = X509_get_ext_count(cert);
-    listPtr = Tcl_NewListObj(0, NULL);
-    if (len > 0) {
-	const STACK_OF(X509_EXTENSION) *exts = X509_get0_extensions(cert);
-
-	for (int i=0; i < len; i++) {
-	    X509_EXTENSION *ex = sk_X509_EXTENSION_value(exts, i);
-	    ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
-
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj(OBJ_nid2ln(OBJ_obj2nid(obj)), -1));
-	}
-    }
-    LAPPEND_INT(interp, certPtr, "extCount", len);
-    LAPPEND_LIST(interp, certPtr, "extensions", listPtr);
+    LAPPEND_INT(interp, certPtr, "extCount", X509_get_ext_count(cert));
+    LAPPEND_OBJ(interp, certPtr, "extensions", Tls_x509Extensions(interp, cert));
 
     /* Authority Key Identifier (AKI) is the Subject Key Identifier (SKI) of
 	its signer (the CA). RFC 5280 section 4.2.1.1, NID_authority_key_identifier */
-    {
-	ASN1_OCTET_STRING *astring = X509_get0_authority_key_id(cert);
-	len = 0;
-	if (astring != NULL) {
-	    len = String_to_Hex((char *)ASN1_STRING_get0_data(astring),
-		ASN1_STRING_length(astring), buffer, BUFSIZ);
-	}
-	LAPPEND_STR(interp, certPtr, "authorityKeyIdentifier", buffer, len);
-    }
+    LAPPEND_OBJ(interp, certPtr, "authorityKeyIdentifier",
+	Tls_x509Identifier(X509_get0_authority_key_id(cert)));
 
-    /* Subject Key Identifier (SKI) is used to dentify certificates that contain
+    /* Subject Key Identifier (SKI) is used to identify certificates that contain
 	a particular public key. RFC 5280 section 4.2.1.2, NID_subject_key_identifier */
-    {
-	ASN1_OCTET_STRING *astring = X509_get0_subject_key_id(cert);
-	len = 0;
-	if (astring != NULL) {
-	    len = String_to_Hex((char *)ASN1_STRING_get0_data(astring),
-		ASN1_STRING_length(astring), buffer, BUFSIZ);
-	}
-	LAPPEND_STR(interp, certPtr, "subjectKeyIdentifier", buffer, len);
-    }
+    LAPPEND_OBJ(interp, certPtr, "subjectKeyIdentifier",
+	Tls_x509Identifier(X509_get0_subject_key_id(cert)));
 
     /* Key usage extension defines the purpose (e.g., encipherment, signature, certificate
-	signing) of the key contained in the certificate. RFC 5280 section 4.2.1.3, NID_key_usage */
-    listPtr = Tcl_NewListObj(0, NULL);
-    usage = X509_get_key_usage(cert);
-    if ((xflags & EXFLAG_KUSAGE) && usage < 0xffffff) {
-	if (usage & KU_DIGITAL_SIGNATURE) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Digital Signature", -1));
-	}
-	if (usage & KU_NON_REPUDIATION) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Non-Repudiation", -1));
-	}
-	if (usage & KU_KEY_ENCIPHERMENT) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Key Encipherment", -1));
-	}
-	if (usage & KU_DATA_ENCIPHERMENT) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Data Encipherment", -1));
-	}
-	if (usage & KU_KEY_AGREEMENT) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Key Agreement", -1));
-	}
-	if (usage & KU_KEY_CERT_SIGN) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Certificate Signing", -1));
-	}
-	if (usage & KU_CRL_SIGN) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("CRL Signing", -1));
-	}
-	if (usage & KU_ENCIPHER_ONLY) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Encipher Only", -1));
-	}
-	if (usage & KU_DECIPHER_ONLY) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Decipher Only", -1));
-	}
-    }
-    LAPPEND_LIST(interp, certPtr, "keyUsage", listPtr);
+	signing) of the key in the certificate. RFC 5280 section 4.2.1.3, NID_key_usage */
+    LAPPEND_OBJ(interp, certPtr, "keyUsage", Tls_x509KeyUsage(interp, cert, xflags));
 
     /* Certificate Purpose */
-    {
-	char *purpose = NULL;
-
-	if (X509_check_purpose(cert, X509_PURPOSE_SSL_CLIENT, 0) > 0) {
-	    purpose = "SSL Client";
-	} else if (X509_check_purpose(cert, X509_PURPOSE_SSL_SERVER, 0) > 0) {
-	    purpose = "SSL Server";
-	} else if (X509_check_purpose(cert, X509_PURPOSE_NS_SSL_SERVER, 0) > 0) {
-	    purpose = "MSS SSL Server";
-	} else if (X509_check_purpose(cert, X509_PURPOSE_SMIME_SIGN, 0) > 0) {
-	    purpose = "SMIME Signing";
-	} else if (X509_check_purpose(cert, X509_PURPOSE_SMIME_ENCRYPT, 0) > 0) {
-	    purpose = "SMIME Encryption";
-	} else if (X509_check_purpose(cert, X509_PURPOSE_CRL_SIGN, 0) > 0) {
-	    purpose = "CRL Signing";
-	} else if (X509_check_purpose(cert, X509_PURPOSE_ANY, 0) > 0) {
-	    purpose = "Any";
-	} else if (X509_check_purpose(cert, X509_PURPOSE_OCSP_HELPER, 0) > 0) {
-	    purpose = "OCSP Helper";
-	} else if (X509_check_purpose(cert, X509_PURPOSE_TIMESTAMP_SIGN, 0) > 0) {
-	    purpose = "Timestamp Signing";
-	} else {
-	    purpose = "";
-	}
-	LAPPEND_STR(interp, certPtr, "purpose", purpose, -1);
-    }
+    LAPPEND_STR(interp, certPtr, "purpose", Tls_x509Purpose(cert), -1);
 
     /* Get purposes */
-    listPtr = Tcl_NewListObj(0, NULL);
-	for (int j = 0; j < X509_PURPOSE_get_count(); j++) {
-	    X509_PURPOSE *ptmp = X509_PURPOSE_get0(j);
-	    Tcl_Obj *tmpPtr = Tcl_NewListObj(0, NULL);
-
-	    for (int i = 0; i < 2; i++) {
-		int idret = X509_check_purpose(cert, X509_PURPOSE_get_id(ptmp), i);
-		Tcl_ListObjAppendElement(interp, tmpPtr, Tcl_NewStringObj(i ? "CA" : "nonCA", -1));
-		Tcl_ListObjAppendElement(interp, tmpPtr, Tcl_NewStringObj(idret == 1 ? "Yes" : "No", -1));
-	    }
-	LAPPEND_LIST(interp, listPtr, X509_PURPOSE_get0_name(ptmp), tmpPtr);
-    }
-    LAPPEND_LIST(interp, certPtr, "certificatePurpose", listPtr);
+    LAPPEND_OBJ(interp, certPtr, "certificatePurpose", Tls_x509Purposes(interp, cert));
 
     /* Certificate Policies - indicates the issuing CA considers its issuerDomainPolicy
 	equivalent to the subject CA's subjectDomainPolicy. RFC 5280 section 4.2.1.4, NID_certificate_policies */
@@ -346,31 +546,11 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 
     /* Subject Alternative Name (SAN) contains additional URLs, DNS names, or IP
 	addresses bound to certificate. RFC 5280 section 4.2.1.6, NID_subject_alt_name */
-    listPtr = Tcl_NewListObj(0, NULL);
-    if (names = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL)) {
-	for (int i=0; i < sk_GENERAL_NAME_num(names); i++) {
-	    const GENERAL_NAME *name = sk_GENERAL_NAME_value(names, i);
-
-	    len = BIO_to_Buffer(name && GENERAL_NAME_print(bio, name), bio, buffer, BUFSIZ);
-	    LAPPEND_STR(interp, listPtr, NULL, buffer, len);
-	}
-	sk_GENERAL_NAME_pop_free(names, GENERAL_NAME_free);
-    }
-    LAPPEND_LIST(interp, certPtr, "subjectAltName", listPtr);
+    LAPPEND_OBJ(interp, certPtr, "subjectAltName", Tls_x509Names(interp, cert, NID_subject_alt_name, bio));
 
     /* Issuer Alternative Name is used to associate Internet style identities
 	with the certificate issuer. RFC 5280 section 4.2.1.7, NID_issuer_alt_name */
-    listPtr = Tcl_NewListObj(0, NULL);
-    if (names = X509_get_ext_d2i(cert, NID_issuer_alt_name, NULL, NULL)) {
-	for (int i=0; i < sk_GENERAL_NAME_num(names); i++) {
-	    const GENERAL_NAME *name = sk_GENERAL_NAME_value(names, i);
-
-	    len = BIO_to_Buffer(name && GENERAL_NAME_print(bio, name), bio, buffer, BUFSIZ);
-	    LAPPEND_STR(interp, listPtr, NULL, buffer, len);
-	}
-	sk_GENERAL_NAME_pop_free(names, GENERAL_NAME_free);
-    }
-    LAPPEND_LIST(interp, certPtr, "issuerAltName", listPtr);
+    LAPPEND_OBJ(interp, certPtr, "issuerAltName", Tls_x509Names(interp, cert, NID_issuer_alt_name, bio));
 
     /* Subject Directory Attributes provides identification attributes (e.g., nationality)
 	of the subject. RFC 5280 section 4.2.1.8 (subjectDirectoryAttributes) */
@@ -392,79 +572,11 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 
     /* Extended Key Usage indicates the purposes the certified public key may be
 	used, beyond the basic purposes. RFC 5280 section 4.2.1.12, NID_ext_key_usage */
-    listPtr = Tcl_NewListObj(0, NULL);
-    if (xflags & EXFLAG_XKUSAGE) {
-	usage = X509_get_extended_key_usage(cert);
-
-	if (usage & XKU_SSL_SERVER) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("TLS Web Server Authentication", -1));
-	}
-	if (usage & XKU_SSL_CLIENT) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("TLS Web Client Authentication", -1));
-	}
-	if (usage & XKU_SMIME) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("E-mail Protection", -1));
-	}
-	if (usage & XKU_CODE_SIGN) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Code Signing", -1));
-	}
-	if (usage & XKU_SGC) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("SGC", -1));
-	}
-	if (usage & XKU_OCSP_SIGN) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("OCSP Signing", -1));
-	}
-	if (usage & XKU_TIMESTAMP) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Time Stamping", -1));
-	}
-	if (usage & XKU_DVCS ) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("DVCS", -1));
-	}
-	if (usage & XKU_ANYEKU) {
-	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Any Extended Key Usage", -1));
-	}
-    }
-    LAPPEND_LIST(interp, certPtr, "extendedKeyUsage", listPtr);
+    LAPPEND_OBJ(interp, certPtr, "extendedKeyUsage", Tls_x509ExtKeyUsage(interp, cert, xflags));
 
     /* CRL Distribution Points identifies where CRL information can be obtained.
 	RFC 5280 section 4.2.1.13*/
-    {
-	STACK_OF(DIST_POINT) *crl;
-	listPtr = Tcl_NewListObj(0, NULL);
-
-	if (crl = X509_get_ext_d2i(cert, NID_crl_distribution_points, NULL, NULL)) {
-	    Tcl_Obj *namesPtr = Tcl_NewListObj(0, NULL);
-
-	    for (int i=0; i < sk_DIST_POINT_num(crl); i++) {
-		DIST_POINT *dp = sk_DIST_POINT_value(crl, i);
-		DIST_POINT_NAME *distpoint = dp->distpoint;
-
-		if (distpoint->type == 0) {
-		    /* fullname GENERALIZEDNAME */
-		    for (int j = 0; j < sk_GENERAL_NAME_num(distpoint->name.fullname); j++) {
-			GENERAL_NAME *gen = sk_GENERAL_NAME_value(distpoint->name.fullname, j);
-			int type;
-			ASN1_STRING *uri = GENERAL_NAME_get0_value(gen, &type);
-			if (type == GEN_URI) {
-			    Tcl_ListObjAppendElement(interp, listPtr,
-				Tcl_NewStringObj((char*)ASN1_STRING_get0_data(uri), ASN1_STRING_length(uri)));
-			}
-		    }
-		} else if (distpoint->type == 1) {
-		    /* relativename X509NAME */
-		    STACK_OF(X509_NAME_ENTRY) *sk_relname = distpoint->name.relativename;
-		    for (int j = 0; j < sk_X509_NAME_ENTRY_num(sk_relname); j++) {
-			X509_NAME_ENTRY *e = sk_X509_NAME_ENTRY_value(sk_relname, j);
-			ASN1_STRING *d = X509_NAME_ENTRY_get_data(e);
-			Tcl_ListObjAppendElement(interp, listPtr,
-			    Tcl_NewStringObj((char*)ASN1_STRING_data(d), ASN1_STRING_length(d)));
-		    }
-		}
-	    }
-	    CRL_DIST_POINTS_free(crl);
-	}
-	LAPPEND_LIST(interp, certPtr, "crlDistributionPoints", listPtr);
-    }
+    LAPPEND_OBJ(interp, certPtr, "crlDistributionPoints", Tls_x509CrlDp(interp, cert));
 
     /* Freshest CRL extension */
     if (xflags & EXFLAG_FRESHEST) {
@@ -472,53 +584,22 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 
     /* Authority Information Access indicates how to access info and services
 	for the certificate issuer. RFC 5280 section 4.2.2.1, NID_info_access */
+
     /* Get On-line Certificate Status Protocol (OSCP) URL */
-    {
-	STACK_OF(OPENSSL_STRING) *ocsp;
-	listPtr = Tcl_NewListObj(0, NULL);
+    LAPPEND_OBJ(interp, certPtr, "ocsp", Tls_x509Oscp(interp, cert));
 
-	if (ocsp = X509_get1_ocsp(cert)) {
-	    for (int i = 0; i < sk_OPENSSL_STRING_num(ocsp); i++) {
-		Tcl_ListObjAppendElement(interp, listPtr,
-		    Tcl_NewStringObj(sk_OPENSSL_STRING_value(ocsp, i), -1));
-	    }
-	    X509_email_free(ocsp);
-	    /* sk_OPENSSL_STRING_free(ocsp); */
-	}
-	LAPPEND_LIST(interp, certPtr, "ocsp", listPtr);
-    }
-
-    /* CA Issuers URL, caIssuers */
-    {
-	STACK_OF(ACCESS_DESCRIPTION) *ads;
-	listPtr = Tcl_NewListObj(0, NULL);
-
-	if (ads = X509_get_ext_d2i(cert, NID_info_access, NULL, NULL)) {
-	    for (int i = 0; i < sk_ACCESS_DESCRIPTION_num(ads); i++) {
-		ACCESS_DESCRIPTION *ad = sk_ACCESS_DESCRIPTION_value(ads, i);
-		if (OBJ_obj2nid(ad->method) == NID_ad_ca_issuers && ad->location) {
-		    if (ad->location->type == GEN_URI) {
-			unsigned char *buf;
-
-			len = ASN1_STRING_to_UTF8(&buf, ad->location->d.uniformResourceIdentifier);
-			Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj(buf, len));
-			OPENSSL_free(buf);
-			break;
-		    }
-		}
-	    }
-	    /* sk_ACCESS_DESCRIPTION_pop_free(ads, ACCESS_DESCRIPTION_free); */
-	    AUTHORITY_INFO_ACCESS_free(ads);
-	}
-	LAPPEND_LIST(interp, certPtr, "caIssuers", listPtr);
-    }
+    /* Get Certificate Authority (CA) Issuers URL */
+    LAPPEND_OBJ(interp, certPtr, "caIssuers", Tls_x509CaIssuers(interp, cert));
 
     /* Subject Information Access - RFC 5280 section 4.2.2.2, NID_sinfo_access */
 
     /* Certificate Alias. If uses a PKCS#12 structure, alias will reflect the
 	friendlyName attribute (RFC 2985). */
-    len = 0;
-    LAPPEND_STR(interp, certPtr, "alias", X509_alias_get0(cert, &len), len);
+    {
+	len = 0;
+        char *string = X509_alias_get0(cert, &len);
+	LAPPEND_STR(interp, certPtr, "alias", string, len);
+    }
 
     /* Certificate and dump all data */
     {
