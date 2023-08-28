@@ -1988,6 +1988,12 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     /* Set verification CAs */
     Tcl_DStringInit(&ds);
     Tcl_DStringInit(&ds1);
+    /* There is one default directory, one default file, and one default store.
+	The default CA certificates directory (and default store) is in the OpenSSL
+	certs directory. It can be overridden by the SSL_CERT_DIR env var. The
+	default CA certificates file is called cert.pem in the default OpenSSL
+	directory. It can be overridden by the SSL_CERT_FILE env var. */
+	/* int SSL_CTX_set_default_verify_dir(SSL_CTX *ctx) and int SSL_CTX_set_default_verify_file(SSL_CTX *ctx) */
     if (!SSL_CTX_load_verify_locations(ctx, F2N(CAfile, &ds), F2N(CAdir, &ds1)) ||
 	!SSL_CTX_set_default_verify_paths(ctx)) {
 #if 0
