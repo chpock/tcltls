@@ -9,6 +9,7 @@
 #include <openssl/sha.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
+#include <openssl/x509_vfy.h>
 #include <openssl/asn1.h>
 #include "tlsInt.h"
 
@@ -40,10 +41,10 @@
 /*
  * Binary string to hex string
  */
-int String_to_Hex(char* input, int len, char *output, int size) {
+int String_to_Hex(char* input, int ilen, char *output, int olen) {
     int count = 0;
 
-    for (int i = 0; i < len && count < size - 1; i++, count += 2) {
+    for (int i = 0; i < ilen && count < olen - 1; i++, count += 2) {
 	sprintf(output + count, "%02X", input[i] & 0xff);
     }
     output[count] = 0;
@@ -117,7 +118,7 @@ Tcl_Obj *Tls_x509KeyUsage(Tcl_Interp *interp, X509 *cert, uint32_t xflags) {
 	return NULL;
     }
 
-    if ((xflags & EXFLAG_KUSAGE) && usage < 0xffffff) {
+    if ((xflags & EXFLAG_KUSAGE) && usage < UINT32_MAX) {
 	if (usage & KU_DIGITAL_SIGNATURE) {
 	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Digital Signature", -1));
 	}
@@ -145,6 +146,8 @@ Tcl_Obj *Tls_x509KeyUsage(Tcl_Interp *interp, X509 *cert, uint32_t xflags) {
 	if (usage & KU_DECIPHER_ONLY) {
 	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Decipher Only", -1));
 	}
+    } else {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("unrestricted", -1));
     }
     return listPtr;
 }
@@ -240,7 +243,7 @@ Tcl_Obj *Tls_x509ExtKeyUsage(Tcl_Interp *interp, X509 *cert, uint32_t xflags) {
 	return NULL;
     }
 
-    if (xflags & EXFLAG_XKUSAGE) {
+    if ((xflags & EXFLAG_XKUSAGE) && usage < UINT32_MAX) {
 	usage = X509_get_extended_key_usage(cert);
 
 	if (usage & XKU_SSL_SERVER) {
@@ -270,6 +273,8 @@ Tcl_Obj *Tls_x509ExtKeyUsage(Tcl_Interp *interp, X509 *cert, uint32_t xflags) {
 	if (usage & XKU_ANYEKU) {
 	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("Any Extended Key Usage", -1));
 	}
+    } else {
+	    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj("unrestricted", -1));
     }
     return listPtr;
 }
@@ -444,13 +449,13 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     len = BIO_to_Buffer(X509_NAME_print_ex(bio, X509_get_subject_name(cert), 0, flags), bio, buffer, BUFSIZ);
     LAPPEND_STR(interp, certPtr, "subject", buffer, len);
 
-    /* SHA1 Fingerprint of cert - DER representation */
+    /* SHA1 Digest (Fingerprint) of cert - DER representation */
     if (X509_digest(cert, EVP_sha1(), md, &len)) {
     len = String_to_Hex(md, len, buffer, BUFSIZ);
 	LAPPEND_STR(interp, certPtr, "sha1_hash", buffer, len);
     }
 
-    /* SHA256 Fingerprint of cert - DER representation */
+    /* SHA256 Digest (Fingerprint) of cert - DER representation */
     if (X509_digest(cert, EVP_sha256(), md, &len)) {
     len = String_to_Hex(md, len, buffer, BUFSIZ);
 	LAPPEND_STR(interp, certPtr, "sha256_hash", buffer, len);
@@ -476,12 +481,17 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	}
 	LAPPEND_STR(interp, certPtr, "publicKeyHash", buffer, len);
 
+	/* digest of the DER representation of the certificate */
 	len = 0;
 	if (X509_digest(cert, EVP_get_digestbynid(mdnid), md, &n)) {
 	    len = String_to_Hex(md, (int)n, buffer, BUFSIZ);
 	}
 	LAPPEND_STR(interp, certPtr, "signatureHash", buffer, len);
     }
+
+    /* Certificate Purpose. Call before checking for extensions. */
+    LAPPEND_STR(interp, certPtr, "purpose", Tls_x509Purpose(cert), -1);
+    LAPPEND_OBJ(interp, certPtr, "certificatePurpose", Tls_x509Purposes(interp, cert));
 
     /* Get extensions flags */
     xflags = X509_get_extension_flags(cert);
@@ -490,6 +500,9 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	/* Check if cert was issued by CA cert issuer or self signed */
     LAPPEND_BOOL(interp, certPtr, "selfIssued", xflags & EXFLAG_SI);
     LAPPEND_BOOL(interp, certPtr, "selfSigned", xflags & EXFLAG_SS);
+    LAPPEND_BOOL(interp, certPtr, "isProxyCert", xflags & EXFLAG_PROXY);
+    LAPPEND_BOOL(interp, certPtr, "extInvalid", xflags & EXFLAG_INVALID);
+    LAPPEND_BOOL(interp, certPtr, "isCACert", X509_check_ca(cert));
 
     /* The Unique Ids are used to handle the possibility of reuse of subject
 	and/or issuer names over time. RFC 5280 section 4.1.2.8 */
@@ -530,12 +543,6 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	signing) of the key in the certificate. RFC 5280 section 4.2.1.3, NID_key_usage */
     LAPPEND_OBJ(interp, certPtr, "keyUsage", Tls_x509KeyUsage(interp, cert, xflags));
 
-    /* Certificate Purpose */
-    LAPPEND_STR(interp, certPtr, "purpose", Tls_x509Purpose(cert), -1);
-
-    /* Get purposes */
-    LAPPEND_OBJ(interp, certPtr, "certificatePurpose", Tls_x509Purposes(interp, cert));
-
     /* Certificate Policies - indicates the issuing CA considers its issuerDomainPolicy
 	equivalent to the subject CA's subjectDomainPolicy. RFC 5280 section 4.2.1.4, NID_certificate_policies */
     if (xflags & EXFLAG_INVALID_POLICY) {
@@ -557,11 +564,12 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 
     /* Basic Constraints identifies whether the subject of the cert is a CA and
 	the max depth of valid cert paths for this cert. RFC 5280 section 4.2.1.9, NID_basic_constraints */
-    if (xflags & EXFLAG_BCONS) {
+    if (!(xflags & EXFLAG_PROXY)) {
 	LAPPEND_LONG(interp, certPtr, "pathLen", X509_get_pathlen(cert));
+    } else {
+	LAPPEND_LONG(interp, certPtr, "pathLen", X509_get_proxy_pathlen(cert));
     }
     LAPPEND_BOOL(interp, certPtr, "basicConstraintsCA", xflags & EXFLAG_CA);
-    LAPPEND_BOOL(interp, certPtr, "basicConstraintsCritical", xflags & EXFLAG_CRITICAL);
 
     /* Name Constraints is only used in CA certs to indicate the name space for
 	all subject names in subsequent certificates in a certification path
@@ -585,8 +593,8 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     /* Authority Information Access indicates how to access info and services
 	for the certificate issuer. RFC 5280 section 4.2.2.1, NID_info_access */
 
-    /* Get On-line Certificate Status Protocol (OSCP) URL */
-    LAPPEND_OBJ(interp, certPtr, "ocsp", Tls_x509Oscp(interp, cert));
+    /* Get On-line Certificate Status Protocol (OSCP) Responders URL */
+    LAPPEND_OBJ(interp, certPtr, "ocspResponders", Tls_x509Oscp(interp, cert));
 
     /* Get Certificate Authority (CA) Issuers URL */
     LAPPEND_OBJ(interp, certPtr, "caIssuers", Tls_x509CaIssuers(interp, cert));
