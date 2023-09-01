@@ -146,7 +146,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
     }
 
     for (;;) {
-	/* Not initialized yet! */
+	/* Not initialized yet! Also calls SSL_do_handshake. */
 	if (statePtr->flags & TLS_TCL_SERVER) {
 	    dprintf("Calling SSL_accept()");
 	    err = SSL_accept(statePtr->ssl);

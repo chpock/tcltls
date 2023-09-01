@@ -118,12 +118,13 @@ static Tcl_Mutex init_mx;
  */
 static int
 EvalCallback(Tcl_Interp *interp, State *statePtr, Tcl_Obj *cmdPtr) {
-    int code, ok;
+    int code, ok = 0;
 
     Tcl_Preserve((ClientData) interp);
     Tcl_Preserve((ClientData) statePtr);
 
     /* Eval callback with success for ok or return value 1, fail for error or return value 0 */
+    Tcl_ResetResult(interp);
     code = Tcl_EvalObjEx(interp, cmdPtr, TCL_EVAL_GLOBAL);
     if (code == TCL_OK) {
 	/* Check result for return value */
@@ -133,7 +134,6 @@ EvalCallback(Tcl_Interp *interp, State *statePtr, Tcl_Obj *cmdPtr) {
 	}
     } else {
 	/* Error - reject the certificate */
-	ok = 0;
 #if (TCL_MAJOR_VERSION == 8) && (TCL_MINOR_VERSION < 6)
 	Tcl_BackgroundError(interp);
 #else
@@ -386,6 +386,8 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
 	} else {
 	    return 1;
 	}
+    } else if (cert == NULL || ssl == NULL) {
+	return 0;
     }
 
     /* Create command to eval */
@@ -857,7 +859,7 @@ HelloCallback(const SSL *ssl, int *alert, void *arg) {
 
     if (statePtr->vcmd == (Tcl_Obj*)NULL) {
 	return SSL_CLIENT_HELLO_SUCCESS;
-    } else if (ssl == NULL || arg == NULL) {
+    } else if (ssl == (const SSL *)NULL || arg == (void *)NULL) {
 	return SSL_CLIENT_HELLO_ERROR;
     }
 
@@ -954,6 +956,7 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
     STACK_OF(SSL_CIPHER) *sk;
     char *cp, buf[BUFSIZ];
     int index, verbose = 0, use_supported = 0;
+    const SSL_METHOD *method;
 
     dprintf("Called");
 
@@ -979,49 +982,52 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 	    return TCL_ERROR;
 #else
-	    ctx = SSL_CTX_new(SSLv2_method()); break;
+	    method = SSLv2_method(); break;
 #endif
 	case TLS_SSL3:
 #if defined(NO_SSL3) || defined(OPENSSL_NO_SSL3) || defined(OPENSSL_NO_SSL3_METHOD)
 	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 	    return TCL_ERROR;
 #else
-	    ctx = SSL_CTX_new(SSLv3_method()); break;
+	    method = SSLv3_method(); break;
 #endif
 	case TLS_TLS1:
 #if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1) || defined(OPENSSL_NO_TLS1_METHOD)
 	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 	    return TCL_ERROR;
 #else
-	    ctx = SSL_CTX_new(TLSv1_method()); break;
+	    method = TLSv1_method(); break;
 #endif
 	case TLS_TLS1_1:
 #if defined(NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1_METHOD)
 	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 	    return TCL_ERROR;
 #else
-	    ctx = SSL_CTX_new(TLSv1_1_method()); break;
+	    method = TLSv1_1_method(); break;
 #endif
 	case TLS_TLS1_2:
 #if defined(NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2_METHOD)
 	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 	    return TCL_ERROR;
 #else
-	    ctx = SSL_CTX_new(TLSv1_2_method()); break;
+	    method = TLSv1_2_method(); break;
 #endif
 	case TLS_TLS1_3:
 #if defined(NO_TLS1_3) || defined(OPENSSL_NO_TLS1_3)
 	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
 	    return TCL_ERROR;
 #else
-	    ctx = SSL_CTX_new(TLS_method());
+	    method = TLS_method();
 	    SSL_CTX_set_min_proto_version(ctx, TLS1_3_VERSION);
 	    SSL_CTX_set_max_proto_version(ctx, TLS1_3_VERSION);
 	    break;
 #endif
 	default:
+	    method = TLS_method();
 	    break;
     }
+
+    ctx = SSL_CTX_new(method);
     if (ctx == NULL) {
 	Tcl_AppendResult(interp, REASON(), NULL);
 	return TCL_ERROR;
@@ -1982,6 +1988,12 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     /* Set verification CAs */
     Tcl_DStringInit(&ds);
     Tcl_DStringInit(&ds1);
+    /* There is one default directory, one default file, and one default store.
+	The default CA certificates directory (and default store) is in the OpenSSL
+	certs directory. It can be overridden by the SSL_CERT_DIR env var. The
+	default CA certificates file is called cert.pem in the default OpenSSL
+	directory. It can be overridden by the SSL_CERT_FILE env var. */
+	/* int SSL_CTX_set_default_verify_dir(SSL_CTX *ctx) and int SSL_CTX_set_default_verify_file(SSL_CTX *ctx) */
     if (!SSL_CTX_load_verify_locations(ctx, F2N(CAfile, &ds), F2N(CAdir, &ds1)) ||
 	!SSL_CTX_set_default_verify_paths(ctx)) {
 #if 0
@@ -2074,21 +2086,27 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     } else {
 	peer = SSL_get_certificate(statePtr->ssl);
     }
+    /* Get X509 certificate info */
     if (peer) {
 	objPtr = Tls_NewX509Obj(interp, peer);
-	if (objc == 2) { X509_free(peer); }
+	if (objc == 2) {
+	    X509_free(peer);
+	    peer = NULL;
+	}
     } else {
 	objPtr = Tcl_NewListObj(0, NULL);
     }
 
     /* Peer cert chain (client only) */
     STACK_OF(X509)* ssl_certs = SSL_get_peer_cert_chain(statePtr->ssl);
-    if (!peer && (ssl_certs == NULL || sk_X509_num(ssl_certs) == 0)) {
+    if (ssl_certs == NULL || sk_X509_num(ssl_certs) == 0) {
 	Tcl_SetErrorCode(interp, "TLS", "STATUS", "CERTIFICATE", (char *) NULL);
+	Tcl_IncrRefCount(objPtr);
+	Tcl_DecrRefCount(objPtr);
 	return TCL_ERROR;
     }
 
-    /* Peer name from cert */
+    /* Peer name */
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("peername", -1));
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get0_peername(statePtr->ssl), -1));
 
@@ -2102,9 +2120,37 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     }
 
     /* Verify the X509 certificate presented by the peer */
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("verification", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("verifyResult", -1));
     Tcl_ListObjAppendElement(interp, objPtr,
 	Tcl_NewStringObj(X509_verify_cert_error_string(SSL_get_verify_result(statePtr->ssl)), -1));
+
+    /* Verify mode */
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("verifyMode", -1));
+    /* SSL_CTX_get_verify_mode(ctx) */
+    mode = SSL_get_verify_mode(statePtr->ssl);
+    if (mode && SSL_VERIFY_NONE) {
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("none", -1));
+    } else {
+	Tcl_Obj *listObjPtr = Tcl_NewListObj(0, NULL);
+	if (mode && SSL_VERIFY_PEER) {
+	    Tcl_ListObjAppendElement(interp, listObjPtr, Tcl_NewStringObj("peer", -1));
+	}
+	if (mode && SSL_VERIFY_FAIL_IF_NO_PEER_CERT) {
+	    Tcl_ListObjAppendElement(interp, listObjPtr, Tcl_NewStringObj("fail if no peer cert", -1));
+	}
+	if (mode && SSL_VERIFY_CLIENT_ONCE) {
+	    Tcl_ListObjAppendElement(interp, listObjPtr, Tcl_NewStringObj("client once", -1));
+	}
+	if (mode && SSL_VERIFY_POST_HANDSHAKE) {
+	    Tcl_ListObjAppendElement(interp, listObjPtr, Tcl_NewStringObj("post handshake", -1));
+	}
+	Tcl_ListObjAppendElement(interp, objPtr, listObjPtr);
+    }
+
+    /* Verify mode depth */
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("verifyDepth", -1));
+    /* SSL_CTX_get_verify_depth(ctx) */
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(SSL_get_verify_depth(statePtr->ssl)));
 
     /* Report the selected protocol as a result of the negotiation */
     SSL_get0_alpn_selected(statePtr->ssl, &proto, &len);
@@ -2120,7 +2166,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     } else {
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("", -1));
     }
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("signature_type", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("signatureType", -1));
     if (objc == 2 ? SSL_get_peer_signature_type_nid(statePtr->ssl, &nid) : SSL_get_signature_type_nid(statePtr->ssl, &nid)) {
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(OBJ_nid2ln(nid), -1));
     } else {
@@ -2146,11 +2192,10 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
     Tcl_Channel chan;		/* The channel to set a mode on. */
     State *statePtr;		/* client state for ssl socket */
-    Tcl_Obj *objPtr;
+    Tcl_Obj *objPtr, *listPtr;
     const SSL *ssl;
     const SSL_CIPHER *cipher;
     const SSL_SESSION *session;
-    const unsigned char *proto;
     long mode;
 
     if (objc != 2) {
@@ -2220,9 +2265,9 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_CIPHER_standard_name(cipher), -1));
 
 	bits = SSL_CIPHER_get_bits(cipher, &alg_bits);
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("bits", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(bits));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("secret_bits", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(bits));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("algorithm_bits", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(alg_bits));
 	/* alg_bits is actual key secret bits. If use bits and secret (algorithm) bits differ,
 	   the rest of the bits are fixed, i.e. for limited export ciphers (bits < 56) */
@@ -2245,7 +2290,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	const unsigned char *ticket;
 	size_t len2;
 	unsigned int ulen;
-	const unsigned char *session_id;
+	const unsigned char *session_id, *proto;
 	char buffer[SSL_MAX_MASTER_KEY_LENGTH];
 
 	/* Report the selected protocol as a result of the ALPN negotiation */
@@ -2276,9 +2321,14 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("lifetime", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewLongObj(SSL_SESSION_get_ticket_lifetime_hint(session)));
 
-	/* Session id */
+	/* Session id - TLSv1.2 and below only */
 	session_id = SSL_SESSION_get_id(session, &ulen);
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_id", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewByteArrayObj(session_id, (int) ulen));
+
+	/* Session context */
+	session_id = SSL_SESSION_get0_id_context(session, &ulen);
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_context", -1));
 	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewByteArrayObj(session_id, (int) ulen));
 
 	/* Session ticket - client only */
@@ -2317,20 +2367,41 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     }
 
     /* Server info */
-    mode = SSL_CTX_get_session_cache_mode(statePtr->ctx);
-    if (mode & SSL_SESS_CACHE_OFF) {
-	proto = "off";
-    } else if (mode & SSL_SESS_CACHE_CLIENT) {
-	proto = "client";
-    } else if (mode & SSL_SESS_CACHE_SERVER) {
-	proto = "server";
-    } else if (mode & SSL_SESS_CACHE_BOTH) {
-	proto = "both";
-    } else {
-	proto = "unknown";
+    {
+	mode = SSL_CTX_get_session_cache_mode(statePtr->ctx);
+	char *msg;
+	
+	if (mode & SSL_SESS_CACHE_OFF) {
+	    msg = "off";
+	} else if (mode & SSL_SESS_CACHE_CLIENT) {
+	    msg = "client";
+	} else if (mode & SSL_SESS_CACHE_SERVER) {
+	    msg = "server";
+	} else if (mode & SSL_SESS_CACHE_BOTH) {
+	    msg = "both";
+	} else {
+	    msg = "unknown";
+	}
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_cache_mode", -1));
+	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(msg, -1));
     }
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_cache_mode", -1));
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(proto, -1));
+
+    /* CA List */
+    /* IF not a server, same as SSL_get0_peer_CA_list. If server same as SSL_CTX_get_client_CA_list */
+    listPtr = Tcl_NewListObj(0, NULL);
+    STACK_OF(X509_NAME) *ca_list;
+    if ((ca_list = SSL_get_client_CA_list(ssl)) != NULL) {
+	char buffer[BUFSIZ];
+	for (int i = 0; i < sk_X509_NAME_num(ca_list); i++) {
+	    X509_NAME *name = sk_X509_NAME_value(ca_list, i);
+	    if (name) {
+		X509_NAME_oneline(name, buffer, BUFSIZ);
+		Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj(buffer, -1));
+	    }
+	}
+    }
+    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("caList", -1));
+    Tcl_ListObjAppendElement(interp, objPtr, listPtr);
 
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
