@@ -1272,12 +1272,6 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
     dprintf("Called");
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(OPENSSL_NO_SSL2) && !defined(NO_SSL2) && defined(NO_SSL3) && defined(NO_TLS1) && defined(NO_TLS1_1) && defined(NO_TLS1_2) && defined(NO_TLS1_3)
-    ssl2 = 1;
-#endif
-#if !defined(OPENSSL_NO_SSL3) && !defined(NO_SSL3) && defined(NO_SSL2) && defined(NO_TLS1) && defined(NO_TLS1_1) && defined(NO_TLS1_2) && defined(NO_TLS1_3)
-    ssl3 = 1;
-#endif
 #if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1)
     tls1 = 0;
 #endif
@@ -1758,6 +1752,11 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	return NULL;
     }
 #endif
+    if (proto == 0) {
+	/* Use full range */
+	SSL_CTX_set_min_proto_version(ctx, 0);
+	SSL_CTX_set_max_proto_version(ctx, 0);
+    }
 
     switch (proto) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(NO_SSL2) && !defined(OPENSSL_NO_SSL2)
