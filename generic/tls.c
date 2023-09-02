@@ -1477,7 +1477,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     /* Set host server name */
     if (servername) {
 	/* Sets the server name indication (SNI) in ClientHello extension */
-	/* Per RFC 6066, hostname is a ASCII encoded string. */
+	/* Per RFC 6066, hostname is a ASCII encoded string, though RFC 4366 says UTF-8. */
 	if (!SSL_set_tlsext_host_name(statePtr->ssl, servername) && require) {
 	    Tcl_AppendResult(interp, "setting TLS host name extension failed", (char *) NULL);
 	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "SNI", "FAILED", (char *) NULL);
@@ -1485,8 +1485,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	    return TCL_ERROR;
 	}
 
-	/* Configure server host name checks in the SSL client. Set DNS hostname to
-	   name for peer certificate checks. SSL_set1_host has limitations. */
+	/* Set hostname for peer certificate hostname verification in clients.
+	   Don't use SSL_set1_host since it has limitations. */
 	if (!SSL_add1_host(statePtr->ssl, servername)) {
 	    Tcl_AppendResult(interp, "setting DNS host name failed", (char *) NULL);
 	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "HOSTNAME", "FAILED", (char *) NULL);
@@ -1506,6 +1506,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	}
     }
 
+    /* Enable Application-Layer Protocol Negotiation. Examples are: http/1.0,
+	http/1.1, h2, h3, ftp, imap, pop3, xmpp-client, xmpp-server, mqtt, irc, etc. */
     if (alpn) {
 	/* Convert a TCL list into a protocol-list in wire-format */
 	unsigned char *protos, *p;
@@ -1594,9 +1596,12 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	/* Enable server to send cert request after handshake (TLS 1.3 only) */
 	/* A write operation must take place for the Certificate Request to be
 	   sent to the client, this can be done with SSL_do_handshake(). */
-	if (request && post_handshake) {
+	if (request && post_handshake && tls1_3) {
 	    SSL_verify_client_post_handshake(statePtr->ssl);
 	}
+
+	/* set automatic curve selection */
+	SSL_set_ecdh_auto(statePtr->ssl, 1);
 
 	/* Set server mode */
 	statePtr->flags |= TLS_TCL_SERVER;
@@ -1839,6 +1844,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 
     SSL_CTX_set_app_data(ctx, (void*)interp);	/* remember the interpreter */
     SSL_CTX_set_options(ctx, SSL_OP_ALL);	/* all SSL bug workarounds */
+    SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);	/* disable compression even if supported */
     SSL_CTX_set_options(ctx, off);		/* disable protocol versions */
 #if OPENSSL_VERSION_NUMBER < 0x10101000L
     SSL_CTX_set_mode(ctx, SSL_MODE_AUTO_RETRY);	/* handle new handshakes in background. On by default in OpenSSL 1.1.1. */
