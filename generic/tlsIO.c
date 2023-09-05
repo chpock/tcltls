@@ -966,14 +966,12 @@ Tcl_ChannelType *Tls_ChannelType(void) {
      * Initialize the channel type if necessary
      */
     if (tlsChannelType == NULL) {
-	/*
-	 * Allocate new channeltype structure
-	 */
-	size = sizeof(Tcl_ChannelType); /* Base size */
-
+	/* Allocate new channel type structure */
+	size = sizeof(Tcl_ChannelType) * 2; /* Base size plus pad for future changes */
 	tlsChannelType = (Tcl_ChannelType *) ckalloc(size);
 	memset((void *) tlsChannelType, 0, size);
 
+	/* Init structure */
 	tlsChannelType->typeName	= "tls";
 #ifdef TCL_CHANNEL_VERSION_5
 	tlsChannelType->version		= TCL_CHANNEL_VERSION_5;
