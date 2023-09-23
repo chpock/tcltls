@@ -446,7 +446,7 @@ Tls_Error(State *statePtr, char *msg) {
     if (msg != NULL) {
 	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(msg, -1));
 
-    } else if ((msg = Tcl_GetStringFromObj(Tcl_GetObjResult(interp), NULL)) != NULL) {
+    } else if ((msg = Tcl_GetStringFromObj(Tcl_GetObjResult(interp), (Tcl_Size *)NULL)) != NULL) {
 	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(msg, -1));
 
     } else {
@@ -553,15 +553,15 @@ PasswordCallback(char *buf, int size, int rwflag, void *udata) {
 
     /* If successful, pass back password string and truncate if too long */
     if (code == TCL_OK) {
-	int len;
+	Tcl_Size len;
 	char *ret = (char *) Tcl_GetStringFromObj(Tcl_GetObjResult(interp), &len);
-	if (len > size-1) {
-	    len = size-1;
+	if (len > (Tcl_Size) size-1) {
+	    len = (Tcl_Size) size-1;
 	}
 	strncpy(buf, ret, (size_t) len);
 	buf[len] = '\0';
 	Tcl_Release((ClientData) interp);
-	return(len);
+	return((int) len);
     }
     Tcl_Release((ClientData) interp);
     return -1;
@@ -615,11 +615,11 @@ SessionCallback(const SSL *ssl, SSL_SESSION *session) {
 
     /* Session id */
     session_id = SSL_SESSION_get_id(session, &ulen);
-    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewByteArrayObj(session_id, (int) ulen));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewByteArrayObj(session_id, (Tcl_Size) ulen));
 
     /* Session ticket */
     SSL_SESSION_get0_ticket(session, &ticket, &len2);
-    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewByteArrayObj(ticket, (int) len2));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewByteArrayObj(ticket, (Tcl_Size) len2));
 
     /* Lifetime - number of seconds */
     Tcl_ListObjAppendElement(interp, cmdPtr,
@@ -904,7 +904,7 @@ HelloCallback(const SSL *ssl, int *alert, void *arg) {
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("hello", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
 	    Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
-    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(servername, (int) len));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(servername, (Tcl_Size) len));
 
     /* Eval callback command */
     Tcl_IncrRefCount(cmdPtr);
@@ -1068,7 +1068,7 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 
 		/* textual description of the cipher */
 		if (SSL_CIPHER_description(c, buf, sizeof(buf)) != NULL) {
-		    Tcl_AppendToObj(objPtr, buf, (int) strlen(buf));
+		    Tcl_AppendToObj(objPtr, buf, (Tcl_Size) strlen(buf));
 		} else {
 		    Tcl_AppendToObj(objPtr, "UNKNOWN\n", 8);
 		}
@@ -1173,7 +1173,7 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 
     ERR_clear_error();
 
-    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], NULL), NULL);
+    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], (Tcl_Size *)NULL), NULL);
     if (chan == (Tcl_Channel) NULL) {
 	return(TCL_ERROR);
     }
@@ -1251,15 +1251,16 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     Tcl_Obj *password	        = NULL;
     Tcl_Obj *vcmd	        = NULL;
     Tcl_DString upperChannelTranslation, upperChannelBlocking, upperChannelEncoding, upperChannelEOFChar;
-    int idx, len;
+    int idx;
+    Tcl_Size len;
     int flags		        = TLS_TCL_INIT;
     int server		        = 0;	/* is connection incoming or outgoing? */
     char *keyfile	        = NULL;
     char *certfile	        = NULL;
     unsigned char *key  	= NULL;
-    int key_len                 = 0;
+    Tcl_Size key_len                 = 0;
     unsigned char *cert         = NULL;
-    int cert_len                = 0;
+    Tcl_Size cert_len                = 0;
     char *ciphers	        = NULL;
     char *ciphersuites	        = NULL;
     char *CAfile	        = NULL;
@@ -1296,7 +1297,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
     ERR_clear_error();
 
-    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], NULL), NULL);
+    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], (Tcl_Size *)NULL), NULL);
     if (chan == (Tcl_Channel) NULL) {
 	return TCL_ERROR;
     }
@@ -1305,7 +1306,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     chan = Tcl_GetTopChannel(chan);
 
     for (idx = 2; idx < objc; idx++) {
-	char *opt = Tcl_GetStringFromObj(objv[idx], NULL);
+	char *opt = Tcl_GetStringFromObj(objv[idx], (Tcl_Size *)NULL);
 
 	if (opt[0] != '-')
 	    break;
@@ -1425,8 +1426,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	}
 	ctx = ((State *)Tcl_GetChannelInstanceData(chan))->ctx;
     } else {
-	if ((ctx = CTX_Init(statePtr, server, proto, keyfile, certfile, key, cert, key_len,
-	    cert_len, CAdir, CAfile, ciphers, ciphersuites, level, DHparams)) == NULL) {
+	if ((ctx = CTX_Init(statePtr, server, proto, keyfile, certfile, key, cert, (int) key_len,
+	    (int) cert_len, CAdir, CAfile, ciphers, ciphersuites, level, DHparams)) == NULL) {
 	    Tls_Free((char *) statePtr);
 	    return TCL_ERROR;
 	}
@@ -1516,7 +1517,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	/* Convert a TCL list into a protocol-list in wire-format */
 	unsigned char *protos, *p;
 	unsigned int protos_len = 0;
-	int i, len, cnt;
+	Tcl_Size cnt, i;
+	int j;
 	Tcl_Obj **list;
 
 	if (Tcl_ListObjGetElements(interp, alpn, &cnt, &list) != TCL_OK) {
@@ -1533,16 +1535,16 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 		Tls_Free((char *) statePtr);
 		return TCL_ERROR;
 	    }
-	    protos_len += 1 + len;
+	    protos_len += 1 + (int) len;
 	}
 
 	/* Build the complete protocol-list */
 	protos = ckalloc(protos_len);
 	/* protocol-lists consist of 8-bit length-prefixed, byte strings */
-	for (i = 0, p = protos; i < cnt; i++) {
-	    char *str = Tcl_GetStringFromObj(list[i], &len);
-	    *p++ = len;
-	    memcpy(p, str, len);
+	for (j = 0, p = protos; j < cnt; j++) {
+	    char *str = Tcl_GetStringFromObj(list[j], &len);
+	    *p++ = (unsigned char) len;
+	    memcpy(p, str, (size_t) len);
 	    p += len;
 	}
 
@@ -1720,44 +1722,44 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     dprintf("Called");
 
     if (!proto) {
-	Tcl_AppendResult(interp, "no valid protocol selected", NULL);
+	Tcl_AppendResult(interp, "no valid protocol selected", (char *) NULL);
 	return NULL;
     }
 
     /* create SSL context */
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L || defined(NO_SSL2) || defined(OPENSSL_NO_SSL2)
     if (ENABLED(proto, TLS_PROTO_SSL2)) {
-	Tcl_AppendResult(interp, "SSL2 protocol not supported", NULL);
+	Tcl_AppendResult(interp, "SSL2 protocol not supported", (char *) NULL);
 	return NULL;
     }
 #endif
 #if defined(NO_SSL3) || defined(OPENSSL_NO_SSL3)
     if (ENABLED(proto, TLS_PROTO_SSL3)) {
-	Tcl_AppendResult(interp, "SSL3 protocol not supported", NULL);
+	Tcl_AppendResult(interp, "SSL3 protocol not supported", (char *) NULL);
 	return NULL;
     }
 #endif
 #if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1)
     if (ENABLED(proto, TLS_PROTO_TLS1)) {
-	Tcl_AppendResult(interp, "TLS 1.0 protocol not supported", NULL);
+	Tcl_AppendResult(interp, "TLS 1.0 protocol not supported", (char *) NULL);
 	return NULL;
     }
 #endif
 #if defined(NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1)
     if (ENABLED(proto, TLS_PROTO_TLS1_1)) {
-	Tcl_AppendResult(interp, "TLS 1.1 protocol not supported", NULL);
+	Tcl_AppendResult(interp, "TLS 1.1 protocol not supported", (char *) NULL);
 	return NULL;
     }
 #endif
 #if defined(NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2)
     if (ENABLED(proto, TLS_PROTO_TLS1_2)) {
-	Tcl_AppendResult(interp, "TLS 1.2 protocol not supported", NULL);
+	Tcl_AppendResult(interp, "TLS 1.2 protocol not supported", (char *) NULL);
 	return NULL;
     }
 #endif
 #if defined(NO_TLS1_3) || defined(OPENSSL_NO_TLS1_3)
     if (ENABLED(proto, TLS_PROTO_TLS1_3)) {
-	Tcl_AppendResult(interp, "TLS 1.3 protocol not supported", NULL);
+	Tcl_AppendResult(interp, "TLS 1.3 protocol not supported", (char *) NULL);
 	return NULL;
     }
 #endif
@@ -2058,12 +2060,12 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
     switch (objc) {
 	case 2:
-	    channelName = Tcl_GetStringFromObj(objv[1], NULL);
+	    channelName = Tcl_GetStringFromObj(objv[1], (Tcl_Size *)NULL);
 	    break;
 
 	case 3:
 	    if (!strcmp (Tcl_GetString (objv[1]), "-local")) {
-		channelName = Tcl_GetStringFromObj(objv[2], NULL);
+		channelName = Tcl_GetStringFromObj(objv[2], (Tcl_Size *)NULL);
 		break;
 	    }
 	    /* else fall-through ... */
@@ -2212,7 +2214,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	return(TCL_ERROR);
     }
 
-    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], NULL), NULL);
+    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], (Tcl_Size *)NULL), NULL);
     if (chan == (Tcl_Channel) NULL) {
 	return(TCL_ERROR);
     }
@@ -2416,6 +2418,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     return TCL_OK;
 	clientData = clientData;
 }
+
 
 /*
  *-------------------------------------------------------------------
@@ -2462,7 +2465,8 @@ static int
 MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
     static const char *commands [] = { "req", "strreq", NULL };
     enum command { C_REQ, C_STRREQ, C_DUMMY };
-    int cmd, isStr;
+    Tcl_Size cmd;
+    int isStr;
     char buffer[16384];
 
     dprintf("Called");
@@ -2485,7 +2489,8 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
 	    X509 *cert=NULL;
 	    X509_NAME *name=NULL;
 	    Tcl_Obj **listv;
-	    int listc,i;
+	    Tcl_Size listc;
+	    int i;
 
 	    BIO *out=NULL;
 
@@ -2516,8 +2521,7 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
 	    }
 
 	    if (objc>=6) {
-		if (Tcl_ListObjGetElements(interp, objv[5],
-			&listc, &listv) != TCL_OK) {
+		if (Tcl_ListObjGetElements(interp, objv[5], &listc, &listv) != TCL_OK) {
 		    return TCL_ERROR;
 		}
 
@@ -2776,21 +2780,28 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
 
     dprintf("Called");
 
-    /*
-     * We only support Tcl 8.4 or newer
-     */
-    if (
+#if TCL_MAJOR_VERSION > 8
 #ifdef USE_TCL_STUBS
-	Tcl_InitStubs(interp, "8.4", 0)
-#else
-	Tcl_PkgRequire(interp, "Tcl", "8.4-", 0)
-#endif
-	 == NULL) {
+    if (Tcl_InitStubs(interp, "9.0", 0) == NULL) {
 	return TCL_ERROR;
     }
+#endif
+    if (Tcl_PkgRequire(interp, "Tcl", "9.0-", 0) == NULL) {
+	return TCL_ERROR;
+    }
+#else
+#ifdef USE_TCL_STUBS
+    if (Tcl_InitStubs(interp, "8.5", 0) == NULL) {
+	return TCL_ERROR;
+    }
+#endif
+    if (Tcl_PkgRequire(interp, "Tcl", "8.5-", 0) == NULL) {
+	return TCL_ERROR;
+    }
+#endif
 
     if (TlsLibInit(0) != TCL_OK) {
-	Tcl_AppendResult(interp, "could not initialize SSL library", NULL);
+	Tcl_AppendResult(interp, "could not initialize SSL library", (char *) NULL);
 	return TCL_ERROR;
     }
 
@@ -2808,7 +2819,7 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
 	Tcl_Eval(interp, tlsTclInitScript);
     }
 
-    return(Tcl_PkgProvide(interp, "tls", PACKAGE_VERSION));
+    return Tcl_PkgProvide(interp, PACKAGE_NAME, PACKAGE_VERSION);
 }
 
 /*

@@ -89,13 +89,13 @@ static int TlsCloseProc(ClientData instanceData, Tcl_Interp *interp) {
 	interp = interp;
 }
 
-static int TlsCloseProc2(ClientData instanceData,    /* The socket state. */
+static int TlsClose2Proc(ClientData instanceData,    /* The socket state. */
     Tcl_Interp *interp,		/* For errors - can be NULL. */
     int flags)			/* Flags to close read and/or write side of channel */
 {
     State *statePtr = (State *) instanceData;
 
-    dprintf("TlsCloseProc2(%p)", (void *) statePtr);
+    dprintf("TlsClose2Proc(%p)", (void *) statePtr);
 
     if ((flags & (TCL_CLOSE_READ|TCL_CLOSE_WRITE)) == 0) {
 	return TlsCloseProc(instanceData, interp);
@@ -973,7 +973,8 @@ Tcl_ChannelType *Tls_ChannelType(void) {
 
 	/* Init structure */
 	tlsChannelType->typeName	= "tls";
-#ifdef TCL_CHANNEL_VERSION_5
+	/* TCL 8.5 and later */
+#if TCL_MAJOR_VERSION > 8 || defined(TCL_CHANNEL_VERSION_5)
 	tlsChannelType->version		= TCL_CHANNEL_VERSION_5;
 	tlsChannelType->closeProc	= TlsCloseProc;
 	tlsChannelType->inputProc	= TlsInputProc;
@@ -983,7 +984,7 @@ Tcl_ChannelType *Tls_ChannelType(void) {
 	tlsChannelType->getOptionProc	= TlsGetOptionProc;
 	tlsChannelType->watchProc	= TlsWatchProc;
 	tlsChannelType->getHandleProc	= TlsGetHandleProc;
-	tlsChannelType->close2Proc	= TlsCloseProc2;
+	tlsChannelType->close2Proc	= TlsClose2Proc;
 	tlsChannelType->blockModeProc	= TlsBlockModeProc;
 	tlsChannelType->flushProc	= NULL;
 	tlsChannelType->handlerProc	= TlsNotifyProc;
@@ -991,7 +992,7 @@ Tcl_ChannelType *Tls_ChannelType(void) {
 	tlsChannelType->threadActionProc = NULL;
 	tlsChannelType->truncateProc	= NULL;
 #else
-	tlsChannelType->version		= TCL_CHANNEL_VERSION_2;
+	tlsChannelType->version		= TCL_CHANNEL_VERSION_4;
 	tlsChannelType->closeProc	= TlsCloseProc;
 	tlsChannelType->inputProc	= TlsInputProc;
 	tlsChannelType->outputProc	= TlsOutputProc;
@@ -1004,6 +1005,8 @@ Tcl_ChannelType *Tls_ChannelType(void) {
 	tlsChannelType->blockModeProc	= TlsBlockModeProc;
 	tlsChannelType->flushProc	= NULL;
 	tlsChannelType->handlerProc	= TlsNotifyProc;
+	tlsChannelType->wideSeekProc	= NULL;
+	tlsChannelType->threadActionProc = NULL;
 #endif
     }
     return(tlsChannelType);

@@ -8,19 +8,20 @@
 
 static int BioWrite(BIO *bio, const char *buf, int bufLen) {
     Tcl_Channel chan;
-    int ret;
+    Tcl_Size ret;
     int tclEofChan, tclErrno;
 
     chan = Tls_GetParent((State *) BIO_get_data(bio), 0);
 
     dprintf("[chan=%p] BioWrite(%p, <buf>, %d)", (void *)chan, (void *) bio, bufLen);
 
-    ret = Tcl_WriteRaw(chan, buf, bufLen);
+    ret = Tcl_WriteRaw(chan, buf, (Tcl_Size) bufLen);
 
     tclEofChan = Tcl_Eof(chan);
     tclErrno = Tcl_GetErrno();
 
-    dprintf("[chan=%p] BioWrite(%d) -> %d [tclEof=%d; tclErrno=%d]", (void *) chan, bufLen, ret, tclEofChan, Tcl_GetErrno());
+    dprintf("[chan=%p] BioWrite(%d) -> %" TCL_SIZE_MODIFIER "d [tclEof=%d; tclErrno=%d]",
+	(void *) chan, bufLen, ret, tclEofChan, Tcl_GetErrno());
 
     BIO_clear_flags(bio, BIO_FLAGS_WRITE | BIO_FLAGS_SHOULD_RETRY);
 
@@ -54,12 +55,12 @@ static int BioWrite(BIO *bio, const char *buf, int bufLen) {
 	    BIO_set_retry_read(bio);
 	}
     }
-    return(ret);
+    return((int) ret);
 }
 
 static int BioRead(BIO *bio, char *buf, int bufLen) {
     Tcl_Channel chan;
-    int ret = 0;
+    Tcl_Size ret = 0;
     int tclEofChan, tclErrno;
 
     chan = Tls_GetParent((State *) BIO_get_data(bio), 0);
@@ -70,12 +71,13 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
 	return 0;
     }
 
-    ret = Tcl_ReadRaw(chan, buf, bufLen);
+    ret = Tcl_ReadRaw(chan, buf, (Tcl_Size) bufLen);
 
     tclEofChan = Tcl_Eof(chan);
     tclErrno = Tcl_GetErrno();
 
-    dprintf("[chan=%p] BioRead(%d) -> %d [tclEof=%d; tclErrno=%d]", (void *) chan, bufLen, ret, tclEofChan, tclErrno);
+    dprintf("[chan=%p] BioRead(%d) -> %" TCL_SIZE_MODIFIER "d [tclEof=%d; tclErrno=%d]",
+	(void *) chan, bufLen, ret, tclEofChan, tclErrno);
 
     BIO_clear_flags(bio, BIO_FLAGS_READ | BIO_FLAGS_SHOULD_RETRY);
 
@@ -110,9 +112,10 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
 	}
     }
 
-    dprintf("BioRead(%p, <buf>, %d) [%p] returning %i", (void *) bio, bufLen, (void *) chan, ret);
+    dprintf("BioRead(%p, <buf>, %d) [%p] returning %" TCL_SIZE_MODIFIER "d", (void *) bio,
+	bufLen, (void *) chan, ret);
 
-    return(ret);
+    return((int) ret);
 }
 
 static int BioPuts(BIO *bio, const char *str) {
@@ -127,95 +130,95 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
 
     chan = Tls_GetParent((State *) BIO_get_data(bio), 0);
 
-	dprintf("BioCtrl(%p, 0x%x, 0x%lx, %p)", (void *) bio, cmd, num, ptr);
+    dprintf("BioCtrl(%p, 0x%x, 0x%lx, %p)", (void *) bio, cmd, num, ptr);
 
     switch (cmd) {
 	case BIO_CTRL_RESET:
-	    dprintf("Got BIO_CTRL_RESET");
-	    num = 0;
-			ret = 0;
-			break;
+		dprintf("Got BIO_CTRL_RESET");
+		num = 0;
+		ret = 0;
+		break;
 	case BIO_C_FILE_SEEK:
-	    dprintf("Got BIO_C_FILE_SEEK");
-			ret = 0;
-			break;
+		dprintf("Got BIO_C_FILE_SEEK");
+		ret = 0;
+		break;
 	case BIO_C_FILE_TELL:
-	    dprintf("Got BIO_C_FILE_TELL");
-	    ret = 0;
-	    break;
+		dprintf("Got BIO_C_FILE_TELL");
+		ret = 0;
+		break;
 	case BIO_CTRL_INFO:
-	    dprintf("Got BIO_CTRL_INFO");
-	    ret = 1;
-	    break;
+		dprintf("Got BIO_CTRL_INFO");
+		ret = 1;
+		break;
 	case BIO_C_SET_FD:
-	    dprintf("Unsupported call: BIO_C_SET_FD");
-	    ret = -1;
-	    break;
+		dprintf("Unsupported call: BIO_C_SET_FD");
+		ret = -1;
+		break;
 	case BIO_C_GET_FD:
-	    dprintf("Unsupported call: BIO_C_GET_FD");
-	    ret = -1;
-	    break;
+		dprintf("Unsupported call: BIO_C_GET_FD");
+		ret = -1;
+		break;
 	case BIO_CTRL_GET_CLOSE:
-	    dprintf("Got BIO_CTRL_CLOSE");
-	    ret = BIO_get_shutdown(bio);
-	    break;
+		dprintf("Got BIO_CTRL_CLOSE");
+		ret = BIO_get_shutdown(bio);
+		break;
 	case BIO_CTRL_SET_CLOSE:
-	    dprintf("Got BIO_SET_CLOSE");
-	    BIO_set_shutdown(bio, num);
-	    break;
+		dprintf("Got BIO_SET_CLOSE");
+		BIO_set_shutdown(bio, num);
+		break;
 	case BIO_CTRL_EOF:
-	    dprintf("Got BIO_CTRL_EOF");
-			ret = ((chan) ? Tcl_Eof(chan) : 1);
-	    break;
+		dprintf("Got BIO_CTRL_EOF");
+		ret = ((chan) ? Tcl_Eof(chan) : 1);
+		break;
 	case BIO_CTRL_PENDING:
-	    dprintf("Got BIO_CTRL_PENDING");
-			ret = ((chan) ? ((Tcl_InputBuffered(chan) ? 1 : 0)) : 0);
-	    dprintf("BIO_CTRL_PENDING(%d)", (int) ret);
-	    break;
+		dprintf("Got BIO_CTRL_PENDING");
+		ret = ((chan) ? ((Tcl_InputBuffered(chan) ? 1 : 0)) : 0);
+		dprintf("BIO_CTRL_PENDING(%d)", (int) ret);
+		break;
 	case BIO_CTRL_WPENDING:
-	    dprintf("Got BIO_CTRL_WPENDING");
-	    ret = 0;
-	    break;
+		dprintf("Got BIO_CTRL_WPENDING");
+		ret = 0;
+		break;
 	case BIO_CTRL_DUP:
-	    dprintf("Got BIO_CTRL_DUP");
-	    break;
+		dprintf("Got BIO_CTRL_DUP");
+		break;
 	case BIO_CTRL_FLUSH:
-	    dprintf("Got BIO_CTRL_FLUSH");
-			ret = ((chan) && (Tcl_WriteRaw(chan, "", 0) >= 0) ? 1 : -1);
-	    dprintf("BIO_CTRL_FLUSH returning value %li", ret);
-	    break;
+		dprintf("Got BIO_CTRL_FLUSH");
+		ret = ((chan) && (Tcl_WriteRaw(chan, "", 0) >= 0) ? 1 : -1);
+		dprintf("BIO_CTRL_FLUSH returning value %li", ret);
+		break;
 	case BIO_CTRL_PUSH:
-	    dprintf("Got BIO_CTRL_PUSH");
-	    ret = 0;
-	    break;
+		dprintf("Got BIO_CTRL_PUSH");
+		ret = 0;
+		break;
 	case BIO_CTRL_POP:
-	    dprintf("Got BIO_CTRL_POP");
-	    ret = 0;
-	    break;
+		dprintf("Got BIO_CTRL_POP");
+		ret = 0;
+		break;
 	case BIO_CTRL_SET:
-	    dprintf("Got BIO_CTRL_SET");
-	    ret = 0;
-	    break;
+		dprintf("Got BIO_CTRL_SET");
+		ret = 0;
+		break;
 	case BIO_CTRL_GET :
-	    dprintf("Got BIO_CTRL_GET ");
-	    ret = 0;
-	    break;
+		dprintf("Got BIO_CTRL_GET ");
+		ret = 0;
+		break;
 #ifdef BIO_CTRL_GET_KTLS_SEND
 	case BIO_CTRL_GET_KTLS_SEND:
-	    dprintf("Got BIO_CTRL_GET_KTLS_SEND");
-	    ret = 0;
-	    break;
+		dprintf("Got BIO_CTRL_GET_KTLS_SEND");
+		ret = 0;
+		break;
 #endif
 #ifdef BIO_CTRL_GET_KTLS_RECV
 	case BIO_CTRL_GET_KTLS_RECV:
-	    dprintf("Got BIO_CTRL_GET_KTLS_RECV");
-	    ret = 0;
-	    break;
+		dprintf("Got BIO_CTRL_GET_KTLS_RECV");
+		ret = 0;
+		break;
 #endif
 	default:
-	    dprintf("Got unknown control command (%i)", cmd);
-	    ret = 0;
-	    break;
+		dprintf("Got unknown control command (%i)", cmd);
+		ret = 0;
+		break;
     }
     return(ret);
 }

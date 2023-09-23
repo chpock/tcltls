@@ -31,7 +31,22 @@
 
 /* Handle TCL 8.6 CONST changes */
 #ifndef CONST86
-#define CONST86
+#   if TCL_MAJOR_VERSION > 8
+#	define CONST86 const
+#   else
+#	define CONST86
+#   endif
+#endif
+
+/*
+ * Backwards compatibility for size type change
+ */
+#if TCL_MAJOR_VERSION < 9 && TCL_MINOR_VERSION < 7
+    #ifndef Tcl_Size
+        typedef int Tcl_Size;
+    #endif
+
+    #define TCL_SIZE_MODIFIER ""
 #endif
 
 #include <openssl/ssl.h>
