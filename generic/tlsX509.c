@@ -16,27 +16,6 @@
 /* Define maximum certificate size. Max PEM size 100kB and DER size is 24kB. */
 #define CERT_STR_SIZE 32768
 
-/* Common macros */
-#define LAPPEND_STR(interp, obj, text, value, size) {\
-    if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
-    Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(value, size)); \
-}
-#define LAPPEND_INT(interp, obj, text, value) {\
-    if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
-    Tcl_ListObjAppendElement(interp, obj, Tcl_NewIntObj(value)); \
-}
-#define LAPPEND_LONG(interp, obj, text, value) {\
-    if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
-    Tcl_ListObjAppendElement(interp, obj, Tcl_NewLongObj(value)); \
-}
-#define LAPPEND_BOOL(interp, obj, text, value) {\
-    if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
-    Tcl_ListObjAppendElement(interp, obj, Tcl_NewBooleanObj(value)); \
-}
-#define LAPPEND_OBJ(interp, obj, text, listObj) {\
-    if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
-    Tcl_ListObjAppendElement(interp, obj, listObj); \
-}
 
 /*
  * Binary string to hex string

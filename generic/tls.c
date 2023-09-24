@@ -272,7 +272,7 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
 	ver = "TLSv1.3";
 	break;
     case 0:
-        ver = "none";
+	ver = "none";
 	break;
     default:
 	ver = "unknown";
@@ -282,25 +282,25 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
     switch (content_type) {
     case SSL3_RT_HEADER:
 	type = "Header";
-        break;
+	break;
     case SSL3_RT_INNER_CONTENT_TYPE:
 	type = "Inner Content Type";
-        break;
+	break;
     case SSL3_RT_CHANGE_CIPHER_SPEC:
 	type = "Change Cipher";
-        break;
+	break;
     case SSL3_RT_ALERT:
 	type = "Alert";
-        break;
+	break;
     case SSL3_RT_HANDSHAKE:
 	type = "Handshake";
-        break;
+	break;
     case SSL3_RT_APPLICATION_DATA:
 	type = "App Data";
-        break;
+	break;
     case DTLS1_RT_HEARTBEAT:
 	type = "Heartbeat";
-        break;
+	break;
     default:
 	type = "unknown";
     }
@@ -313,7 +313,7 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
 	n = (n<0) ? 0 : n;
 	buffer[n] = 0;
 	(void)BIO_flush(bio);
- 	BIO_free(bio);
+	BIO_free(bio);
    }
 
     /* Create command to eval */
@@ -1506,8 +1506,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	if (!SSL_SESSION_set1_id_context(SSL_get_session(statePtr->ssl), session_id, (unsigned int) strlen(session_id))) {
 	    Tcl_AppendResult(interp, "Resume session id ", session_id, " failed", (char *) NULL);
 	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "SESSION", "FAILED", (char *) NULL);
-            Tls_Free((char *) statePtr);
-            return TCL_ERROR;
+	    Tls_Free((char *) statePtr);
+	    return TCL_ERROR;
 	}
     }
 
@@ -2054,33 +2054,22 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     int mode;
     const unsigned char *proto;
     unsigned int len;
-    int nid;
+    int nid, res;
 
     dprintf("Called");
 
-    switch (objc) {
-	case 2:
-	    channelName = Tcl_GetStringFromObj(objv[1], (Tcl_Size *)NULL);
-	    break;
-
-	case 3:
-	    if (!strcmp (Tcl_GetString (objv[1]), "-local")) {
-		channelName = Tcl_GetStringFromObj(objv[2], (Tcl_Size *)NULL);
-		break;
-	    }
-	    /* else fall-through ... */
-#if defined(__GNUC__)
-	    __attribute__((fallthrough));
-#endif
-	default:
-	    Tcl_WrongNumArgs(interp, 1, objv, "?-local? channel");
-	    return TCL_ERROR;
+    if (objc < 2 || objc > 3 || (objc == 3 && !strcmp(Tcl_GetString(objv[1]), "-local"))) {
+	Tcl_WrongNumArgs(interp, 1, objv, "?-local? channel");
+	return TCL_ERROR;
     }
 
+    /* Get channel Id */
+    channelName = Tcl_GetStringFromObj(objv[(objc == 2 ? 1 : 2)], (Tcl_Size *) NULL);
     chan = Tcl_GetChannel(interp, channelName, &mode);
     if (chan == (Tcl_Channel) NULL) {
 	return TCL_ERROR;
     }
+
     /* Make sure to operate on the topmost channel */
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
@@ -2108,39 +2097,21 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	objPtr = Tcl_NewListObj(0, NULL);
     }
 
-    /* Peer cert chain (client only) */
-    STACK_OF(X509)* ssl_certs = SSL_get_peer_cert_chain(statePtr->ssl);
-    if (ssl_certs == NULL || sk_X509_num(ssl_certs) == 0) {
-	Tcl_SetErrorCode(interp, "TLS", "STATUS", "CERTIFICATE", (char *) NULL);
-	Tcl_IncrRefCount(objPtr);
-	Tcl_DecrRefCount(objPtr);
-	return TCL_ERROR;
-    }
-
     /* Peer name */
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("peername", -1));
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get0_peername(statePtr->ssl), -1));
-
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("sbits", -1));
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(SSL_get_cipher_bits(statePtr->ssl, NULL)));
+    LAPPEND_STR(interp, objPtr, "peername", SSL_get0_peername(statePtr->ssl), -1);
+    LAPPEND_INT(interp, objPtr, "sbits", SSL_get_cipher_bits(statePtr->ssl, NULL));
 
     ciphers = (char*)SSL_get_cipher(statePtr->ssl);
-    if ((ciphers != NULL) && (strcmp(ciphers, "(NONE)") != 0)) {
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("cipher", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(ciphers, -1));
-    }
+    LAPPEND_STR(interp, objPtr, "cipher", ciphers, -1);
 
     /* Verify the X509 certificate presented by the peer */
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("verifyResult", -1));
-    Tcl_ListObjAppendElement(interp, objPtr,
-	Tcl_NewStringObj(X509_verify_cert_error_string(SSL_get_verify_result(statePtr->ssl)), -1));
+    LAPPEND_STR(interp, objPtr, "verifyResult",
+	X509_verify_cert_error_string(SSL_get_verify_result(statePtr->ssl)), -1);
 
     /* Verify mode */
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("verifyMode", -1));
-    /* SSL_CTX_get_verify_mode(ctx) */
     mode = SSL_get_verify_mode(statePtr->ssl);
     if (mode && SSL_VERIFY_NONE) {
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("none", -1));
+	LAPPEND_STR(interp, objPtr, "verifyMode", "none", -1);
     } else {
 	Tcl_Obj *listObjPtr = Tcl_NewListObj(0, NULL);
 	if (mode && SSL_VERIFY_PEER) {
@@ -2155,34 +2126,33 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	if (mode && SSL_VERIFY_POST_HANDSHAKE) {
 	    Tcl_ListObjAppendElement(interp, listObjPtr, Tcl_NewStringObj("post handshake", -1));
 	}
-	Tcl_ListObjAppendElement(interp, objPtr, listObjPtr);
+	LAPPEND_OBJ(interp, objPtr, "verifyMode", listObjPtr)
     }
 
     /* Verify mode depth */
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("verifyDepth", -1));
-    /* SSL_CTX_get_verify_depth(ctx) */
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(SSL_get_verify_depth(statePtr->ssl)));
+    LAPPEND_INT(interp, objPtr, "verifyDepth", SSL_get_verify_depth(statePtr->ssl));
 
     /* Report the selected protocol as a result of the negotiation */
     SSL_get0_alpn_selected(statePtr->ssl, &proto, &len);
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("alpn", -1));
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj((char *)proto, (int) len));
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("protocol", -1));
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get_version(statePtr->ssl), -1));
+    LAPPEND_STR(interp, objPtr, "alpn", (char *)proto, (Tcl_Size) len);
+    LAPPEND_STR(interp, objPtr, "protocol", SSL_get_version(statePtr->ssl), -1);
 
     /* Valid for non-RSA signature and TLS 1.3 */
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("signatureHashAlgorithm", -1));
-    if (objc == 2 ? SSL_get_peer_signature_nid(statePtr->ssl, &nid) : SSL_get_signature_nid(statePtr->ssl, &nid)) {
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(OBJ_nid2ln(nid), -1));
+    if (objc == 2) {
+	res = SSL_get_peer_signature_nid(statePtr->ssl, &nid);
     } else {
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("", -1));
+	res = SSL_get_signature_nid(statePtr->ssl, &nid);
     }
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("signatureType", -1));
-    if (objc == 2 ? SSL_get_peer_signature_type_nid(statePtr->ssl, &nid) : SSL_get_signature_type_nid(statePtr->ssl, &nid)) {
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(OBJ_nid2ln(nid), -1));
+    if (!res) {nid = 0;}
+    LAPPEND_STR(interp, objPtr, "signatureHashAlgorithm", OBJ_nid2ln(nid), -1);
+
+    if (objc == 2) {
+	res = SSL_get_peer_signature_type_nid(statePtr->ssl, &nid);
     } else {
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("", -1));
+	res = SSL_get_signature_type_nid(statePtr->ssl, &nid);
     }
+    if (!res) {nid = 0;}
+    LAPPEND_STR(interp, objPtr, "signatureType", OBJ_nid2ln(nid), -1);
 
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
@@ -2201,13 +2171,13 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
  */
 
 static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
-    Tcl_Channel chan;		/* The channel to set a mode on. */
+    Tcl_Channel chan;		/* The channel to set a mode on */
     State *statePtr;		/* client state for ssl socket */
     Tcl_Obj *objPtr, *listPtr;
     const SSL *ssl;
     const SSL_CIPHER *cipher;
     const SSL_SESSION *session;
-    long mode;
+    const EVP_MD *md;
 
     if (objc != 2) {
 	Tcl_WrongNumArgs(interp, 1, objv, "channel");
@@ -2235,33 +2205,28 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     ssl = statePtr->ssl;
     if (ssl != NULL) {
 	/* connection state */
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("state", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_state_string_long(ssl), -1));
+	LAPPEND_STR(interp, objPtr, "state", SSL_state_string_long(ssl), -1);
 
 	/* Get SNI requested server name */
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("servername", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name), -1));
+	LAPPEND_STR(interp, objPtr, "servername", SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name), -1);
 
 	/* Get protocol */
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("protocol", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_get_version(ssl), -1));
+	LAPPEND_STR(interp, objPtr, "protocol", SSL_get_version(ssl), -1);
 
 	/* Renegotiation allowed */
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("renegotiation", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(
-	    SSL_get_secure_renegotiation_support(ssl) ? "supported" : "not supported", -1));
+	LAPPEND_BOOL(interp, objPtr, "renegotiation_allowed", SSL_get_secure_renegotiation_support(ssl));
 
 	/* Get security level */
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("securitylevel", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(SSL_get_security_level(ssl)));
+	LAPPEND_INT(interp, objPtr, "securitylevel", SSL_get_security_level(ssl));
 
 	/* Session info */
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_reused", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewBooleanObj(SSL_session_reused(ssl)));
+	LAPPEND_BOOL(interp, objPtr, "session_reused", SSL_session_reused(ssl));
 
 	/* Is server info */
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("is_server", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewBooleanObj(SSL_is_server(ssl)));
+	LAPPEND_BOOL(interp, objPtr, "is_server", SSL_is_server(ssl));
+
+	/* Is DTLS */
+	LAPPEND_BOOL(interp, objPtr, "is_dtls", SSL_is_dtls(ssl));
     }
 
     /* Cipher info */
@@ -2270,28 +2235,48 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	char buf[BUFSIZ] = {0};
 	int bits, alg_bits;
 
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("cipher", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_CIPHER_get_name(cipher), -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("standard_name", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_CIPHER_standard_name(cipher), -1));
+	/* Cipher name */
+	LAPPEND_STR(interp, objPtr, "cipher", SSL_CIPHER_get_name(cipher), -1);
 
+	/* RFC name of cipher */
+	LAPPEND_STR(interp, objPtr, "standard_name", SSL_CIPHER_standard_name(cipher), -1);
+
+	/* OpenSSL name of cipher */
+	LAPPEND_STR(interp, objPtr, "openssl_name", OPENSSL_cipher_name(SSL_CIPHER_standard_name(cipher)), -1);
+
+	/* number of secret bits used for cipher */
 	bits = SSL_CIPHER_get_bits(cipher, &alg_bits);
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("secret_bits", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(bits));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("algorithm_bits", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(alg_bits));
+	LAPPEND_INT(interp, objPtr, "secret_bits", bits);
+	LAPPEND_INT(interp, objPtr, "algorithm_bits", alg_bits);
 	/* alg_bits is actual key secret bits. If use bits and secret (algorithm) bits differ,
 	   the rest of the bits are fixed, i.e. for limited export ciphers (bits < 56) */
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("min_version", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(SSL_CIPHER_get_version(cipher), -1));
+
+	/* Indicates which SSL/TLS protocol version first defined the cipher */
+	LAPPEND_STR(interp, objPtr, "min_version", SSL_CIPHER_get_version(cipher), -1);
+
+	/* Cipher NID */
+	LAPPEND_STR(interp, objPtr, "cipherNID", (char *)OBJ_nid2ln(SSL_CIPHER_get_cipher_nid(cipher)), -1);
+	LAPPEND_STR(interp, objPtr, "digestNID", (char *)OBJ_nid2ln(SSL_CIPHER_get_digest_nid(cipher)), -1);
+	LAPPEND_STR(interp, objPtr, "keyExchangeNID", (char *)OBJ_nid2ln(SSL_CIPHER_get_kx_nid(cipher)), -1);
+	LAPPEND_STR(interp, objPtr, "authenticationNID", (char *)OBJ_nid2ln(SSL_CIPHER_get_auth_nid(cipher)), -1);
+
+	/* message authentication code - Cipher is AEAD (e.g. GCM or ChaCha20/Poly1305) or not */
+	/* Authenticated Encryption with associated data (AEAD) check */
+	LAPPEND_BOOL(interp, objPtr, "cipher_is_aead", SSL_CIPHER_is_aead(cipher));
+
+	/* Digest used during the SSL/TLS handshake when using the cipher. */
+	md = SSL_CIPHER_get_handshake_digest(cipher);
+	LAPPEND_STR(interp, objPtr, "handshake_digest", (char *)EVP_MD_name(md), -1);
 
 	/* Get OpenSSL-specific ID, not IANA ID */
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("id", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj((int) SSL_CIPHER_get_id(cipher)));
+	LAPPEND_INT(interp, objPtr, "cipher_id", (int) SSL_CIPHER_get_id(cipher));
 
+	/* Two-byte ID used in the TLS protocol of the given cipher */
+	LAPPEND_INT(interp, objPtr, "protocol_id", (int) SSL_CIPHER_get_protocol_id(cipher));
+
+	/* Textual description of the cipher */
 	if (SSL_CIPHER_description(cipher, buf, sizeof(buf)) != NULL) {
-	    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("description", -1));
-	    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(buf, -1));
+	    LAPPEND_STR(interp, objPtr, "description", buf, -1);
 	}
     }
 
@@ -2306,56 +2291,49 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 
 	/* Report the selected protocol as a result of the ALPN negotiation */
 	SSL_SESSION_get0_alpn_selected(session, &proto, &len2);
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("alpn", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj((char *)proto, (int) len2));
+	LAPPEND_STR(interp, objPtr, "alpn", (char *) proto, (Tcl_Size) len2);
 
 	/* Report the selected protocol as a result of the NPN negotiation */
 #ifdef USE_NPN
 	SSL_get0_next_proto_negotiated(ssl, &proto, &ulen);
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("npn", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj((char *)proto, (int) ulen));
+	LAPPEND_STR(interp, objPtr, "npn", (char *) proto, (Tcl_Size) ulen);
 #endif
 
 	/* Resumable session */
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("resumable", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewIntObj(SSL_SESSION_is_resumable(session)));
+	LAPPEND_BOOL(interp, objPtr, "resumable", SSL_SESSION_is_resumable(session));
 
 	/* Session start time (seconds since epoch) */
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("start_time", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewLongObj(SSL_SESSION_get_time(session)));
+	LAPPEND_LONG(interp, objPtr, "start_time", SSL_SESSION_get_time(session));
 
 	/* Timeout value - SSL_CTX_get_timeout (in seconds) */
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("timeout", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewLongObj(SSL_SESSION_get_timeout(session)));
-
-	/* Session ticket lifetime hint (in seconds) */
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("lifetime", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewLongObj(SSL_SESSION_get_ticket_lifetime_hint(session)));
+	LAPPEND_LONG(interp, objPtr, "timeout", SSL_SESSION_get_timeout(session));
 
 	/* Session id - TLSv1.2 and below only */
 	session_id = SSL_SESSION_get_id(session, &ulen);
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_id", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewByteArrayObj(session_id, (int) ulen));
+	LAPPEND_BARRAY(interp, objPtr, "session_id", session_id, (Tcl_Size) ulen);
 
 	/* Session context */
 	session_id = SSL_SESSION_get0_id_context(session, &ulen);
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_context", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewByteArrayObj(session_id, (int) ulen));
+	LAPPEND_BARRAY(interp, objPtr, "session_context", session_id, (Tcl_Size) ulen);
 
 	/* Session ticket - client only */
 	SSL_SESSION_get0_ticket(session, &ticket, &len2);
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_ticket", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewByteArrayObj(ticket, (int) len2));
+	LAPPEND_BARRAY(interp, objPtr, "session_ticket", ticket, (Tcl_Size) len2);
+
+	/* Session ticket lifetime hint (in seconds) */
+	LAPPEND_LONG(interp, objPtr, "lifetime", SSL_SESSION_get_ticket_lifetime_hint(session));
 
 	/* Ticket app data */
 	SSL_SESSION_get0_ticket_appdata(session, &ticket, &len2);
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("ticket_app_data", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewByteArrayObj(ticket, (int) len2));
+	LAPPEND_BARRAY(interp, objPtr, "ticket_app_data", ticket, (Tcl_Size) len2);
 
 	/* Get master key */
 	len2 = SSL_SESSION_get_master_key(session, buffer, SSL_MAX_MASTER_KEY_LENGTH);
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("master_key", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewByteArrayObj(buffer, (int) len2));
+	LAPPEND_BARRAY(interp, objPtr, "master_key", buffer, (Tcl_Size) len2);
+
+	/* Compression id */
+	unsigned int id = SSL_SESSION_get_compress_id(session);
+	LAPPEND_STR(interp, objPtr, "compression_id", id == 1 ? "zlib" : "none", -1);
     }
 
     /* Compression info */
@@ -2365,23 +2343,19 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	comp = SSL_get_current_compression(ssl);
 	expn = SSL_get_current_expansion(ssl);
 
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("compression", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(comp ? SSL_COMP_get_name(comp) : "NONE", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("expansion", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(expn ? SSL_COMP_get_name(expn) : "NONE", -1));
+	LAPPEND_STR(interp, objPtr, "compression", comp ? SSL_COMP_get_name(comp) : "none", -1);
+	LAPPEND_STR(interp, objPtr, "expansion", expn ? SSL_COMP_get_name(expn) : "none", -1);
 #else
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("compression", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("NONE", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("expansion", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("NONE", -1));
+	LAPPEND_STR(interp, objPtr, "compression", "none", -1);
+	LAPPEND_STR(interp, objPtr, "expansion", "none", -1);
 #endif
     }
 
     /* Server info */
     {
-	mode = SSL_CTX_get_session_cache_mode(statePtr->ctx);
+	long mode = SSL_CTX_get_session_cache_mode(statePtr->ctx);
 	char *msg;
-	
+
 	if (mode & SSL_SESS_CACHE_OFF) {
 	    msg = "off";
 	} else if (mode & SSL_SESS_CACHE_CLIENT) {
@@ -2393,8 +2367,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	} else {
 	    msg = "unknown";
 	}
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("session_cache_mode", -1));
-	Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(msg, -1));
+	LAPPEND_STR(interp, objPtr, "session_cache_mode", msg, -1);
     }
 
     /* CA List */
@@ -2411,14 +2384,13 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	    }
 	}
     }
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj("caList", -1));
-    Tcl_ListObjAppendElement(interp, objPtr, listPtr);
+    LAPPEND_OBJ(interp, objPtr, "caList", listPtr);
+    LAPPEND_INT(interp, objPtr, "caListCount", sk_X509_NAME_num(ca_list));
 
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
 	clientData = clientData;
 }
-
 
 /*
  *-------------------------------------------------------------------
@@ -2475,7 +2447,7 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
 	Tcl_WrongNumArgs(interp, 1, objv, "subcommand ?args?");
 	return TCL_ERROR;
     }
-    if (Tcl_GetIndexFromObj(interp, objv[1], commands, "command", 0,&cmd) != TCL_OK) {
+    if (Tcl_GetIndexFromObj(interp, objv[1], commands, "command", 0, &cmd) != TCL_OK) {
 	return TCL_ERROR;
     }
 
