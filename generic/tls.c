@@ -1328,7 +1328,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTBOOL("-post_handshake", post_handshake);
 	OPTBOOL("-request", request);
 	OPTBOOL("-require", require);
-	OPTINT("-securitylevel", level);
+	OPTINT("-security_level", level);
 	OPTBOOL("-server", server);
 	OPTSTR("-servername", servername);
 	OPTSTR("-session_id", session_id);
@@ -1341,7 +1341,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTOBJ("-validatecommand", vcmd);
 	OPTOBJ("-vcmd", vcmd);
 
-	OPTBAD("option", "-alpn, -cadir, -cafile, -cert, -certfile, -cipher, -ciphersuites, -command, -dhparams, -key, -keyfile, -model, -password, -post_handshake, -request, -require, -securitylevel, -server, -servername, -session_id, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, -tls1.3, or -validatecommand");
+	OPTBAD("option", "-alpn, -cadir, -cafile, -cert, -certfile, -cipher, -ciphersuites, -command, -dhparams, -key, -keyfile, -model, -password, -post_handshake, -request, -require, -security_level, -server, -servername, -session_id, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, -tls1.3, or -validatecommand");
 
 	return TCL_ERROR;
     }
@@ -1848,6 +1848,10 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
     }
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    OpenSSL_add_all_algorithms(); /* Load ciphers and digests */
+#endif
+
     SSL_CTX_set_app_data(ctx, (void*)interp);	/* remember the interpreter */
     SSL_CTX_set_options(ctx, SSL_OP_ALL);	/* all SSL bug workarounds */
     SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);	/* disable compression even if supported */
@@ -2217,7 +2221,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	LAPPEND_BOOL(interp, objPtr, "renegotiation_allowed", SSL_get_secure_renegotiation_support(ssl));
 
 	/* Get security level */
-	LAPPEND_INT(interp, objPtr, "securitylevel", SSL_get_security_level(ssl));
+	LAPPEND_INT(interp, objPtr, "security_level", SSL_get_security_level(ssl));
 
 	/* Session info */
 	LAPPEND_BOOL(interp, objPtr, "session_reused", SSL_session_reused(ssl));

@@ -20,13 +20,17 @@
 /*
  * Binary string to hex string
  */
-int String_to_Hex(char* input, int ilen, char *output, int olen) {
+int String_to_Hex(unsigned char* input, int ilen, unsigned char *output, int olen) {
     int count = 0;
+    unsigned char *iptr = input;
+    unsigned char *optr = &output[0];
+    const char *hex = "0123456789abcdef";
 
     for (int i = 0; i < ilen && count < olen - 1; i++, count += 2) {
-	sprintf(output + count, "%02X", input[i] & 0xff);
+        *optr++ = hex[(*iptr>>4)&0xF];
+        *optr++ = hex[(*iptr++)&0xF];
     }
-    output[count] = 0;
+    *optr = 0;
     return count;
 }
 
