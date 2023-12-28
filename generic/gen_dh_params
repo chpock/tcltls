@@ -26,43 +26,39 @@ openssl_dhparam1() {
 
 # OpenSSL 3.0 openssl-dhparam has no "-C" option, so we emulate it here
 openssl_dhparam3() {
-	if openssl dhparam -text 2048 | \
-	    sed -E -e '/^---/,/^---/d' \
-		-e '/(DH|prime|generator)/d' \
-		-e 's/([0-9a-h]{2})(:|$$)/0x\1, /g' \
-		-e generateddh.txt
-	then
-	else
-		return 0
-	fi
+	cat << \_EOF_
+#include <openssl/dh.h>
+#include <openssl/bn.h>
+static DH *get_dhParams(void) {
+	static unsigned char dhp[] = {
+_EOF_
 
+	openssl dhparam -text "$@" | \
+	    sed -E -e '/^---/,/^---/d' \
+		-e '/(DH|prime|generator|P|G|recommended)/d' \
+		-e 's/([0-9a-h]{2})(:|$$)/0x\1, /g'
 
 	cat << \_EOF_
-/*
- * OpenSSL no longer offers the "-C" option for its dhparam
- * subcommand, so we keep our own C-code here...
- */
-
-static DH * get_dhParams(void) {
-	static unsigned char dhp_2048[] = {
-#include "generateddh.txt"
 	};
-	static unsigned char dhg_2048[] = {
-		0x02
+	static unsigned char dhg[] = {
+		0x02,
 	};
-	DH	       *dh = DH_new();
-	BIGNUM	       *p, *g;
 
-	if (dh == NULL)
+	DH *dh = DH_new();;
+	BIGNUM *p, *g;
+
+	if (dh == NULL) {
 		return NULL;
-	p = BN_bin2bn(dhp_2048, sizeof(dhp_2048), NULL);
-	g = BN_bin2bn(dhg_2048, sizeof(dhg_2048), NULL);
-	if (p == NULL || g == NULL
-	    || !DH_set0_pqg(dh, p, NULL, g)) {
+	}
+
+	p = BN_bin2bn(dhp, sizeof (dhp), NULL);
+	g = BN_bin2bn(dhg, sizeof (dhg), NULL);
+
+	if (p == NULL || g == NULL || !DH_set0_pqg(dh, p, NULL, g)) {
 		DH_free(dh);
 		BN_free(p);
 		BN_free(g);
-		return NULL;
+		return(NULL);
 	}
 	return dh;
 }
