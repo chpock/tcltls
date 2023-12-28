@@ -1328,7 +1328,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTBOOL("-post_handshake", post_handshake);
 	OPTBOOL("-request", request);
 	OPTBOOL("-require", require);
-	OPTINT("-security_level", level);
+	OPTINT("-securitylevel", level);
 	OPTBOOL("-server", server);
 	OPTSTR("-servername", servername);
 	OPTSTR("-session_id", session_id);
@@ -1341,7 +1341,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTOBJ("-validatecommand", vcmd);
 	OPTOBJ("-vcmd", vcmd);
 
-	OPTBAD("option", "-alpn, -cadir, -cafile, -cert, -certfile, -cipher, -ciphersuites, -command, -dhparams, -key, -keyfile, -model, -password, -post_handshake, -request, -require, -security_level, -server, -servername, -session_id, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, -tls1.3, or -validatecommand");
+	OPTBAD("option", "-alpn, -cadir, -cafile, -cert, -certfile, -cipher, -ciphersuites, -command, -dhparams, -key, -keyfile, -model, -password, -post_handshake, -request, -require, -securitylevel, -server, -servername, -session_id, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, -tls1.3, or -validatecommand");
 
 	return TCL_ERROR;
     }
