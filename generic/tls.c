@@ -65,14 +65,6 @@ static int	TlsLibInit(int uninitialize);
 #define SSLKEYLOGFILE		"SSLKEYLOGFILE"
 
 /*
- * Static data structures
- */
-
-#ifndef OPENSSL_NO_DH
-#include "dh_params.h"
-#endif
-
-/*
  * Thread-Safe TLS Code
  */
 
@@ -1912,11 +1904,17 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
+	    SSL_CTX_set_tmp_dh(ctx, dh);
+	    DH_free(dh);
+
 	} else {
-	    dh = get_dhParams();
+	    /* Use well known DH parameters that have built-in support in OpenSSL */
+	    if (!SSL_CTX_set_dh_auto(ctx, 1)) {
+		Tcl_AppendResult(interp, "Could not enable set DH auto: ", REASON(), (char *) NULL);
+		SSL_CTX_free(ctx);
+		return NULL;
+	    }
 	}
-	SSL_CTX_set_tmp_dh(ctx, dh);
-	DH_free(dh);
     }
 #endif
 
