@@ -65,14 +65,6 @@ static int	TlsLibInit(int uninitialize);
 #define SSLKEYLOGFILE		"SSLKEYLOGFILE"
 
 /*
- * Static data structures
- */
-
-#ifndef OPENSSL_NO_DH
-#include "dh_params.h"
-#endif
-
-/*
  * Thread-Safe TLS Code
  */
 
@@ -446,7 +438,7 @@ Tls_Error(State *statePtr, char *msg) {
     if (msg != NULL) {
 	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(msg, -1));
 
-    } else if ((msg = Tcl_GetStringFromObj(Tcl_GetObjResult(interp), (Tcl_Size *)NULL)) != NULL) {
+    } else if ((msg = Tcl_GetStringFromObj(Tcl_GetObjResult(interp), (Tcl_Size *) NULL)) != NULL) {
 	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(msg, -1));
 
     } else {
@@ -1173,7 +1165,7 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 
     ERR_clear_error();
 
-    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], (Tcl_Size *)NULL), NULL);
+    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], (Tcl_Size *) NULL), NULL);
     if (chan == (Tcl_Channel) NULL) {
 	return(TCL_ERROR);
     }
@@ -1297,7 +1289,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
     ERR_clear_error();
 
-    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], (Tcl_Size *)NULL), NULL);
+    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], (Tcl_Size *) NULL), NULL);
     if (chan == (Tcl_Channel) NULL) {
 	return TCL_ERROR;
     }
@@ -1912,11 +1904,17 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
+	    SSL_CTX_set_tmp_dh(ctx, dh);
+	    DH_free(dh);
+
 	} else {
-	    dh = get_dhParams();
+	    /* Use well known DH parameters that have built-in support in OpenSSL */
+	    if (!SSL_CTX_set_dh_auto(ctx, 1)) {
+		Tcl_AppendResult(interp, "Could not enable set DH auto: ", REASON(), (char *) NULL);
+		SSL_CTX_free(ctx);
+		return NULL;
+	    }
 	}
-	SSL_CTX_set_tmp_dh(ctx, dh);
-	DH_free(dh);
     }
 #endif
 
