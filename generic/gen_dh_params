@@ -14,7 +14,12 @@ for arg in "$@"; do
 done
 
 openssl_dhparam1() {
-	if openssl dhparam -C "$@" | sed	\
+	dir=''
+	if [ -n "${OPENSSL}" ]; then
+	    dir="${OPENSSL}/"
+	fi
+
+	if ${dir}openssl dhparam -C "$@" | sed	\
 	    -e 's/^\(static \)*DH \*get_dh[0-9]*/static DH *get_dhParams/'	\
 	    -e '/^-----BEGIN DH PARAMETERS-----$/,/^-----END DH PARAMETERS-----$/ d;/^#/ d'
 	then
@@ -26,6 +31,11 @@ openssl_dhparam1() {
 
 # OpenSSL 3.0 openssl-dhparam has no "-C" option, so we emulate it here
 openssl_dhparam3() {
+	dir=''
+	if [ -n "${OPENSSL}" ]; then
+	    dir="${OPENSSL}/"
+	fi
+
 	cat << \_EOF_
 #include <openssl/dh.h>
 #include <openssl/bn.h>
@@ -33,10 +43,15 @@ static DH *get_dhParams(void) {
 	static unsigned char dhp[] = {
 _EOF_
 
-	openssl dhparam -text "$@" | \
+	if ${dir}openssl dhparam -text "$@" | \
 	    sed -E -e '/^---/,/^---/d' \
 		-e '/(DH|prime|generator|P|G|recommended)/d' \
 		-e 's/([0-9a-h]{2})(:|$$)/0x\1, /g'
+	then
+		break
+	else
+		return 1
+	fi
 
 	cat << \_EOF_
 	};
@@ -279,14 +294,7 @@ _EOF_
 	dhp_bn = BN_bin2bn(dhp, sizeof (dhp), NULL);
 	dhg_bn = BN_bin2bn(dhg, sizeof (dhg), NULL);
 
-#ifdef TCLTLS_OPENSSL_PRE_1_1_API
-	dh->p = dhp_bn;
-	dh->g = dhg_bn;
-
-	if (dhp_bn == NULL || dhg_bn == NULL) {
-#else
 	if (dhp_bn == NULL || dhg_bn == NULL || !DH_set0_pqg(dh, dhp_bn, NULL, dhg_bn)) {
-#endif
 		DH_free(dh);
 		BN_free(dhp_bn);
 		BN_free(dhg_bn);
