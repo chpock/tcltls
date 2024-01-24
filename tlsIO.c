@@ -22,18 +22,18 @@
 /*
  * Forward declarations
  */
-static int  TlsBlockModeProc _ANSI_ARGS_((ClientData instanceData, int mode));
-static int  TlsCloseProc _ANSI_ARGS_((ClientData instanceData, Tcl_Interp *interp));
-static int  TlsInputProc _ANSI_ARGS_((ClientData instanceData, char *buf, int bufSize, int *errorCodePtr));
-static int  TlsOutputProc _ANSI_ARGS_((ClientData instanceData, CONST char *buf, int toWrite, int *errorCodePtr));
-static int  TlsGetOptionProc _ANSI_ARGS_((ClientData instanceData, Tcl_Interp *interp, CONST84 char *optionName, Tcl_DString *dsPtr));
-static void TlsWatchProc _ANSI_ARGS_((ClientData instanceData, int mask));
-static int  TlsGetHandleProc _ANSI_ARGS_((ClientData instanceData, int direction, ClientData *handlePtr));
-static int  TlsNotifyProc _ANSI_ARGS_((ClientData instanceData, int mask));
+static int  TlsBlockModeProc (ClientData instanceData, int mode);
+static int  TlsCloseProc (ClientData instanceData, Tcl_Interp *interp);
+static int  TlsInputProc (ClientData instanceData, char *buf, int bufSize, int *errorCodePtr);
+static int  TlsOutputProc (ClientData instanceData, const char *buf, int toWrite, int *errorCodePtr);
+static int  TlsGetOptionProc (ClientData instanceData, Tcl_Interp *interp, const char *optionName, Tcl_DString *dsPtr);
+static void TlsWatchProc (ClientData instanceData, int mask);
+static int  TlsGetHandleProc (ClientData instanceData, int direction, ClientData *handlePtr);
+static int  TlsNotifyProc (ClientData instanceData, int mask);
 #if 0
-static void TlsChannelHandler _ANSI_ARGS_((ClientData clientData, int mask));
+static void TlsChannelHandler (ClientData clientData, int mask);
 #endif
-static void TlsChannelHandlerTimer _ANSI_ARGS_((ClientData clientData));
+static void TlsChannelHandlerTimer (ClientData clientData);
 
 /*
  * TLS Channel Type
@@ -80,7 +80,7 @@ Tcl_ChannelType *Tls_ChannelType(void) {
 		size = sizeof(Tcl_ChannelType); /* Base size */
 
 		tlsChannelType = (Tcl_ChannelType *) ckalloc(size);
-		memset((VOID *) tlsChannelType, 0, size);
+		memset(tlsChannelType, 0, size);
 
 		/*
 		 * Common elements of the structure (no changes in location or name)
@@ -106,7 +106,7 @@ Tcl_ChannelType *Tls_ChannelType(void) {
 		 * blockModeProc), blockModeProc in a different place and of
 		 * course usage of the handlerProc.
 		 */
-		tlsChannelType->version       = TCL_CHANNEL_VERSION_2;
+		tlsChannelType->version       = TCL_CHANNEL_VERSION_5;
 		tlsChannelType->blockModeProc = TlsBlockModeProc;
 		tlsChannelType->handlerProc   = TlsNotifyProc;
 	}
@@ -501,7 +501,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
  *-------------------------------------------------------------------
  */
 
-static int TlsOutputProc(ClientData instanceData, CONST char *buf, int toWrite, int *errorCodePtr) {
+static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, int *errorCodePtr) {
 	unsigned long backingError;
 	State *statePtr = (State *) instanceData;
 	int written, err;
@@ -643,7 +643,7 @@ static int TlsOutputProc(ClientData instanceData, CONST char *buf, int toWrite, 
 static int
 TlsGetOptionProc(ClientData instanceData,	/* Socket state. */
 	Tcl_Interp *interp,		/* For errors - can be NULL. */
-	CONST84 char *optionName,	/* Name of the option to
+	const char *optionName,	/* Name of the option to
 					 * retrieve the value for, or
 					 * NULL to get all options and
 					 * their values. */

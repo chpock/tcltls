@@ -29,11 +29,6 @@
 #include <wincrypt.h> /* OpenSSL needs this on Windows */
 #endif
 
-/* Handle tcl8.3->tcl8.4 CONST changes */
-#ifndef CONST84
-#define CONST84
-#endif
-
 #ifdef NO_PATENTS
 #  define NO_IDEA
 #  define NO_RC2

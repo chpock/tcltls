@@ -31,12 +31,12 @@
  * Forward declarations
  */
 
-static int BioWrite _ANSI_ARGS_((BIO *h, CONST char *buf, int num));
-static int BioRead  _ANSI_ARGS_((BIO *h, char *buf, int num));
-static int BioPuts  _ANSI_ARGS_((BIO *h, CONST char *str));
-static long BioCtrl _ANSI_ARGS_((BIO *h, int cmd, long arg1, void *ptr));
-static int BioNew   _ANSI_ARGS_((BIO *h));
-static int BioFree  _ANSI_ARGS_((BIO *h));
+static int BioWrite (BIO *h, const char *buf, int num);
+static int BioRead  (BIO *h, char *buf, int num);
+static int BioPuts  (BIO *h, const char *str);
+static long BioCtrl (BIO *h, int cmd, long arg1, void *ptr);
+static int BioNew   (BIO *h);
+static int BioFree  (BIO *h);
 
 BIO *BIO_new_tcl(State *statePtr, int flags) {
 	BIO *bio;
@@ -110,7 +110,7 @@ BIO *BIO_new_tcl(State *statePtr, int flags) {
 	return(bio);
 }
 
-static int BioWrite(BIO *bio, CONST char *buf, int bufLen) {
+static int BioWrite(BIO *bio, const char *buf, int bufLen) {
 	Tcl_Channel chan;
 	int ret;
 	int tclEofChan, tclErrno;
@@ -214,7 +214,7 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
 	return(ret);
 }
 
-static int BioPuts(BIO *bio, CONST char *str) {
+static int BioPuts(BIO *bio, const char *str) {
 	dprintf("BioPuts(%p, <string:%p>) called", bio, str);
 
 	return BioWrite(bio, str, (int) strlen(str));

@@ -1,5 +1,5 @@
 dnl Define ourselves
-AC_INIT(tcltls, 1.8.0)
+AC_INIT([tcltls],[1.8.0])
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -253,4 +253,5 @@ if test "$tcltls_debug" = 'true'; then
 fi
 
 dnl Produce output
-AC_OUTPUT(Makefile pkgIndex.tcl tcltls.syms)
+AC_CONFIG_FILES([Makefile pkgIndex.tcl tcltls.syms])
+AC_OUTPUT
