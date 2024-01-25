@@ -2,7 +2,7 @@
 # OpenSSL instalation folder following.
 
 PROJECT=tls
-DOTVERSION = 1.7.22
+DOTVERSION = 1.8.0
 
 PRJ_INCLUDES	= -I"$(SSL_INSTALL_FOLDER)\include"
 PRJ_DEFINES =  -D NO_SSL2 -D NO_SSL3 -D _CRT_SECURE_NO_WARNINGS

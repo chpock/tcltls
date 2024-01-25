@@ -4,7 +4,7 @@
 Properties:
 - 32 bit DLL
 - VisualStudio 2015
-Note: Vuisual C++ 6 does not build OpenSSL (long long syntax error)
+Note: Visual C++ 6 does not build OpenSSL (long long syntax error)
 - Cygwin32 (temporary helper, please help to replace by tclsh)
 - OpenSSL statically linked to TCLTLS DLL.
 Note: Dynamic linking also works but results in a DLL dependeny on OPENSSL DLL's
@@ -35,11 +35,11 @@ namke install
 2) Build TCLTLS
 
 Unzip distribution in:
-c:\test\tcltls\tcltls-1.7.22
+c:\test\tcltls\tcltls-1.8.0
 
 -> start cygwin bash prompt
 
-cd /cygdrive/c/test/tcltls/tcltls-1.7.22
+cd /cygdrive/c/test/tcltls/tcltls-1.8.0
 ./gen_dh_params > dh_params.h
 
 od -A n -v -t xC < 'tls.tcl' > tls.tcl.h.new.1
@@ -48,7 +48,7 @@ rm -f tls.tcl.h.new.1
 
 -> Visual Studio x86 native prompt.
 
-cd C:\test\tcltls\tcltls-1.7.22\win
+cd C:\test\tcltls\tcltls-1.8.0\win
 
 nmake -f makefile.vc TCLDIR=c:\test\tcl8610 SSL_INSTALL_FOLDER=C:\test\tcltls\openssl
 
@@ -58,7 +58,7 @@ nmake -f makefile.vc install TCLDIR=c:\test\tcl8610 INSTALLDIR=c:\test\tcltls SS
 
 Start tclsh or wish
 
-lappend auto_path {C:\test\tcltls\tls1.7.22}
+lappend auto_path {C:\test\tcltls\tls1.8.0}
 package require tls
 
-A small "1.7.22" showing up is hopefully the end of this long way...
+A small "1.8.0" showing up is hopefully the end of this long way...
