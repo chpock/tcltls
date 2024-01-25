@@ -25,6 +25,10 @@
 #include "tclOpts.h"
 #include <stdlib.h>
 
+#if TCL_MAJOR_VERSION < 9
+    typedef int Tcl_Size;
+#endif
+
 /*
  * External functions
  */
@@ -273,7 +277,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx)
 {
     Tcl_Obj *cmdPtr, *result;
     char *errStr, *string;
-    int length;
+    Tcl_Size length;
     SSL   *ssl		= (SSL*)X509_STORE_CTX_get_ex_data(ctx, SSL_get_ex_data_X509_STORE_CTX_idx());
     X509  *cert		= X509_STORE_CTX_get_current_cert(ctx);
     State *statePtr	= (State*)SSL_get_app_data(ssl);
@@ -369,7 +373,7 @@ Tls_Error(State *statePtr, char *msg)
     if (msg && *msg) {
 	Tcl_SetErrorCode(statePtr->interp, "SSL", msg, (char *)NULL);
     } else {
-	msg = Tcl_GetStringFromObj(Tcl_GetObjResult(statePtr->interp), NULL);
+	msg = Tcl_GetStringFromObj(Tcl_GetObjResult(statePtr->interp), (Tcl_Size *)NULL);
     }
     statePtr->err = msg;
 
@@ -651,7 +655,7 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 		return(TCL_ERROR);
 	}
 
-	chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], NULL), NULL);
+	chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], (Tcl_Size *)NULL), NULL);
 	if (chan == (Tcl_Channel) NULL) {
 		return(TCL_ERROR);
 	}
@@ -782,7 +786,7 @@ ImportObjCmd(clientData, interp, objc, objv)
 	return TCL_ERROR;
     }
 
-    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], NULL), NULL);
+    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], (Tcl_Size *) NULL), NULL);
     if (chan == (Tcl_Channel) NULL) {
 	return TCL_ERROR;
     }
@@ -793,7 +797,7 @@ ImportObjCmd(clientData, interp, objc, objv)
     chan = Tcl_GetTopChannel(chan);
 
     for (idx = 2; idx < objc; idx++) {
-	char *opt = Tcl_GetStringFromObj(objv[idx], NULL);
+	char *opt = Tcl_GetStringFromObj(objv[idx], (Tcl_Size *)NULL);
 
 	if (opt[0] != '-')
 	    break;
@@ -1416,12 +1420,12 @@ StatusObjCmd(clientData, interp, objc, objv)
 
     switch (objc) {
 	case 2:
-	    channelName = Tcl_GetStringFromObj(objv[1], NULL);
+	    channelName = Tcl_GetStringFromObj(objv[1], (Tcl_Size *) NULL);
 	    break;
 
 	case 3:
 	    if (!strcmp (Tcl_GetString (objv[1]), "-local")) {
-		channelName = Tcl_GetStringFromObj(objv[2], NULL);
+		channelName = Tcl_GetStringFromObj(objv[2], (Tcl_Size *)NULL);
 		break;
 	    }
 	    /* else fall... */
@@ -1776,7 +1780,7 @@ void Tls_Clean(State *statePtr) {
  *-------------------------------------------------------------------
  */
 
-DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
+int DLLEXPORT Tls_Init(Tcl_Interp *interp) {
 	const char tlsTclInitScript[] = {
 #include "tls.tcl.h"
             0x00
@@ -1791,7 +1795,7 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
 #ifdef USE_TCL_STUBS
 	    Tcl_InitStubs(interp, "8.4", 0)
 #else
-	    Tcl_PkgRequire(interp, "Tcl", "8.4", 0)
+	    Tcl_PkgRequire(interp, "Tcl", "8.4-", 0)
 #endif
 	     == NULL) {
 		return TCL_ERROR;
@@ -1836,7 +1840,7 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
  *------------------------------------------------------*
  */
 
-DLLEXPORT int Tls_SafeInit(Tcl_Interp *interp) {
+int DLLEXPORT Tls_SafeInit(Tcl_Interp *interp) {
 	dprintf("Called");
 	return(Tls_Init(interp));
 }

@@ -23,7 +23,7 @@
 /*
  * Initialization routines -- our entire public C API.
  */
-DLLEXPORT int Tls_Init(Tcl_Interp *interp);
-DLLEXPORT int Tls_SafeInit(Tcl_Interp *interp);
+int DLLEXPORT Tls_Init(Tcl_Interp *interp);
+int DLLEXPORT Tls_SafeInit(Tcl_Interp *interp);
 
 #endif /* _TLS_H */

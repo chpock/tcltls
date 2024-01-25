@@ -26,7 +26,7 @@
 
 #define OPTSTR(option, var)			\
     OPT_PROLOG(option)				\
-    var = Tcl_GetStringFromObj(objv[idx], NULL);\
+    var = Tcl_GetStringFromObj(objv[idx], (Tcl_Size *)NULL);\
     OPT_POSTLOG()
 
 #define OPTINT(option, var)			\

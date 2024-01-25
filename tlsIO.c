@@ -19,11 +19,16 @@
 
 #include "tlsInt.h"
 
+
 /*
  * Forward declarations
  */
 static int  TlsBlockModeProc (ClientData instanceData, int mode);
+#if TCL_MAJOR_VERSION < 9
 static int  TlsCloseProc (ClientData instanceData, Tcl_Interp *interp);
+#else
+static int  TlsClose2Proc (ClientData instanceData, Tcl_Interp *interp, int flags);
+#endif
 static int  TlsInputProc (ClientData instanceData, char *buf, int bufSize, int *errorCodePtr);
 static int  TlsOutputProc (ClientData instanceData, const char *buf, int toWrite, int *errorCodePtr);
 static int  TlsGetOptionProc (ClientData instanceData, Tcl_Interp *interp, const char *optionName, Tcl_DString *dsPtr);
@@ -80,7 +85,7 @@ Tcl_ChannelType *Tls_ChannelType(void) {
 		size = sizeof(Tcl_ChannelType); /* Base size */
 
 		tlsChannelType = (Tcl_ChannelType *) ckalloc(size);
-		memset(tlsChannelType, 0, size);
+		memset((void *) tlsChannelType, 0, size);
 
 		/*
 		 * Common elements of the structure (no changes in location or name)
@@ -88,7 +93,11 @@ Tcl_ChannelType *Tls_ChannelType(void) {
 		 */
 
 		tlsChannelType->typeName	= "tls";
+#if TCL_MAJOR_VERSION < 9
 		tlsChannelType->closeProc	= TlsCloseProc;
+#else
+		tlsChannelType->close2Proc	= TlsClose2Proc;
+#endif
 		tlsChannelType->inputProc	= TlsInputProc;
 		tlsChannelType->outputProc	= TlsOutputProc;
 		tlsChannelType->getOptionProc	= TlsGetOptionProc;
@@ -161,6 +170,23 @@ static int TlsBlockModeProc(ClientData instanceData, int mode) {
  *-------------------------------------------------------------------
  */
 static int TlsCloseProc(ClientData instanceData, Tcl_Interp *interp) {
+    State *statePtr = (State *) instanceData;
+
+    dprintf("TlsCloseProc(%p)", (void *) statePtr);
+
+    Tls_Clean(statePtr);
+    Tcl_EventuallyFree((ClientData)statePtr, Tls_Free);
+
+    dprintf("Returning TCL_OK");
+
+    return(TCL_OK);
+
+    /* Interp is unused. */
+    interp = interp;
+}
+
+static int TlsClose2Proc(ClientData instanceData, Tcl_Interp *interp, int flags) {
+    if ((flags & (TCL_CLOSE_READ|TCL_CLOSE_WRITE)) == 0) {
 	State *statePtr = (State *) instanceData;
 
 	dprintf("TlsCloseProc(%p)", (void *) statePtr);
@@ -171,9 +197,10 @@ static int TlsCloseProc(ClientData instanceData, Tcl_Interp *interp) {
 	dprintf("Returning TCL_OK");
 
 	return(TCL_OK);
+    }
 
-	/* Interp is unused. */
-	interp = interp;
+    /* Interp is unused. */
+    interp = interp;
 }
 
 /*
@@ -643,7 +670,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 static int
 TlsGetOptionProc(ClientData instanceData,	/* Socket state. */
 	Tcl_Interp *interp,		/* For errors - can be NULL. */
-	const char *optionName,	/* Name of the option to
+	const char *optionName,		/* Name of the option to
 					 * retrieve the value for, or
 					 * NULL to get all options and
 					 * their values. */
@@ -824,13 +851,12 @@ static int TlsNotifyProc(ClientData instanceData, int mask) {
 
 	dprintf("Calling Tls_WaitForConnect");
 	errorCode = 0;
+
 	if (Tls_WaitForConnect(statePtr, &errorCode, 1) < 0) {
 		if (errorCode == EAGAIN) {
 			dprintf("Async flag could be set (didn't check) and errorCode == EAGAIN:  Returning 0");
-
 			return 0;
 		}
-
 		dprintf("Tls_WaitForConnect returned an error");
 	}
 
