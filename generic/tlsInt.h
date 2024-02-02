@@ -104,6 +104,7 @@
 #endif
 
 #define TCLTLS_SSL_ERROR(ssl,err) ((char*)ERR_reason_error_string((unsigned long)SSL_get_error((ssl),(err))))
+#define GET_ERR_REASON()	ERR_reason_error_string(ERR_get_error())
 
 /* Common list append macros */
 #define LAPPEND_BARRAY(interp, obj, text, value, size) {\

@@ -183,12 +183,10 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 
 	    if (statePtr->flags & TLS_TCL_ASYNC) {
 		dprintf("Returning EAGAIN so that it can be retried later");
-
 		*errorCodePtr = EAGAIN;
 		return(-1);
 	    } else {
 		dprintf("Doing so now");
-
 		continue;
 	    }
 	}
@@ -203,10 +201,12 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    dprintf("The connection is up");
 	    *errorCodePtr = 0;
 	    break;
+
 	case SSL_ERROR_ZERO_RETURN:
 	    dprintf("SSL_ERROR_ZERO_RETURN: Connect returned an invalid value...");
 	    *errorCodePtr = EINVAL;
 	    return(-1);
+
 	case SSL_ERROR_SYSCALL:
 	    backingError = ERR_get_error();
 
