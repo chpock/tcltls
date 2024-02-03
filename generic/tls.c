@@ -378,6 +378,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
     dprintf("VerifyCallback: %d", ok);
 
     if (statePtr->vcmd == (Tcl_Obj*)NULL) {
+	/* Use ok value if verification is required */
 	if (statePtr->vflags & SSL_VERIFY_FAIL_IF_NO_PEER_CERT) {
 	    return ok;
 	} else {
@@ -386,6 +387,8 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
     } else if (cert == NULL || ssl == NULL) {
 	return 0;
     }
+
+    dprintf("VerifyCallback: eval callback");
 
     /* Create command to eval */
     cmdPtr = Tcl_DuplicateObj(statePtr->vcmd);
@@ -405,6 +408,8 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
     Tcl_IncrRefCount(cmdPtr);
     ok = EvalCallback(interp, statePtr, cmdPtr);
     Tcl_DecrRefCount(cmdPtr);
+
+    dprintf("VerifyCallback: command result = %d", ok);
 
     /* statePtr->flags &= ~(TLS_TCL_CALLBACK); */
     return(ok);	/* By default, leave verification unchanged. */
@@ -1194,7 +1199,6 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 	dprintf("Async set and err = EAGAIN");
 	ret = 0;
     } else if (ret < 0) {
-	long result;
 	errStr = statePtr->err;
 	Tcl_ResetResult(interp);
 	Tcl_SetErrno(err);
@@ -1204,9 +1208,6 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 	}
 
 	Tcl_AppendResult(interp, "handshake failed: ", errStr, (char *) NULL);
-	if ((result = SSL_get_verify_result(statePtr->ssl)) != X509_V_OK) {
-	    Tcl_AppendResult(interp, " due to: ", X509_verify_cert_error_string(result), (char *) NULL);
-	}
 	Tcl_SetErrorCode(interp, "TLS", "HANDSHAKE", "FAILED", (char *) NULL);
 	dprintf("Returning TCL_ERROR with handshake failed: %s", errStr);
 	return(TCL_ERROR);
