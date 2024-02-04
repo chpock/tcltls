@@ -258,14 +258,16 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    *errorCodePtr = ECONNABORTED;
 	    return(-1);
 
+	case SSL_ERROR_WANT_READ:
+	case SSL_ERROR_WANT_WRITE:
+	case SSL_ERROR_WANT_X509_LOOKUP:
 	case SSL_ERROR_WANT_CONNECT:
 	case SSL_ERROR_WANT_ACCEPT:
-	case SSL_ERROR_WANT_X509_LOOKUP:
 	case SSL_ERROR_WANT_ASYNC:
 	case SSL_ERROR_WANT_ASYNC_JOB:
 	case SSL_ERROR_WANT_CLIENT_HELLO_CB:
 	default:
-	    /* The operation did not complete and can be retried later. */
+	    /* The operation did not complete and should be retried later. */
 	    dprintf("Operation did not complete, call function again later: %i", rc);
 	    *errorCodePtr = EAGAIN;
 	    dprintf("ERR(%d, %d) ", rc, *errorCodePtr);
@@ -371,6 +373,16 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    }
 	    *errorCodePtr = ECONNABORTED;
 	    bytesRead = -1;
+
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	    /* Unexpected EOF from the peer for OpenSSL 3.0+ */
+	    if (ERR_GET_REASON(backingError) == SSL_R_UNEXPECTED_EOF_WHILE_READING) {
+		dprintf("(Unexpected) EOF reached")
+		*errorCodePtr = 0;
+		bytesRead = 0;
+		Tls_Error(statePtr, "EOF reached");
+	    }    
+#endif
 	    break;
 
 	case SSL_ERROR_SYSCALL:
