@@ -166,7 +166,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	backingError = ERR_get_error();
 	if (rc != SSL_ERROR_NONE) {
 	    dprintf("Got error: %i (rc = %i)", err, rc);
-	    dprintf("Got error: %s", GET_ERR_REASON());
+	    dprintf("Got error: %s", ERR_reason_error_string(backingError));
 	}
 
 	bioShouldRetry = 0;
@@ -190,6 +190,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    if (statePtr->flags & TLS_TCL_ASYNC) {
 		dprintf("Returning EAGAIN so that it can be retried later");
 		*errorCodePtr = EAGAIN;
+		Tls_Error(statePtr, "Handshake not complete, will retry later");
 		return(-1);
 	    } else {
 		dprintf("Doing so now");
@@ -230,11 +231,11 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 		if (*errorCodePtr == ECONNRESET) {
 		    *errorCodePtr = ECONNABORTED;
 		}
-		Tls_Error(statePtr, (char *) Tcl_ErrnoMsg(Tcl_GetErrno()));
+		Tls_Error(statePtr, (char *) Tcl_ErrnoMsg(*errorCodePtr));
 
 	    } else {
 		dprintf("I/O error occurred (backingError = %lu)", backingError);
-		*errorCodePtr = backingError;
+		*errorCodePtr = Tcl_GetErrno();
 		if (*errorCodePtr == ECONNRESET) {
 		    *errorCodePtr = ECONNABORTED;
 		}
@@ -247,11 +248,11 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	case SSL_ERROR_SSL:
 	    /* A non-recoverable, fatal error in the SSL library occurred, usually a protocol error */
 	    dprintf("SSL_ERROR_SSL: Got permanent fatal SSL error, aborting immediately");
-	    if (backingError != 0) {
-		Tls_Error(statePtr, (char *) ERR_reason_error_string(backingError));
-	    }
 	    if (SSL_get_verify_result(statePtr->ssl) != X509_V_OK) {
 		Tls_Error(statePtr, (char *) X509_verify_cert_error_string(SSL_get_verify_result(statePtr->ssl)));
+	    }
+	    if (backingError != 0) {
+		Tls_Error(statePtr, (char *) ERR_reason_error_string(backingError));
 	    }
 	    statePtr->flags |= TLS_TCL_HANDSHAKE_FAILED;
 	    *errorCodePtr = ECONNABORTED;
@@ -369,6 +370,8 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    dprintf("SSL error, indicating that the connection has been aborted");
 	    if (backingError != 0) {
 		Tls_Error(statePtr, (char *) ERR_reason_error_string(backingError));
+	    } else {
+		Tls_Error(statePtr, "Unknown SSL error");
 	    }
 	    *errorCodePtr = ECONNABORTED;
 	    bytesRead = -1;
@@ -398,11 +401,11 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 		dprintf("I/O error occurred (errno = %lu)", (unsigned long) Tcl_GetErrno());
 		*errorCodePtr = Tcl_GetErrno();
 		bytesRead = -1;
-		Tls_Error(statePtr, (char *) Tcl_ErrnoMsg(Tcl_GetErrno()));
+		Tls_Error(statePtr, (char *) Tcl_ErrnoMsg(*errorCodePtr));
 
 	    } else {
 		dprintf("I/O error occurred (backingError = %lu)", backingError);
-		*errorCodePtr = backingError;
+		*errorCodePtr = Tcl_GetErrno();
 		bytesRead = -1;
 		Tls_Error(statePtr, (char *) ERR_reason_error_string(backingError));
 	    }
@@ -426,12 +429,10 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    dprintf("Unknown error (err = %i), mapping to EOF", err);
 	    *errorCodePtr = 0;
 	    bytesRead = 0;
+	    Tls_Error(statePtr, "Unknown error");
 	    break;
     }
 
-    if (*errorCodePtr < 0) {
-	Tls_Error(statePtr, strerror(*errorCodePtr));
-    }
     dprintf("Input(%d) -> %d [%d]", bufSize, bytesRead, *errorCodePtr);
     return(bytesRead);
 }
@@ -493,6 +494,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 
 	if (err <= 0) {
 	    dprintf("Flushing failed");
+	    Tls_Error(statePtr, "Flush failed");
 
 	    *errorCodePtr = EIO;
 	    written = 0;
@@ -566,11 +568,11 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 		dprintf("I/O error occurred (errno = %lu)", (unsigned long) Tcl_GetErrno());
 		*errorCodePtr = Tcl_GetErrno();
 		written = -1;
-		Tls_Error(statePtr, (char *) Tcl_ErrnoMsg(Tcl_GetErrno()));
+		Tls_Error(statePtr, (char *) Tcl_ErrnoMsg(*errorCodePtr));
 
 	    } else {
 		dprintf("I/O error occurred (backingError = %lu)", backingError);
-		*errorCodePtr = backingError;
+		*errorCodePtr = Tcl_GetErrno();
 		written = -1;
 		Tls_Error(statePtr, (char *) ERR_reason_error_string(backingError));
 	    }
@@ -581,6 +583,8 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    dprintf("SSL error, indicating that the connection has been aborted");
 	    if (backingError != 0) {
 		Tls_Error(statePtr, (char *) ERR_reason_error_string(backingError));
+	    } else {
+		Tls_Error(statePtr, "Unknown SSL error");
 	    }
 	    *errorCodePtr = ECONNABORTED;
 	    written = -1;
@@ -588,12 +592,10 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 
 	default:
 	    dprintf("unknown error: %d", err);
+	    Tls_Error(statePtr, "Unknown error");
 	    break;
     }
 
-    if (*errorCodePtr < 0) {
-	Tls_Error(statePtr, strerror(*errorCodePtr));
-    }
     dprintf("Output(%d) -> %d", toWrite, written);
     return(written);
 }
