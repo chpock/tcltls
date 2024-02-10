@@ -48,7 +48,7 @@
 
 static SSL_CTX *CTX_Init(State *statePtr, int isServer, int proto, char *key,
 		char *certfile, unsigned char *key_asn1, unsigned char *cert_asn1,
-		int key_asn1_len, int cert_asn1_len, char *CAdir, char *CAfile,
+		int key_asn1_len, int cert_asn1_len, char *CApath, char *CAfile,
 		char *ciphers, char *ciphersuites, int level, char *DHparams);
 
 static int	TlsLibInit(int uninitialize);
@@ -1250,28 +1250,28 @@ static int
 ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
     Tcl_Channel chan;		/* The channel to set a mode on. */
     State *statePtr;		/* client state for ssl socket */
-    SSL_CTX *ctx	        = NULL;
-    Tcl_Obj *script	        = NULL;
-    Tcl_Obj *password	        = NULL;
-    Tcl_Obj *vcmd	        = NULL;
+    SSL_CTX *ctx		= NULL;
+    Tcl_Obj *script		= NULL;
+    Tcl_Obj *password		= NULL;
+    Tcl_Obj *vcmd		= NULL;
     Tcl_DString upperChannelTranslation, upperChannelBlocking, upperChannelEncoding, upperChannelEOFChar;
     int idx;
     Tcl_Size len;
-    int flags		        = TLS_TCL_INIT;
-    int server		        = 0;	/* is connection incoming or outgoing? */
-    char *keyfile	        = NULL;
-    char *certfile	        = NULL;
-    unsigned char *key  	= NULL;
-    Tcl_Size key_len                 = 0;
-    unsigned char *cert         = NULL;
-    Tcl_Size cert_len                = 0;
-    char *ciphers	        = NULL;
-    char *ciphersuites	        = NULL;
-    char *CAfile	        = NULL;
-    char *CAdir		        = NULL;
-    char *DHparams	        = NULL;
-    char *model		        = NULL;
-    char *servername	        = NULL;	/* hostname for Server Name Indication */
+    int flags			= TLS_TCL_INIT;
+    int server			= 0;	/* is connection incoming or outgoing? */
+    char *keyfile		= NULL;
+    char *certfile		= NULL;
+    unsigned char *key		= NULL;
+    Tcl_Size key_len		= 0;
+    unsigned char *cert		= NULL;
+    Tcl_Size cert_len		= 0;
+    char *ciphers		= NULL;
+    char *ciphersuites		= NULL;
+    char *CAfile		= NULL;
+    char *CApath		= NULL;
+    char *DHparams		= NULL;
+    char *model			= NULL;
+    char *servername		= NULL;	/* hostname for Server Name Indication */
     const unsigned char *session_id = NULL;
     Tcl_Obj *alpn		= NULL;
     int ssl2 = 0, ssl3 = 0;
@@ -1317,7 +1317,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	    break;
 
 	OPTOBJ("-alpn", alpn);
-	OPTSTR("-cadir", CAdir);
+	OPTSTR("-cadir", CApath);
 	OPTSTR("-cafile", CAfile);
 	OPTBYTE("-cert", cert, cert_len);
 	OPTSTR("-certfile", certfile);
@@ -1370,7 +1370,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     if (ciphers && !*ciphers)	        ciphers	        = NULL;
     if (ciphersuites && !*ciphersuites) ciphersuites    = NULL;
     if (CAfile && !*CAfile)	        CAfile	        = NULL;
-    if (CAdir && !*CAdir)	        CAdir	        = NULL;
+    if (CApath && !*CApath)	        CApath	        = NULL;
     if (DHparams && !*DHparams)	        DHparams        = NULL;
 
     /* new SSL state */
@@ -1432,7 +1432,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	ctx = ((State *)Tcl_GetChannelInstanceData(chan))->ctx;
     } else {
 	if ((ctx = CTX_Init(statePtr, server, proto, keyfile, certfile, key, cert, (int) key_len,
-	    (int) cert_len, CAdir, CAfile, ciphers, ciphersuites, level, DHparams)) == NULL) {
+	    (int) cert_len, CApath, CAfile, ciphers, ciphersuites, level, DHparams)) == NULL) {
 	    Tls_Free((char *) statePtr);
 	    return TCL_ERROR;
 	}
@@ -1714,13 +1714,13 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
  */
 static SSL_CTX *
 CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile,
-    unsigned char *key, unsigned char *cert, int key_len, int cert_len, char *CAdir,
+    unsigned char *key, unsigned char *cert, int key_len, int cert_len, char *CApath,
     char *CAfile, char *ciphers, char *ciphersuites, int level, char *DHparams) {
     Tcl_Interp *interp = statePtr->interp;
     SSL_CTX *ctx = NULL;
     Tcl_DString ds;
     Tcl_DString ds1;
-    int off = 0;
+    int off = 0, abort = 0;
     int load_private_key;
     const SSL_METHOD *method;
 
@@ -2011,38 +2011,56 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	}
     }
 
-    /* Set verification CAs */
+    /* Set to use default location and file for Certificate Authority (CA) certificates. The
+     * verify path and store can be overridden by the SSL_CERT_DIR env var. The verify file can
+     * be overridden by the SSL_CERT_FILE env var. */
+    if (!SSL_CTX_set_default_verify_paths(ctx)) {
+	abort++;
+    }
+
+    /* Overrides for the CA verify path and file */
     Tcl_DStringInit(&ds);
-    Tcl_DStringInit(&ds1);
-    /* There is one default directory, one default file, and one default store.
-	The default CA certificates directory (and default store) is in the OpenSSL
-	certs directory. It can be overridden by the SSL_CERT_DIR env var. The
-	default CA certificates file is called cert.pem in the default OpenSSL
-	directory. It can be overridden by the SSL_CERT_FILE env var. */
-	/* int SSL_CTX_set_default_verify_dir(SSL_CTX *ctx) and int SSL_CTX_set_default_verify_file(SSL_CTX *ctx) */
-    if (!SSL_CTX_load_verify_locations(ctx, F2N(CAfile, &ds), F2N(CAdir, &ds1)) ||
-	!SSL_CTX_set_default_verify_paths(ctx)) {
-#if 0
-	Tcl_DStringFree(&ds);
+    {
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+	Tcl_DString ds1;
+	Tcl_DStringInit(&ds1);
+
+	if (CApath != NULL || CAfile != NULL) {
+	    if (!SSL_CTX_load_verify_locations(ctx, F2N(CAfile, &ds), F2N(CApath, &ds1))) {
+		abort++;
+	    }
+
+	    /* Set list of CAs to send to client when requesting a client certificate */
+	    /* https://sourceforge.net/p/tls/bugs/57/ */
+	    /* XXX:TODO: Let the user supply values here instead of something that exists on the filesystem */
+	    STACK_OF(X509_NAME) *certNames = SSL_load_client_CA_file(F2N(CAfile, &ds));
+	    if (certNames != NULL) {
+		SSL_CTX_set_client_CA_list(ctx, certNames);
+	    }
+	}
 	Tcl_DStringFree(&ds1);
-	/* Don't currently care if this fails */
-	Tcl_AppendResult(interp, "SSL default verify paths: ", GET_ERR_REASON(), (char *) NULL);
-	SSL_CTX_free(ctx);
-	return NULL;
+
+#else
+	if (CApath != NULL) {
+	    if (!SSL_CTX_load_verify_dir(ctx, F2N(CApath, &ds))) {
+		abort++;
+	    }
+	}
+	if (CAfile != NULL) {
+	    if (!SSL_CTX_load_verify_file(ctx, F2N(CAfile, &ds))) {
+		abort++;
+	    }
+
+	    /* Set list of CAs to send to client when requesting a client certificate */
+	    STACK_OF(X509_NAME) *certNames = SSL_load_client_CA_file(F2N(CAfile, &ds));
+	    if (certNames != NULL) {
+		SSL_CTX_set_client_CA_list(ctx, certNames);
+	    }
+	}
 #endif
     }
-
-    /* https://sourceforge.net/p/tls/bugs/57/ */
-    /* XXX:TODO: Let the user supply values here instead of something that exists on the filesystem */
-    if (CAfile != NULL) {
-	STACK_OF(X509_NAME) *certNames = SSL_load_client_CA_file(F2N(CAfile, &ds));
-	if (certNames != NULL) {
-	    SSL_CTX_set_client_CA_list(ctx, certNames);
-	}
-    }
-
     Tcl_DStringFree(&ds);
-    Tcl_DStringFree(&ds1);
+
     return ctx;
 }
 
