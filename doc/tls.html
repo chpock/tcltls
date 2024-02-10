@@ -693,12 +693,15 @@ The use of the variable <strong>tls::debug</strong> is not recommended.
 It may be removed from future releases.
 </em>
 </p>
+
+<h4><a name="DEBUG_EXAMPLES">Debug Examples</a></h4>
+
+<p>These examples use the default Unix platform SSL certificates. For standard
+installations, -cadir and -cafile should not be needed. If your certificates
+are in non-standard locations, update -cadir or use -cafile as needed.</p>
 <br>
 Example #1: Use HTTP package
 
-<p>This example uses the default Unix platform SSL certificates. For standard
-installations, -cadir and -cafile should not be needed. Update -cadir or
-replace with -cafile if your platform differs.</p>
 
 <pre><code>
 package require http
@@ -752,9 +755,11 @@ parray chan
 
 <h3><a name="HTTPS EXAMPLE">HTTPS EXAMPLE</a></h3>
 
-<p>This example uses the default Unix platform SSL certificates. For standard
-installations, -cadir and -cafile should not be needed. Update -cadir or
-replace with -cafile if your platform differs.</p>
+<p>These examples use the default Unix platform SSL certificates. For standard
+installations, -cadir and -cafile should not be needed. If your certificates
+are in non-standard locations, update -cadir or use -cafile as needed.</p>
+
+Example #1: Get web page
 
 <pre><code>
 package require http
@@ -771,9 +776,29 @@ if {[http::status $token] ne "ok"} {
 
 # Get web page
 set data [http::data $token]
-puts [string length $data]
+puts $data
 
 # Cleanup
+::http::cleanup $token
+</code></pre>
+
+Example #2: Download file
+
+<pre><code>
+package require http
+package require tls
+
+set url "https://wiki.tcl-lang.org/sitemap.xml"
+set filename [file tail $url]
+
+http::register https 443 [list ::tls::socket -autoservername true -require true -cadir /etc/ssl/certs]
+
+# Get file
+set ch [open $filename wb]
+set token [::http::geturl $url -blocksize 65536 -channel $ch]
+
+# Cleanup
+close $ch
 ::http::cleanup $token
 </code></pre>
 
@@ -787,14 +812,15 @@ protocol versions.</p>
 
 <h3><a name="SEE ALSO">SEE ALSO</a></h3>
 
-<p><strong>socket</strong>, <strong>fileevent, </strong><a
-href="http://www.openssl.org/"><strong>OpenSSL</strong></a></p>
+<p><strong>socket</strong>, <strong>fileevent</strong>, <strong>http</strong>,
+<a href="http://www.openssl.org/"><strong>OpenSSL</strong></a></p>
 
 <hr>
 
 <pre>
 Copyright &copy; 1999 Matt Newman.
 Copyright &copy; 2004 Starfish Systems.
+Copyright &copy; 2023 Brian O'Hagan.
 </pre>
 </body>
 </html>
