@@ -188,7 +188,7 @@ InfoCallback(const SSL *ssl, int where, int ret) {
 	else					minor = "unknown";
     }
 
-    /* Create command to eval */
+    /* Create command to eval with fn, chan, major, minor, message, and type args */
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("info", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
@@ -314,7 +314,7 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
 	BIO_free(bio);
    }
 
-    /* Create command to eval */
+    /* Create command to eval with fn, chan, direction, version, type, and message args */
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("message", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
@@ -392,7 +392,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
 
     dprintf("VerifyCallback: eval callback");
 
-    /* Create command to eval */
+    /* Create command to eval with fn, chan, depth, cert info list, status, and error args */
     cmdPtr = Tcl_DuplicateObj(statePtr->vcmd);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("verify", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
@@ -442,7 +442,7 @@ Tls_Error(State *statePtr, char *msg) {
     if (statePtr->callback == (Tcl_Obj*)NULL)
 	return;
 
-    /* Create command to eval */
+    /* Create command to eval with fn, chan, and message args */
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("error", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
@@ -532,7 +532,7 @@ PasswordCallback(char *buf, int size, int rwflag, void *udata) {
 	}
     }
 
-    /* Create command to eval */
+    /* Create command to eval with fn, rwflag, and size args */
     cmdPtr = Tcl_DuplicateObj(statePtr->password);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("password", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(rwflag));
@@ -611,7 +611,7 @@ SessionCallback(SSL *ssl, SSL_SESSION *session) {
 	return SSL_TLSEXT_ERR_NOACK;
     }
 
-    /* Create command to eval */
+    /* Create command to eval with fn, chan, session id, session ticket, and lifetime args */
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("session", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
@@ -688,7 +688,7 @@ ALPNCallback(SSL *ssl, const unsigned char **out, unsigned char *outlen,
 	return res;
     }
 
-    /* Create command to eval */
+    /* Create command to eval with fn, chan, depth, cert info list, status, and error args */
     cmdPtr = Tcl_DuplicateObj(statePtr->vcmd);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("alpn", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
@@ -801,7 +801,7 @@ SNICallback(const SSL *ssl, int *alert, void *arg) {
 	return SSL_TLSEXT_ERR_OK;
     }
 
-    /* Create command to eval */
+    /* Create command to eval with fn, chan, and server name args */
     cmdPtr = Tcl_DuplicateObj(statePtr->vcmd);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("sni", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
@@ -903,7 +903,7 @@ HelloCallback(SSL *ssl, int *alert, void *arg) {
     remaining = len;
     servername = (const char *)p;
 
-    /* Create command to eval */
+    /* Create command to eval with fn, chan, and server name args */
     cmdPtr = Tcl_DuplicateObj(statePtr->vcmd);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("hello", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr,
