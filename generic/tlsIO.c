@@ -370,6 +370,8 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    dprintf("SSL error, indicating that the connection has been aborted");
 	    if (backingError != 0) {
 		Tls_Error(statePtr, (char *) ERR_reason_error_string(backingError));
+	    } else if (SSL_get_verify_result(statePtr->ssl) != X509_V_OK) {
+		Tls_Error(statePtr, (char *) X509_verify_cert_error_string(SSL_get_verify_result(statePtr->ssl)));
 	    } else {
 		Tls_Error(statePtr, "Unknown SSL error");
 	    }
@@ -583,6 +585,8 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    dprintf("SSL error, indicating that the connection has been aborted");
 	    if (backingError != 0) {
 		Tls_Error(statePtr, (char *) ERR_reason_error_string(backingError));
+	    } else if (SSL_get_verify_result(statePtr->ssl) != X509_V_OK) {
+		Tls_Error(statePtr, (char *) X509_verify_cert_error_string(SSL_get_verify_result(statePtr->ssl)));
 	    } else {
 		Tls_Error(statePtr, "Unknown SSL error");
 	    }

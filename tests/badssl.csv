@@ -11,15 +11,19 @@ command,# BadSSL.com Tests,,,,,,,,,
 BadSSL,1000-sans,,,badssl 1000-sans.badssl.com,,,"handshake failed: certificate verify failed due to ""certificate has expired""",,,1
 BadSSL,10000-sans,,,badssl 10000-sans.badssl.com,,,handshake failed: excessive message size,,,1
 BadSSL,3des,,,badssl 3des.badssl.com,,,handshake failed: sslv3 alert handshake failure,,,1
-BadSSL,captive-portal,,,badssl captive-portal.badssl.com,,,"handshake failed: certificate verify failed due to ""Hostname mismatch""",,,1
+BadSSL,captive-portal,old_api,,badssl captive-portal.badssl.com,,,"handshake failed: certificate verify failed due to ""Hostname mismatch""",,,1
+BadSSL,captive-portal,new_api,,badssl captive-portal.badssl.com,,,"handshake failed: certificate verify failed due to ""hostname mismatch""",,,1
 BadSSL,cbc,,,badssl cbc.badssl.com,,,,,,
 BadSSL,client-cert-missing,,,badssl client-cert-missing.badssl.com,,,,,,
 BadSSL,client,,,badssl client.badssl.com,,,,,,
-BadSSL,dh-composite,,,badssl dh-composite.badssl.com,,,,,,
+BadSSL,dh-composite,old_api,,badssl dh-composite.badssl.com,,,,,,
+BadSSL,dh-composite,new_api,,badssl dh-composite.badssl.com,,,handshake failed: dh key too small,,,1
 BadSSL,dh-small-subgroup,,,badssl dh-small-subgroup.badssl.com,,,,,,
-BadSSL,dh480,,,badssl dh480.badssl.com,,,handshake failed: dh key too small,,,1
+BadSSL,dh480,old_api,,badssl dh480.badssl.com,,,handshake failed: dh key too small,,,1
+BadSSL,dh480,new_api,,badssl dh480.badssl.com,,,handshake failed: modulus too small,,,1
 BadSSL,dh512,,,badssl dh512.badssl.com,,,handshake failed: dh key too small,,,1
-BadSSL,dh1024,,,badssl dh1024.badssl.com,,,,,,
+BadSSL,dh1024,old_api,,badssl dh1024.badssl.com,,,,,,
+BadSSL,dh1024,new_api,,badssl dh1024.badssl.com,,,handshake failed: dh key too small,,,1
 BadSSL,dh2048,,,badssl dh2048.badssl.com,,,,,,
 BadSSL,dsdtestprovider,,,badssl dsdtestprovider.badssl.com,,,"handshake failed: certificate verify failed due to ""unable to get local issuer certificate""",,,1
 BadSSL,ecc256,,,badssl ecc256.badssl.com,,,,,,
@@ -47,21 +51,28 @@ BadSSL,revoked,,,badssl revoked.badssl.com,,,"handshake failed: certificate veri
 BadSSL,rsa2048,,,badssl rsa2048.badssl.com,,,,,,
 BadSSL,rsa4096,,,badssl rsa4096.badssl.com,,,,,,
 BadSSL,rsa8192,,,badssl rsa8192.badssl.com,,,,,,
-BadSSL,self-signed,,,badssl self-signed.badssl.com,,,"handshake failed: certificate verify failed due to ""self signed certificate""",,,1
+BadSSL,self-signed,old_api,,badssl self-signed.badssl.com,,,"handshake failed: certificate verify failed due to ""self signed certificate""",,,1
+BadSSL,self-signed,new_api,,badssl self-signed.badssl.com,,,"handshake failed: certificate verify failed due to ""self-signed certificate""",,,1
 BadSSL,sha1-2016,,,badssl sha1-2016.badssl.com,,,"handshake failed: certificate verify failed due to ""unable to get local issuer certificate""",,,1
-BadSSL,sha1-2017,,,badssl sha1-2017.badssl.com,,,"handshake failed: certificate verify failed due to ""certificate has expired""",,,1
+BadSSL,sha1-2017,old_api,,badssl sha1-2017.badssl.com,,,"handshake failed: certificate verify failed due to ""certificate has expired""",,,1
+BadSSL,sha1-2017,new_api,,badssl sha1-2017.badssl.com,,,"handshake failed: certificate verify failed due to ""CA signature digest algorithm too weak""",,,1
 BadSSL,sha1-intermediate,,,badssl sha1-intermediate.badssl.com,,,"handshake failed: certificate verify failed due to ""unable to get local issuer certificate""",,,1
 BadSSL,sha256,,,badssl sha256.badssl.com,,,,,,
 BadSSL,sha384,,,badssl sha384.badssl.com,,,"handshake failed: certificate verify failed due to ""certificate has expired""",,,1
 BadSSL,sha512,,,badssl sha512.badssl.com,,,"handshake failed: certificate verify failed due to ""certificate has expired""",,,1
 BadSSL,static-rsa,,,badssl static-rsa.badssl.com,,,,,,
-BadSSL,subdomain.preloaded-hsts,,,badssl subdomain.preloaded-hsts.badssl.com,,,"handshake failed: certificate verify failed due to ""Hostname mismatch""",,,1
+BadSSL,subdomain.preloaded-hsts,old_api,,badssl subdomain.preloaded-hsts.badssl.com,,,"handshake failed: certificate verify failed due to ""Hostname mismatch""",,,1
+BadSSL,subdomain.preloaded-hsts,new_api,,badssl subdomain.preloaded-hsts.badssl.com,,,"handshake failed: certificate verify failed due to ""hostname mismatch""",,,1
 BadSSL,superfish,,,badssl superfish.badssl.com,,,"handshake failed: certificate verify failed due to ""unable to get local issuer certificate""",,,1
-BadSSL,tls-v1-0:1010,tls1,,badssl tls-v1-0.badssl.com:1010,,,,,,
-BadSSL,tls-v1-1:1011,tls1.1,,badssl tls-v1-1.badssl.com:1011,,,,,,
+BadSSL,tls-v1-0:1010,tls1 old_api,,badssl tls-v1-0.badssl.com:1010,,,,,,
+BadSSL,tls-v1-0:1010,tls1 new_api,,badssl tls-v1-0.badssl.com:1010,,,handshake failed: unsupported protocol,,,1
+BadSSL,tls-v1-1:1011,tls1.1 old_api,,badssl tls-v1-1.badssl.com:1011,,,,,,
+BadSSL,tls-v1-1:1011,tls1.1 new_api,,badssl tls-v1-1.badssl.com:1011,,,handshake failed: unsupported protocol,,,1
 BadSSL,tls-v1-2:1012,tls1.2,,badssl tls-v1-2.badssl.com:1012,,,,,,
-BadSSL,untrusted-root,,,badssl untrusted-root.badssl.com,,,"handshake failed: certificate verify failed due to ""self signed certificate in certificate chain""",,,1
+BadSSL,untrusted-root,old_api,,badssl untrusted-root.badssl.com,,,"handshake failed: certificate verify failed due to ""self signed certificate in certificate chain""",,,1
+BadSSL,untrusted-root,new_api,,badssl untrusted-root.badssl.com,,,"handshake failed: certificate verify failed due to ""self-signed certificate in certificate chain""",,,1
 BadSSL,upgrade,,,badssl upgrade.badssl.com,,,,,,
 BadSSL,webpack-dev-server,,,badssl webpack-dev-server.badssl.com,,,"handshake failed: certificate verify failed due to ""unable to get local issuer certificate""",,,1
-BadSSL,wrong.host,,,badssl wrong.host.badssl.com,,,"handshake failed: certificate verify failed due to ""Hostname mismatch""",,,1
+BadSSL,wrong.host,old_api,,badssl wrong.host.badssl.com,,,"handshake failed: certificate verify failed due to ""Hostname mismatch""",,,1
+BadSSL,wrong.host,new_api,,badssl wrong.host.badssl.com,,,"handshake failed: certificate verify failed due to ""hostname mismatch""",,,1
 BadSSL,mozilla-modern,,,badssl mozilla-modern.badssl.com,,,,,,
