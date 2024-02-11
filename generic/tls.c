@@ -1472,6 +1472,10 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     Tcl_SetChannelOption(interp, statePtr->self, "-encoding", Tcl_DStringValue(&upperChannelEncoding));
     Tcl_SetChannelOption(interp, statePtr->self, "-eofchar", Tcl_DStringValue(&upperChannelEOFChar));
     Tcl_SetChannelOption(interp, statePtr->self, "-blocking", Tcl_DStringValue(&upperChannelBlocking));
+    Tcl_DStringFree(&upperChannelTranslation);
+    Tcl_DStringFree(&upperChannelEncoding);
+    Tcl_DStringFree(&upperChannelEOFChar);
+    Tcl_DStringFree(&upperChannelBlocking);
 
     /*
      * SSL Initialization
@@ -1900,7 +1904,6 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	DH* dh;
 	if (DHparams != NULL) {
 	    BIO *bio;
-	    Tcl_DStringInit(&ds);
 	    bio = BIO_new_file(F2N(DHparams, &ds), "r");
 	    if (!bio) {
 		Tcl_DStringFree(&ds);
@@ -1936,8 +1939,6 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     if (certfile != NULL) {
 	load_private_key = 1;
 
-	Tcl_DStringInit(&ds);
-
 	if (SSL_CTX_use_certificate_file(ctx, F2N(certfile, &ds), SSL_FILETYPE_PEM) <= 0) {
 	    Tcl_DStringFree(&ds);
 	    Tcl_AppendResult(interp, "unable to set certificate file ", certfile, ": ",
@@ -1945,10 +1946,11 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    SSL_CTX_free(ctx);
 	    return NULL;
 	}
+	Tcl_DStringFree(&ds);
+
     } else if (cert != NULL) {
 	load_private_key = 1;
 	if (SSL_CTX_use_certificate_ASN1(ctx, cert_len, cert) <= 0) {
-	    Tcl_DStringFree(&ds);
 	    Tcl_AppendResult(interp, "unable to set certificate: ",
 		GET_ERR_REASON(), (char *) NULL);
 	    SSL_CTX_free(ctx);
@@ -1959,7 +1961,6 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 
 	if (SSL_CTX_use_certificate_file(ctx, certfile, SSL_FILETYPE_PEM) <= 0) {
 #if 0
-	    Tcl_DStringFree(&ds);
 	    Tcl_AppendResult(interp, "unable to use default certificate file ", certfile, ": ",
 		GET_ERR_REASON(), (char *) NULL);
 	    SSL_CTX_free(ctx);
@@ -1993,7 +1994,6 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 
 	} else if (key != NULL) {
 	    if (SSL_CTX_use_PrivateKey_ASN1(EVP_PKEY_RSA, ctx, key,key_len) <= 0) {
-		Tcl_DStringFree(&ds);
 		/* flush the passphrase which might be left in the result */
 		Tcl_SetResult(interp, NULL, TCL_STATIC);
 		Tcl_AppendResult(interp, "unable to set public key: ", GET_ERR_REASON(), (char *) NULL);
@@ -2019,16 +2019,15 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     }
 
     /* Overrides for the CA verify path and file */
-    Tcl_DStringInit(&ds);
     {
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
-	Tcl_DString ds1;
-	Tcl_DStringInit(&ds1);
-
 	if (CApath != NULL || CAfile != NULL) {
+	    Tcl_DString ds1;
 	    if (!SSL_CTX_load_verify_locations(ctx, F2N(CAfile, &ds), F2N(CApath, &ds1))) {
 		abort++;
 	    }
+	    Tcl_DStringFree(&ds);
+	    Tcl_DStringFree(&ds1);
 
 	    /* Set list of CAs to send to client when requesting a client certificate */
 	    /* https://sourceforge.net/p/tls/bugs/57/ */
@@ -2037,29 +2036,31 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    if (certNames != NULL) {
 		SSL_CTX_set_client_CA_list(ctx, certNames);
 	    }
+	    Tcl_DStringFree(&ds);
 	}
-	Tcl_DStringFree(&ds1);
 
 #else
 	if (CApath != NULL) {
 	    if (!SSL_CTX_load_verify_dir(ctx, F2N(CApath, &ds))) {
 		abort++;
 	    }
+	    Tcl_DStringFree(&ds);
 	}
 	if (CAfile != NULL) {
 	    if (!SSL_CTX_load_verify_file(ctx, F2N(CAfile, &ds))) {
 		abort++;
 	    }
+	    Tcl_DStringFree(&ds);
 
 	    /* Set list of CAs to send to client when requesting a client certificate */
 	    STACK_OF(X509_NAME) *certNames = SSL_load_client_CA_file(F2N(CAfile, &ds));
 	    if (certNames != NULL) {
 		SSL_CTX_set_client_CA_list(ctx, certNames);
 	    }
+	    Tcl_DStringFree(&ds);
 	}
 #endif
     }
-    Tcl_DStringFree(&ds);
 
     return ctx;
 }
