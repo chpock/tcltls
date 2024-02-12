@@ -643,7 +643,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 static int
 TlsGetOptionProc(ClientData instanceData,	/* Socket state. */
 	Tcl_Interp *interp,		/* For errors - can be NULL. */
-	const char *optionName,	/* Name of the option to
+	const char *optionName,		/* Name of the option to
 					 * retrieve the value for, or
 					 * NULL to get all options and
 					 * their values. */

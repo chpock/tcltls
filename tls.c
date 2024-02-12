@@ -369,7 +369,7 @@ Tls_Error(State *statePtr, char *msg)
     if (msg && *msg) {
 	Tcl_SetErrorCode(statePtr->interp, "SSL", msg, (char *)NULL);
     } else {
-	msg = Tcl_GetStringFromObj(Tcl_GetObjResult(statePtr->interp), NULL);
+	msg = Tcl_GetString(Tcl_GetObjResult(statePtr->interp));
     }
     statePtr->err = msg;
 
@@ -651,7 +651,7 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 		return(TCL_ERROR);
 	}
 
-	chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], NULL), NULL);
+	chan = Tcl_GetChannel(interp, Tcl_GetString(objv[1]), NULL);
 	if (chan == (Tcl_Channel) NULL) {
 		return(TCL_ERROR);
 	}
@@ -782,7 +782,7 @@ ImportObjCmd(clientData, interp, objc, objv)
 	return TCL_ERROR;
     }
 
-    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], NULL), NULL);
+    chan = Tcl_GetChannel(interp, Tcl_GetString(objv[1]), NULL);
     if (chan == (Tcl_Channel) NULL) {
 	return TCL_ERROR;
     }
@@ -793,7 +793,7 @@ ImportObjCmd(clientData, interp, objc, objv)
     chan = Tcl_GetTopChannel(chan);
 
     for (idx = 2; idx < objc; idx++) {
-	char *opt = Tcl_GetStringFromObj(objv[idx], NULL);
+	char *opt = Tcl_GetString(objv[idx]);
 
 	if (opt[0] != '-')
 	    break;
@@ -1416,12 +1416,12 @@ StatusObjCmd(clientData, interp, objc, objv)
 
     switch (objc) {
 	case 2:
-	    channelName = Tcl_GetStringFromObj(objv[1], NULL);
+	    channelName = Tcl_GetString(objv[1]);
 	    break;
 
 	case 3:
 	    if (!strcmp (Tcl_GetString (objv[1]), "-local")) {
-		channelName = Tcl_GetStringFromObj(objv[2], NULL);
+		channelName = Tcl_GetString(objv[2]);
 		break;
 	    }
 	    /* else fall... */
@@ -1789,9 +1789,9 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
 	 */
 	if (
 #ifdef USE_TCL_STUBS
-	    Tcl_InitStubs(interp, "8.4", 0)
+	    Tcl_InitStubs(interp, "8.6-", 0)
 #else
-	    Tcl_PkgRequire(interp, "Tcl", "8.4", 0)
+	    Tcl_PkgRequire(interp, "Tcl", "8.6-", 0)
 #endif
 	     == NULL) {
 		return TCL_ERROR;
