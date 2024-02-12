@@ -19,7 +19,6 @@
 
 #include "tlsInt.h"
 
-
 /*
  * Forward declarations
  */
@@ -85,7 +84,7 @@ Tcl_ChannelType *Tls_ChannelType(void) {
 		size = sizeof(Tcl_ChannelType); /* Base size */
 
 		tlsChannelType = (Tcl_ChannelType *) ckalloc(size);
-		memset((void *) tlsChannelType, 0, size);
+		memset(tlsChannelType, 0, size);
 
 		/*
 		 * Common elements of the structure (no changes in location or name)
@@ -851,12 +850,13 @@ static int TlsNotifyProc(ClientData instanceData, int mask) {
 
 	dprintf("Calling Tls_WaitForConnect");
 	errorCode = 0;
-
 	if (Tls_WaitForConnect(statePtr, &errorCode, 1) < 0) {
 		if (errorCode == EAGAIN) {
 			dprintf("Async flag could be set (didn't check) and errorCode == EAGAIN:  Returning 0");
+
 			return 0;
 		}
+
 		dprintf("Tls_WaitForConnect returned an error");
 	}
 
