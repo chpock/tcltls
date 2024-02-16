@@ -1,7 +1,7 @@
 # This is the name of the utility, it will be prefixed to the tarball name
 UTIL="tcltls"
 
-# This is the name of output files that should exist after configure 
+# This is the name of output files that should exist after configure
 # procedures.
 BINS="tcltls.so"
 

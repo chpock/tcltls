@@ -3,7 +3,7 @@
  * some modifications:
  *	Copyright (C) 2000 Ajuba Solutions
  *	Copyright (C) 2002 ActiveState Corporation
- *	Copyright (C) 2004 Starfish Systems 
+ *	Copyright (C) 2004 Starfish Systems
  *
  * TLS (aka SSL) Channel - can be layered on any bi-directional
  * Tcl_Channel (Note: Requires Trf Core Patch)
@@ -212,10 +212,10 @@ InfoCallback(const SSL *ssl, int where, int ret)
 	else					minor = "unknown";
     }
 
-    Tcl_ListObjAppendElement( statePtr->interp, cmdPtr, 
+    Tcl_ListObjAppendElement( statePtr->interp, cmdPtr,
 	    Tcl_NewStringObj( "info", -1));
 
-    Tcl_ListObjAppendElement( statePtr->interp, cmdPtr, 
+    Tcl_ListObjAppendElement( statePtr->interp, cmdPtr,
 	    Tcl_NewStringObj( Tcl_GetChannelName(statePtr->self), -1) );
 
     Tcl_ListObjAppendElement( statePtr->interp, cmdPtr,
@@ -297,10 +297,10 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx)
     }
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
 
-    Tcl_ListObjAppendElement( statePtr->interp, cmdPtr, 
+    Tcl_ListObjAppendElement( statePtr->interp, cmdPtr,
 	    Tcl_NewStringObj( "verify", -1));
 
-    Tcl_ListObjAppendElement( statePtr->interp, cmdPtr, 
+    Tcl_ListObjAppendElement( statePtr->interp, cmdPtr,
 	    Tcl_NewStringObj( Tcl_GetChannelName(statePtr->self), -1) );
 
     Tcl_ListObjAppendElement( statePtr->interp, cmdPtr,
@@ -383,10 +383,10 @@ Tls_Error(State *statePtr, char *msg)
     }
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
 
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr, 
+    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr,
 	    Tcl_NewStringObj("error", -1));
 
-    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr, 
+    Tcl_ListObjAppendElement(statePtr->interp, cmdPtr,
 	    Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
 
     Tcl_ListObjAppendElement(statePtr->interp, cmdPtr,
@@ -408,7 +408,7 @@ Tls_Error(State *statePtr, char *msg)
 /*
  *-------------------------------------------------------------------
  *
- * PasswordCallback -- 
+ * PasswordCallback --
  *
  *	Called when a password is needed to unpack RSA and PEM keys.
  *	Evals any bound password script and returns the result as
@@ -1197,7 +1197,7 @@ CTX_Init(statePtr, isServer, proto, keyfile, certfile, key, cert,
 #endif
 	break;
     }
-    
+
     ctx = SSL_CTX_new (method);
 
     if (!ctx) {
@@ -1210,7 +1210,7 @@ CTX_Init(statePtr, isServer, proto, keyfile, certfile, key, cert,
         SSL_CTX_set_max_proto_version (ctx, TLS1_3_VERSION);
     }
 #endif
-    
+
     SSL_CTX_set_app_data( ctx, (void*)interp);	/* remember the interpreter */
     SSL_CTX_set_options( ctx, SSL_OP_ALL);	/* all SSL bug workarounds */
     SSL_CTX_set_options( ctx, off);	/* all SSL bug workarounds */
@@ -1248,7 +1248,7 @@ CTX_Init(statePtr, isServer, proto, keyfile, certfile, key, cert,
 		SSL_CTX_free(ctx);
 		return (SSL_CTX *)0;
 	    }
-	    
+
 	    dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
 	    BIO_free(bio);
 	    Tcl_DStringFree(&ds);
@@ -1375,7 +1375,7 @@ CTX_Init(statePtr, isServer, proto, keyfile, certfile, key, cert,
     /* XXX:TODO: Let the user supply values here instead of something that exists on the filesystem */
     if ( CAfile != NULL ) {
         STACK_OF(X509_NAME) *certNames = SSL_load_client_CA_file( F2N(CAfile, &ds) );
-	if ( certNames != NULL ) { 
+	if ( certNames != NULL ) {
 	    SSL_CTX_set_client_CA_list(ctx, certNames );
 	}
     }
@@ -1560,7 +1560,7 @@ MiscObjCmd(clientData, interp, objc, objv)
 	    char *k_C="",*k_ST="",*k_L="",*k_O="",*k_OU="",*k_CN="",*k_Email="";
 	    char *keyout,*pemout,*str;
 	    int keysize,serial=0,days=365;
-	    
+
 	    if ((objc<5) || (objc>6)) {
 		Tcl_WrongNumArgs(interp, 2, objv, "keysize keyfile certfile ?info?");
 		return TCL_ERROR;
@@ -1636,7 +1636,7 @@ MiscObjCmd(clientData, interp, objc, objv)
 		X509_gmtime_adj(X509_get_notBefore(cert),0);
 		X509_gmtime_adj(X509_get_notAfter(cert),(long)60*60*24*days);
 		X509_set_pubkey(cert,pkey);
-		
+
 		name=X509_get_subject_name(cert);
 
 		X509_NAME_add_entry_by_txt(name,"C", MBSTRING_ASC, (unsigned char *) k_C, -1, -1, 0);
@@ -1823,7 +1823,7 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
  *	Tls_SafeInit --
  *
  *	------------------------------------------------*
- *	Standard procedure required by 'load'. 
+ *	Standard procedure required by 'load'.
  *	Initializes this extension for a safe interpreter.
  *	------------------------------------------------*
  *
@@ -1938,7 +1938,7 @@ static int TlsLibInit(int uninitialize) {
      * using the do/while construct because of the bug note in the
      * OpenSSL FAQ at http://www.openssl.org/support/faq.html#USER1
      *
-     * The crux of the problem is that Solaris 7 does not have a 
+     * The crux of the problem is that Solaris 7 does not have a
      * /dev/random or /dev/urandom device so it cannot gather enough
      * entropy from the RAND_seed() when TLS initializes and refuses
      * to go further. Earlier versions of OpenSSL carried on regardless.

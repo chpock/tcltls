@@ -139,7 +139,7 @@ typedef struct State {
 
 	Tcl_Interp *interp;     /* interpreter in which this resides */
 	Tcl_Obj *callback;      /* script called for tracing, verifying and errors */
-	Tcl_Obj *password;      /* script called for certificate password */ 
+	Tcl_Obj *password;      /* script called for certificate password */
 
 	int vflags;             /* verify flags */
 	SSL *ssl;               /* Struct for SSL processing */

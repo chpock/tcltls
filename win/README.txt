@@ -21,7 +21,7 @@ c:\test\tcltls\Openssl_1_1_1h
 
 https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/win32/nasm-2.15.05-installer-x86.exe
   to C:\Program Files (x86)\NASM
-  
+
 -> Visual Studio x86 native prompt.
 
 set Path=%PATH%;C:\Program Files (x86)\NASM;C:\Perl\perl\bin
