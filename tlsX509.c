@@ -5,7 +5,7 @@
 #include "tlsInt.h"
 
 /*
- *  Ensure these are not macros - known to be defined on Win32 
+ *  Ensure these are not macros - known to be defined on Win32
  */
 #ifdef min
 #undef min
@@ -39,10 +39,10 @@ ASN1_UTCTIME_tostr(ASN1_UTCTIME *tm)
         "Jul","Aug","Sep","Oct","Nov","Dec"};
     int i;
     int y=0,M=0,d=0,h=0,m=0,s=0;
-    
+
     i=tm->length;
     v=(char *)tm->data;
-    
+
     if (i < 10) goto err;
     if (v[i-1] == 'Z') gmt=1;
     for (i=0; i<10; i++)
@@ -57,7 +57,7 @@ ASN1_UTCTIME_tostr(ASN1_UTCTIME *tm)
     if (	(v[10] >= '0') && (v[10] <= '9') &&
 		(v[11] >= '0') && (v[11] <= '9'))
         s=  (v[10]-'0')*10+(v[11]-'0');
-    
+
     sprintf(bp,"%s %2d %02d:%02d:%02d %d%s",
                    mon[M-1],d,h,m,s,y+1900,(gmt)?" GMT":"");
     return bp;
@@ -120,7 +120,7 @@ Tls_NewX509Obj( interp, cert)
 	flags = XN_FLAG_RFC2253 | ASN1_STRFLGS_UTF8_CONVERT;
 	flags &= ~ASN1_STRFLGS_ESC_MSB;
 
-	X509_NAME_print_ex(bio, X509_get_subject_name(cert), 0, flags); 
+	X509_NAME_print_ex(bio, X509_get_subject_name(cert), 0, flags);
 	n = BIO_read(bio, subject, min(BIO_pending(bio), BUFSIZ - 1));
 	n = max(n, 0);
 	subject[n] = 0;

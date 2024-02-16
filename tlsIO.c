@@ -698,7 +698,7 @@ TlsWatchProc(ClientData instanceData,	/* The socket state. */
 
     dprintf("TlsWatchProc(0x%x)", mask);
 
-    /* Pretend to be dead as long as the verify callback is running. 
+    /* Pretend to be dead as long as the verify callback is running.
      * Otherwise that callback could be invoked recursively. */
     if (statePtr->flags & TLS_TCL_CALLBACK) {
         dprintf("Callback is on-going, doing nothing");
@@ -766,7 +766,7 @@ TlsWatchProc(ClientData instanceData,	/* The socket state. */
  *	from the SSL socket based channel.
  *
  * Results:
- *	The appropriate Tcl_File or NULL if not present. 
+ *	The appropriate Tcl_File or NULL if not present.
  *
  * Side effects:
  *	None.
@@ -903,9 +903,9 @@ TlsChannelHandler (clientData, mask)
      * the upper channel doesn't cause ChannelHandler to be removed
      * before Tcl_NotifyChannel calls channel handlers on the lower channel.
      */
-    
+
     Tcl_NotifyChannel(statePtr->self, mask);
-    
+
     if (statePtr->timer != (Tcl_TimerToken)NULL) {
 	Tcl_DeleteTimerHandler(statePtr->timer);
 	statePtr->timer = (Tcl_TimerToken)NULL;

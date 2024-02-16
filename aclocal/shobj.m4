@@ -228,7 +228,7 @@ AC_DEFUN([SHOBJ_DO_STATIC_LINK_LIB], [
                 define([VAR_TO_UPDATE], [LIBS])
         ], [
                 define([VAR_TO_UPDATE], [$3])
-        ])  
+        ])
 
 
 	AC_MSG_CHECKING([for how to statically link to $1])

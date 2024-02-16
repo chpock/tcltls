@@ -1,10 +1,10 @@
 #
-# Copyright (C) 1997-2000 Matt Newman <matt@novadigm.com> 
+# Copyright (C) 1997-2000 Matt Newman <matt@novadigm.com>
 #
 namespace eval tls {
     variable logcmd tclLog
     variable debug 0
- 
+
     # Default flags passed to tls::import
     variable defaults {}
 
@@ -99,7 +99,7 @@ proc tls::_initsocketoptions {} {
                 set argToExecute {
                     lappend @VAR@ $arg
                     set argsArray($arg) true
-                } 
+                }
             }
             1 {
                 set argToExecute {
