@@ -880,7 +880,7 @@ ImportObjCmd(clientData, interp, objc, objv)
 	/* Get the "model" context */
 	chan = Tcl_GetChannel(interp, model, &mode);
 	if (chan == (Tcl_Channel) NULL) {
-	    Tls_Free((char *) statePtr);
+	    Tls_Free(statePtr);
 	    return TCL_ERROR;
 	}
 
@@ -891,7 +891,7 @@ ImportObjCmd(clientData, interp, objc, objv)
 	if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	    Tcl_AppendResult(interp, "bad channel \"",
 		    Tcl_GetChannelName(chan), "\": not a TLS channel", NULL);
-	    Tls_Free((char *) statePtr);
+	    Tls_Free(statePtr);
 	    return TCL_ERROR;
 	}
 	ctx = ((State *)Tcl_GetChannelInstanceData(chan))->ctx;
@@ -899,7 +899,7 @@ ImportObjCmd(clientData, interp, objc, objv)
 	if ((ctx = CTX_Init(statePtr, server, proto, keyfile, certfile, key,
     cert, key_len, cert_len, CAdir, CAfile, ciphers,
     DHparams)) == (SSL_CTX*)0) {
-	    Tls_Free((char *) statePtr);
+	    Tls_Free(statePtr);
 	    return TCL_ERROR;
 	}
     }
@@ -929,7 +929,7 @@ ImportObjCmd(clientData, interp, objc, objv)
 	/*
 	 * No use of Tcl_EventuallyFree because no possible Tcl_Preserve.
 	 */
-	Tls_Free((char *) statePtr);
+	Tls_Free(statePtr);
 	return TCL_ERROR;
     }
 
@@ -947,7 +947,7 @@ ImportObjCmd(clientData, interp, objc, objv)
 	/* SSL library error */
 	Tcl_AppendResult(interp, "couldn't construct ssl session: ", REASON(),
 		(char *) NULL);
-	Tls_Free((char *) statePtr);
+	Tls_Free(statePtr);
 	return TCL_ERROR;
     }
 
@@ -956,7 +956,7 @@ ImportObjCmd(clientData, interp, objc, objv)
         if (!SSL_set_tlsext_host_name(statePtr->ssl, servername) && require) {
             Tcl_AppendResult(interp, "setting TLS host name extension failed",
                 (char *) NULL);
-            Tls_Free((char *) statePtr);
+            Tls_Free(statePtr);
             return TCL_ERROR;
         }
     }
@@ -1694,7 +1694,7 @@ MiscObjCmd(clientData, interp, objc, objv)
  *-------------------------------------------------------------------
  */
 void
-Tls_Free( char *blockPtr )
+Tls_Free( void *blockPtr )
 {
     State *statePtr = (State *)blockPtr;
 

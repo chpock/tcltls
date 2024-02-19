@@ -156,6 +156,22 @@ typedef struct State {
 #endif /* Tcl_GetStackedChannel */
 #endif /* USE_TCL_STUBS */
 
+#ifndef JOIN
+#  define JOIN(a,b) JOIN1(a,b)
+#  define JOIN1(a,b) a##b
+#endif
+
+#ifndef TCL_UNUSED
+# if defined(__cplusplus)
+#   define TCL_UNUSED(T) T
+# elif defined(__GNUC__) && (__GNUC__ > 2)
+#   define TCL_UNUSED(T) T JOIN(dummy, __LINE__) __attribute__((unused))
+# else
+#   define TCL_UNUSED(T) T JOIN(dummy, __LINE__)
+# endif
+#endif
+
+
 /*
  * Forward declarations
  */
@@ -164,7 +180,7 @@ Tcl_Channel     Tls_GetParent(State *statePtr, int maskFlags);
 
 Tcl_Obj         *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert);
 void            Tls_Error(State *statePtr, char *msg);
-void            Tls_Free(char *blockPtr);
+void            Tls_Free(void *blockPtr);
 void            Tls_Clean(State *statePtr);
 int             Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureIsPermanent);
 

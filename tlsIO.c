@@ -118,20 +118,17 @@ static int TlsBlockModeProc(ClientData instanceData, int mode) {
  *
  *-------------------------------------------------------------------
  */
-static int TlsCloseProc(ClientData instanceData, Tcl_Interp *interp) {
+static int TlsCloseProc(ClientData instanceData, TCL_UNUSED(Tcl_Interp *)) {
 	State *statePtr = (State *) instanceData;
 
-	dprintf("TlsCloseProc(%p)", (void *) statePtr);
+	dprintf("TlsCloseProc(%p)", statePtr);
 
 	Tls_Clean(statePtr);
-	Tcl_EventuallyFree((ClientData)statePtr, Tls_Free);
+	Tcl_EventuallyFree(statePtr, Tls_Free);
 
 	dprintf("Returning TCL_OK");
 
 	return(TCL_OK);
-
-	/* Interp is unused. */
-	interp = interp;
 }
 
 /*
@@ -152,7 +149,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	int err, rc;
 	int bioShouldRetry;
 
-	dprintf("WaitForConnect(%p)", (void *) statePtr);
+	dprintf("WaitForConnect(%p)", statePtr);
 	dprintFlags(statePtr);
 
 	if (!(statePtr->flags & TLS_TCL_INIT)) {
