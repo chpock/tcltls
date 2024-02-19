@@ -923,7 +923,7 @@ ImportObjCmd(clientData, interp, objc, objv)
     Tcl_SetChannelOption(interp, chan, "-translation", "binary");
     Tcl_SetChannelOption(interp, chan, "-blocking", "true");
     dprintf("Consuming Tcl channel %s", Tcl_GetChannelName(chan));
-    statePtr->self = Tcl_StackChannel(interp, Tls_ChannelType(), (ClientData) statePtr, (TCL_READABLE | TCL_WRITABLE), chan);
+    statePtr->self = Tcl_StackChannel(interp, (Tcl_ChannelType *)Tls_ChannelType(), (ClientData) statePtr, (TCL_READABLE | TCL_WRITABLE), chan);
     dprintf("Created channel named %s", Tcl_GetChannelName(statePtr->self));
     if (statePtr->self == (Tcl_Channel) NULL) {
 	/*
