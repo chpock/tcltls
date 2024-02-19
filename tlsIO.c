@@ -30,15 +30,28 @@ static int  TlsGetOptionProc (ClientData instanceData, Tcl_Interp *interp, const
 static void TlsWatchProc (ClientData instanceData, int mask);
 static int  TlsGetHandleProc (ClientData instanceData, int direction, ClientData *handlePtr);
 static int  TlsNotifyProc (ClientData instanceData, int mask);
-#if 0
-static void TlsChannelHandler (ClientData clientData, int mask);
-#endif
 static void TlsChannelHandlerTimer (ClientData clientData);
 
 /*
  * TLS Channel Type
  */
-static Tcl_ChannelType *tlsChannelType = NULL;
+static const Tcl_ChannelType tlsChannelType = {
+  "tls",                             /* typeName                             */
+  TCL_CHANNEL_VERSION_5,             /* version                              */
+  TlsCloseProc,                      /* closeProc                            */
+  TlsInputProc,                      /* inputProc                            */
+  TlsOutputProc,                     /* outputProc                           */
+  0,                                 /* seekProc                             */
+  0,                                 /* setOptionProc                        */
+  TlsGetOptionProc,                  /* getOptionProc                        */
+  TlsWatchProc,                      /* watchProc                            */
+  TlsGetHandleProc,                  /* getHandleProc                        */
+  NULL,                              /* close2Proc                           */
+  TlsBlockModeProc,                  /* blockModeProc                        */
+  0,                                 /* flushProc                            */
+  TlsNotifyProc                      /* handlerProc                          */
+};
+
 
 /*
  *-------------------------------------------------------------------
@@ -55,63 +68,8 @@ static Tcl_ChannelType *tlsChannelType = NULL;
  *
  *-------------------------------------------------------------------
  */
-Tcl_ChannelType *Tls_ChannelType(void) {
-	unsigned int size;
-
-	/*
-	 * Initialize the channel type if necessary
-	 */
-	if (tlsChannelType == NULL) {
-		/*
-		 * Allocation of a new channeltype structure is not easy, because of
-		 * the various verson of the core and subsequent changes to the
-		 * structure. The main challenge is to allocate enough memory for
-		 * modern versions even if this extsension is compiled against one
-		 * of the older variant!
-		 *
-		 * (1) Versions before stubs (8.0.x) are simple, because they are
-		 *     supported only if the extension is compiled against exactly
-		 *     that version of the core.
-		 *
-		 * (2) With stubs we just determine the difference between the older
-		 *     and modern variant and overallocate accordingly if compiled
-		 *     against an older variant.
-		 */
-		size = sizeof(Tcl_ChannelType); /* Base size */
-
-		tlsChannelType = (Tcl_ChannelType *) ckalloc(size);
-		memset(tlsChannelType, 0, size);
-
-		/*
-		 * Common elements of the structure (no changes in location or name)
-		 * close2Proc, seekProc, setOptionProc stay NULL.
-		 */
-
-		tlsChannelType->typeName	= "tls";
-		tlsChannelType->closeProc	= TlsCloseProc;
-		tlsChannelType->inputProc	= TlsInputProc;
-		tlsChannelType->outputProc	= TlsOutputProc;
-		tlsChannelType->getOptionProc	= TlsGetOptionProc;
-		tlsChannelType->watchProc	= TlsWatchProc;
-		tlsChannelType->getHandleProc	= TlsGetHandleProc;
-
-		/*
-		 * Compiled against 8.3.2+. Direct access to all elements possible. Use
-		 * channelTypeVersion information to select the values to use.
-		 */
-
-		/*
-		 * For the 8.3.2 core we present ourselves as a version 2
-		 * driver. This means a special value in version (ex
-		 * blockModeProc), blockModeProc in a different place and of
-		 * course usage of the handlerProc.
-		 */
-		tlsChannelType->version       = TCL_CHANNEL_VERSION_5;
-		tlsChannelType->blockModeProc = TlsBlockModeProc;
-		tlsChannelType->handlerProc   = TlsNotifyProc;
-	}
-
-	return(tlsChannelType);
+const Tcl_ChannelType *Tls_ChannelType(void) {
+	return &tlsChannelType;
 }
 
 /*
