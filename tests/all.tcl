@@ -6,7 +6,7 @@
 #
 # Copyright (c) 1998-2000 by Ajuba Solutions.
 # All rights reserved.
-# 
+#
 # RCS: @(#) $Id: all.tcl,v 1.5 2000/08/15 18:45:01 hobbs Exp $
 
 #set auto_path [linsert $auto_path 0 [file normalize [file join [file dirname [info script]] ..]]]
@@ -16,7 +16,6 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
     namespace import ::tcltest::*
 }
-
 
 set ::tcltest::testSingleFile false
 set ::tcltest::testsDirectory [file dir [info script]]

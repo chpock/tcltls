@@ -78,9 +78,9 @@ BIO *BIO_new_tcl(State *statePtr, int flags) {
 
 	validParentChannelFd = 0;
 	if (strcmp(parentChannelType->typeName, "tcp") == 0) {
-		tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_READABLE, (ClientData) &parentChannelFdIn_p);
+		tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_READABLE, &parentChannelFdIn_p);
 		if (tclGetChannelHandleRet == TCL_OK) {
-			tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_WRITABLE, (ClientData) &parentChannelFdOut_p);
+			tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_WRITABLE, &parentChannelFdOut_p);
 			if (tclGetChannelHandleRet == TCL_OK) {
 				parentChannelFdIn = PTR2INT(parentChannelFdIn_p);
 				parentChannelFdOut = PTR2INT(parentChannelFdOut_p);
@@ -226,14 +226,18 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
 
 	chan = Tls_GetParent((State *) BIO_get_data(bio), 0);
 
-	dprintf("BioCtrl(%p, 0x%x, 0x%x, %p)", (void *) bio, (unsigned int) cmd, (unsigned int) num, (void *) ptr);
+	dprintf("BioCtrl(%p, 0x%x, 0x%lx, %p)", bio, cmd, num, ptr);
 
 	switch (cmd) {
 		case BIO_CTRL_RESET:
 			dprintf("Got BIO_CTRL_RESET");
 			num = 0;
+			ret = 0;
+			break;
 		case BIO_C_FILE_SEEK:
 			dprintf("Got BIO_C_FILE_SEEK");
+			ret = 0;
+			break;
 		case BIO_C_FILE_TELL:
 			dprintf("Got BIO_C_FILE_TELL");
 			ret = 0;

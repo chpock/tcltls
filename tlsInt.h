@@ -139,7 +139,7 @@ typedef struct State {
 
 	Tcl_Interp *interp;     /* interpreter in which this resides */
 	Tcl_Obj *callback;      /* script called for tracing, verifying and errors */
-	Tcl_Obj *password;      /* script called for certificate password */ 
+	Tcl_Obj *password;      /* script called for certificate password */
 
 	int vflags;             /* verify flags */
 	SSL *ssl;               /* Struct for SSL processing */
@@ -147,7 +147,7 @@ typedef struct State {
 	BIO *bio;               /* Struct for SSL processing */
 	BIO *p_bio;             /* Parent BIO (that is layered on Tcl_Channel) */
 
-	char *err;
+	const char *err;
 } State;
 
 #ifdef USE_TCL_STUBS
@@ -156,15 +156,38 @@ typedef struct State {
 #endif /* Tcl_GetStackedChannel */
 #endif /* USE_TCL_STUBS */
 
+#ifndef JOIN
+#  define JOIN(a,b) JOIN1(a,b)
+#  define JOIN1(a,b) a##b
+#endif
+
+#ifndef TCL_UNUSED
+# if defined(__cplusplus)
+#   define TCL_UNUSED(T) T
+# elif defined(__GNUC__) && (__GNUC__ > 2)
+#   define TCL_UNUSED(T) T JOIN(dummy, __LINE__) __attribute__((unused))
+# else
+#   define TCL_UNUSED(T) T JOIN(dummy, __LINE__)
+# endif
+#endif
+
+#if (TCL_MAJOR_VERSION < 9) && defined(TCL_MINOR_VERSION) && (TCL_MINOR_VERSION < 7) && !defined(Tcl_Size)
+#   define Tcl_Size int
+#endif
+
 /*
  * Forward declarations
  */
-Tcl_ChannelType *Tls_ChannelType(void);
+const Tcl_ChannelType *Tls_ChannelType(void);
 Tcl_Channel     Tls_GetParent(State *statePtr, int maskFlags);
 
 Tcl_Obj         *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert);
 void            Tls_Error(State *statePtr, char *msg);
+#if TCL_MAJOR_VERSION > 8
+void            Tls_Free(void *blockPtr);
+#else
 void            Tls_Free(char *blockPtr);
+#endif
 void            Tls_Clean(State *statePtr);
 int             Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureIsPermanent);
 
