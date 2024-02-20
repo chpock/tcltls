@@ -38,17 +38,6 @@
 #   endif
 #endif
 
-/*
- * Backwards compatibility for size type change
- */
-#if TCL_MAJOR_VERSION < 9 && TCL_MINOR_VERSION < 7
-    #ifndef Tcl_Size
-        typedef int Tcl_Size;
-    #endif
-
-    #define TCL_SIZE_MODIFIER ""
-#endif
-
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
@@ -186,20 +175,44 @@ typedef struct State {
 #endif /* Tcl_GetStackedChannel */
 #endif /* USE_TCL_STUBS */
 
+#ifndef JOIN
+#  define JOIN(a,b) JOIN1(a,b)
+#  define JOIN1(a,b) a##b
+#endif
+
+#ifndef TCL_UNUSED
+# if defined(__cplusplus)
+#   define TCL_UNUSED(T) T
+# elif defined(__GNUC__) && (__GNUC__ > 2)
+#   define TCL_UNUSED(T) T JOIN(dummy, __LINE__) __attribute__((unused))
+# else
+#   define TCL_UNUSED(T) T JOIN(dummy, __LINE__)
+# endif
+#endif
+
+#if (TCL_MAJOR_VERSION < 9) && defined(TCL_MINOR_VERSION) && (TCL_MINOR_VERSION < 7) && !defined(Tcl_Size)
+#   define Tcl_Size int
+#   define TCL_SIZE_MODIFIER ""
+#endif
+
 /*
  * Forward declarations
  */
 const Tcl_ChannelType *Tls_ChannelType(void);
 Tcl_Channel     Tls_GetParent(State *statePtr, int maskFlags);
 
-Tcl_Obj         *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert);
-Tcl_Obj		*Tls_NewCAObj(Tcl_Interp *interp, const SSL *ssl, int peer);
+Tcl_Obj        *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert);
+Tcl_Obj	       *Tls_NewCAObj(Tcl_Interp *interp, const SSL *ssl, int peer);
 void            Tls_Error(State *statePtr, char *msg);
+#if TCL_MAJOR_VERSION > 8
+void            Tls_Free(void *blockPtr);
+#else
 void            Tls_Free(char *blockPtr);
+#endif
 void            Tls_Clean(State *statePtr);
 int             Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureIsPermanent);
 
-BIO             *BIO_new_tcl(State* statePtr, int flags);
+BIO            *BIO_new_tcl(State* statePtr, int flags);
 
 #define PTR2INT(x) ((int) ((intptr_t) (x)))
 
