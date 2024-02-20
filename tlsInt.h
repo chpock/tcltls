@@ -147,7 +147,7 @@ typedef struct State {
 	BIO *bio;               /* Struct for SSL processing */
 	BIO *p_bio;             /* Parent BIO (that is layered on Tcl_Channel) */
 
-	char *err;
+	const char *err;
 } State;
 
 #ifdef USE_TCL_STUBS
@@ -171,6 +171,9 @@ typedef struct State {
 # endif
 #endif
 
+#if (TCL_MAJOR_VERSION < 9) && defined(TCL_MINOR_VERSION) && (TCL_MINOR_VERSION < 7) && !defined(Tcl_Size)
+#   define Tcl_Size int
+#endif
 
 /*
  * Forward declarations
@@ -180,7 +183,11 @@ Tcl_Channel     Tls_GetParent(State *statePtr, int maskFlags);
 
 Tcl_Obj         *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert);
 void            Tls_Error(State *statePtr, char *msg);
+#if TCL_MAJOR_VERSION > 8
 void            Tls_Free(void *blockPtr);
+#else
+void            Tls_Free(char *blockPtr);
+#endif
 void            Tls_Clean(State *statePtr);
 int             Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureIsPermanent);
 

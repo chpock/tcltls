@@ -22,15 +22,16 @@
 /*
  * Forward declarations
  */
-static int  TlsBlockModeProc (ClientData instanceData, int mode);
-static int  TlsCloseProc (ClientData instanceData, Tcl_Interp *interp);
-static int  TlsInputProc (ClientData instanceData, char *buf, int bufSize, int *errorCodePtr);
-static int  TlsOutputProc (ClientData instanceData, const char *buf, int toWrite, int *errorCodePtr);
-static int  TlsGetOptionProc (ClientData instanceData, Tcl_Interp *interp, const char *optionName, Tcl_DString *dsPtr);
-static void TlsWatchProc (ClientData instanceData, int mask);
-static int  TlsGetHandleProc (ClientData instanceData, int direction, ClientData *handlePtr);
-static int  TlsNotifyProc (ClientData instanceData, int mask);
-static void TlsChannelHandlerTimer (ClientData clientData);
+static int  TlsBlockModeProc (void *instanceData, int mode);
+static int  TlsCloseProc (void *instanceData, Tcl_Interp *interp);
+static int  TlsClose2Proc (void *instanceData, Tcl_Interp *interp, int flags);
+static int  TlsInputProc (void *instanceData, char *buf, int bufSize, int *errorCodePtr);
+static int  TlsOutputProc (void *instanceData, const char *buf, int toWrite, int *errorCodePtr);
+static int  TlsGetOptionProc (void *instanceData, Tcl_Interp *interp, const char *optionName, Tcl_DString *dsPtr);
+static void TlsWatchProc (void *instanceData, int mask);
+static int  TlsGetHandleProc (void *instanceData, int direction, void **handlePtr);
+static int  TlsNotifyProc (void *instanceData, int mask);
+static void TlsChannelHandlerTimer (void *clientData);
 
 /*
  * TLS Channel Type
@@ -46,10 +47,13 @@ static const Tcl_ChannelType tlsChannelType = {
   TlsGetOptionProc,                  /* getOptionProc                        */
   TlsWatchProc,                      /* watchProc                            */
   TlsGetHandleProc,                  /* getHandleProc                        */
-  NULL,                              /* close2Proc                           */
+  TlsClose2Proc,                     /* close2Proc                           */
   TlsBlockModeProc,                  /* blockModeProc                        */
   0,                                 /* flushProc                            */
-  TlsNotifyProc                      /* handlerProc                          */
+  TlsNotifyProc,                     /* handlerProc                          */
+  0,                                 /* wideSeekProc                         */
+  0,                                 /* threadActionProc                     */
+  0                                  /* truncateProc                         */
 };
 
 
@@ -87,7 +91,7 @@ const Tcl_ChannelType *Tls_ChannelType(void) {
  *
  *-------------------------------------------------------------------
  */
-static int TlsBlockModeProc(ClientData instanceData, int mode) {
+static int TlsBlockModeProc(void *instanceData, int mode) {
 	State *statePtr = (State *) instanceData;
 
 	if (mode == TCL_MODE_NONBLOCKING) {
@@ -118,7 +122,7 @@ static int TlsBlockModeProc(ClientData instanceData, int mode) {
  *
  *-------------------------------------------------------------------
  */
-static int TlsCloseProc(ClientData instanceData, TCL_UNUSED(Tcl_Interp *)) {
+static int TlsCloseProc(void *instanceData, TCL_UNUSED(Tcl_Interp *)) {
 	State *statePtr = (State *) instanceData;
 
 	dprintf("TlsCloseProc(%p)", statePtr);
@@ -129,6 +133,13 @@ static int TlsCloseProc(ClientData instanceData, TCL_UNUSED(Tcl_Interp *)) {
 	dprintf("Returning TCL_OK");
 
 	return(TCL_OK);
+}
+
+static int TlsClose2Proc(void *instanceData, Tcl_Interp *interp, int flags) {
+	if (!(flags&(TCL_CLOSE_READ|TCL_CLOSE_WRITE))) {
+	    return TlsCloseProc(instanceData, interp);
+	}
+	return EINVAL;
 }
 
 /*
@@ -328,7 +339,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
  *-------------------------------------------------------------------
  */
 
-static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *errorCodePtr) {
+static int TlsInputProc(void *instanceData, char *buf, int bufSize, int *errorCodePtr) {
 	unsigned long backingError;
 	State *statePtr = (State *) instanceData;
 	int bytesRead;
@@ -456,7 +467,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
  *-------------------------------------------------------------------
  */
 
-static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, int *errorCodePtr) {
+static int TlsOutputProc(void *instanceData, const char *buf, int toWrite, int *errorCodePtr) {
 	unsigned long backingError;
 	State *statePtr = (State *) instanceData;
 	int written, err;
@@ -596,7 +607,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
  *-------------------------------------------------------------------
  */
 static int
-TlsGetOptionProc(ClientData instanceData,	/* Socket state. */
+TlsGetOptionProc(void *instanceData,	/* Socket state. */
 	Tcl_Interp *interp,		/* For errors - can be NULL. */
 	const char *optionName,		/* Name of the option to
 					 * retrieve the value for, or
@@ -643,7 +654,7 @@ TlsGetOptionProc(ClientData instanceData,	/* Socket state. */
  */
 
 static void
-TlsWatchProc(ClientData instanceData,	/* The socket state. */
+TlsWatchProc(void *instanceData,	/* The socket state. */
              int mask)			/* Events of interest; an OR-ed
                                          * combination of TCL_READABLE,
                                          * TCL_WRITABLE and TCL_EXCEPTION. */
@@ -707,7 +718,7 @@ TlsWatchProc(ClientData instanceData,	/* The socket state. */
 			 * data waiting, so generate a timer to flush that.
 			 */
 			dprintf("Creating a new timer since data appears to be waiting");
-			statePtr->timer = Tcl_CreateTimerHandler(TLS_TCL_DELAY, TlsChannelHandlerTimer, (ClientData) statePtr);
+			statePtr->timer = Tcl_CreateTimerHandler(TLS_TCL_DELAY, TlsChannelHandlerTimer, statePtr);
 		}
 	}
 }
@@ -728,7 +739,7 @@ TlsWatchProc(ClientData instanceData,	/* The socket state. */
  *
  *-------------------------------------------------------------------
  */
-static int TlsGetHandleProc(ClientData instanceData, int direction, ClientData *handlePtr) {
+static int TlsGetHandleProc(void *instanceData, int direction, void **handlePtr) {
 	State *statePtr = (State *) instanceData;
 
 	return(Tcl_GetChannelHandle(Tls_GetParent(statePtr, TLS_TCL_FASTPATH), direction, handlePtr));
@@ -751,7 +762,7 @@ static int TlsGetHandleProc(ClientData instanceData, int direction, ClientData *
  *-------------------------------------------------------------------
  */
 
-static int TlsNotifyProc(ClientData instanceData, int mask) {
+static int TlsNotifyProc(void *instanceData, int mask) {
 	State *statePtr = (State *) instanceData;
 	int errorCode;
 
@@ -818,13 +829,13 @@ static int TlsNotifyProc(ClientData instanceData, int mask) {
 
 static void
 TlsChannelHandler (clientData, mask)
-    ClientData     clientData;
+    void *    clientData;
     int            mask;
 {
     State *statePtr = (State *) clientData;
 
     dprintf("HANDLER(0x%x)", mask);
-    Tcl_Preserve( (ClientData)statePtr);
+    Tcl_Preserve(statePtr);
 
     if (mask & TCL_READABLE) {
 	BIO_set_flags(statePtr->p_bio, BIO_FLAGS_READ);
@@ -870,9 +881,9 @@ TlsChannelHandler (clientData, mask)
 	 * Data is waiting, flush it out in short time
 	 */
 	statePtr->timer = Tcl_CreateTimerHandler(TLS_TCL_DELAY,
-		TlsChannelHandlerTimer, (ClientData) statePtr);
+		TlsChannelHandlerTimer, statePtr);
     }
-    Tcl_Release( (ClientData)statePtr);
+    Tcl_Release(statePtr);
 }
 #endif
 
@@ -895,7 +906,7 @@ TlsChannelHandler (clientData, mask)
  *------------------------------------------------------*
  */
 
-static void TlsChannelHandlerTimer(ClientData clientData) {
+static void TlsChannelHandlerTimer(void *clientData) {
 	State *statePtr = (State *) clientData;
 	int mask = 0;
 
