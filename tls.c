@@ -516,42 +516,42 @@ CiphersObjCmd(
     switch ((enum protocol)index) {
     case TLS_SSL2:
 #if defined(NO_SSL2)
-		Tcl_AppendResult(interp, "protocol not supported", NULL);
+		Tcl_AppendResult(interp, "protocol not supported", (char *)NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(SSLv2_method()); break;
 #endif
     case TLS_SSL3:
 #if defined(NO_SSL3)
-		Tcl_AppendResult(interp, "protocol not supported", NULL);
+		Tcl_AppendResult(interp, "protocol not supported", (char *)NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(SSLv3_method()); break;
 #endif
     case TLS_TLS1:
 #if defined(NO_TLS1)
-		Tcl_AppendResult(interp, "protocol not supported", NULL);
+		Tcl_AppendResult(interp, "protocol not supported", (char *)NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(TLSv1_method()); break;
 #endif
     case TLS_TLS1_1:
 #if defined(NO_TLS1_1)
-		Tcl_AppendResult(interp, "protocol not supported", NULL);
+		Tcl_AppendResult(interp, "protocol not supported", (char *)NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(TLSv1_1_method()); break;
 #endif
     case TLS_TLS1_2:
 #if defined(NO_TLS1_2)
-		Tcl_AppendResult(interp, "protocol not supported", NULL);
+		Tcl_AppendResult(interp, "protocol not supported", (char *)NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(TLSv1_2_method()); break;
 #endif
     case TLS_TLS1_3:
 #if defined(NO_TLS1_3)
-		Tcl_AppendResult(interp, "protocol not supported", NULL);
+		Tcl_AppendResult(interp, "protocol not supported", (char *)NULL);
 		return TCL_ERROR;
 #else
 		ctx = SSL_CTX_new(TLS_method()); break;
@@ -652,7 +652,7 @@ static int HandshakeObjCmd(
 	 */
 	chan = Tcl_GetTopChannel(chan);
 	if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
-		Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan), "\": not a TLS channel", NULL);
+		Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan), "\": not a TLS channel", (char *)NULL);
 		return(TCL_ERROR);
 	}
 	statePtr = (State *)Tcl_GetChannelInstanceData(chan);
@@ -880,7 +880,7 @@ ImportObjCmd(
         chan = Tcl_GetTopChannel(chan);
 	if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	    Tcl_AppendResult(interp, "bad channel \"",
-		    Tcl_GetChannelName(chan), "\": not a TLS channel", NULL);
+		    Tcl_GetChannelName(chan), "\": not a TLS channel", (char *)NULL);
 	    Tls_Free((void *)statePtr);
 	    return TCL_ERROR;
 	}
@@ -1028,7 +1028,7 @@ UnimportObjCmd(
 
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-		"\": not a TLS channel", NULL);
+		"\": not a TLS channel", (char *)NULL);
 	return TCL_ERROR;
     }
 
@@ -1080,44 +1080,44 @@ CTX_Init(
     dprintf("Called");
 
     if (!proto) {
-	Tcl_AppendResult(interp, "no valid protocol selected", NULL);
+	Tcl_AppendResult(interp, "no valid protocol selected", (char *)NULL);
 	return (SSL_CTX *)0;
     }
 
     /* create SSL context */
 #if defined(NO_SSL2)
     if (ENABLED(proto, TLS_PROTO_SSL2)) {
-	Tcl_AppendResult(interp, "protocol not supported", NULL);
+	Tcl_AppendResult(interp, "protocol not supported", (char *)NULL);
 	return (SSL_CTX *)0;
     }
 #endif
 #if defined(NO_SSL3)
     if (ENABLED(proto, TLS_PROTO_SSL3)) {
-	Tcl_AppendResult(interp, "protocol not supported", NULL);
+	Tcl_AppendResult(interp, "protocol not supported", (char *)NULL);
 	return (SSL_CTX *)0;
     }
 #endif
 #if defined(NO_TLS1)
     if (ENABLED(proto, TLS_PROTO_TLS1)) {
-	Tcl_AppendResult(interp, "protocol not supported", NULL);
+	Tcl_AppendResult(interp, "protocol not supported", (char *)NULL);
 	return (SSL_CTX *)0;
     }
 #endif
 #if defined(NO_TLS1_1)
     if (ENABLED(proto, TLS_PROTO_TLS1_1)) {
-	Tcl_AppendResult(interp, "protocol not supported", NULL);
+	Tcl_AppendResult(interp, "protocol not supported", (char *)NULL);
 	return (SSL_CTX *)0;
     }
 #endif
 #if defined(NO_TLS1_2)
     if (ENABLED(proto, TLS_PROTO_TLS1_2)) {
-	Tcl_AppendResult(interp, "protocol not supported", NULL);
+	Tcl_AppendResult(interp, "protocol not supported", (char *)NULL);
 	return (SSL_CTX *)0;
     }
 #endif
 #if defined(NO_TLS1_3)
     if (ENABLED(proto, TLS_PROTO_TLS1_3)) {
-	Tcl_AppendResult(interp, "protocol not supported", NULL);
+	Tcl_AppendResult(interp, "protocol not supported", (char *)NULL);
 	return (SSL_CTX *)0;
     }
 #endif
@@ -1427,7 +1427,7 @@ StatusObjCmd(
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-		"\": not a TLS channel", NULL);
+		"\": not a TLS channel", (char *)NULL);
 	return TCL_ERROR;
     }
     statePtr = (State *) Tcl_GetChannelInstanceData(chan);
@@ -1784,7 +1784,7 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
 	}
 
 	if (TlsLibInit(0) != TCL_OK) {
-		Tcl_AppendResult(interp, "could not initialize SSL library", NULL);
+		Tcl_AppendResult(interp, "could not initialize SSL library", (char *)NULL);
 		return TCL_ERROR;
 	}
 
