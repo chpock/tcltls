@@ -9,6 +9,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 prefix = @prefix@
 exec_prefix = @exec_prefix@
 libdir = @libdir@
+genericdir = @srcdir@/generic
 TCL_PACKAGE_PATH = @TCL_PACKAGE_PATH@
 PACKAGE_INSTALL_DIR = $(TCL_PACKAGE_PATH)/tcltls$(PACKAGE_VERSION)
 INSTALL = @INSTALL@
@@ -33,17 +34,17 @@ static-@EXTENSION_TARGET@: tls.o tlsBIO.o tlsIO.o tlsX509.o Makefile
 	-$(RANLIB) static-@EXTENSION_TARGET@
 
 # Dependencies for all our targets
-tls.o: @srcdir@/tls.c @srcdir@/tlsInt.h @srcdir@/tclOpts.h tls.tcl.h dh_params.h Makefile
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o tls.o -c @srcdir@/tls.c
+tls.o: $(genericdir)/tls.c $(genericdir)/tlsInt.h $(genericdir)/tclOpts.h tls.tcl.h dh_params.h Makefile
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o tls.o -c $(genericdir)/tls.c
 
-tlsBIO.o: @srcdir@/tlsBIO.c @srcdir@/tlsInt.h Makefile
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o tlsBIO.o -c @srcdir@/tlsBIO.c
+tlsBIO.o: $(genericdir)/tlsBIO.c $(genericdir)/tlsInt.h Makefile
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o tlsBIO.o -c $(genericdir)/tlsBIO.c
 
-tlsIO.o: @srcdir@/tlsIO.c @srcdir@/tlsInt.h Makefile
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o tlsIO.o -c @srcdir@/tlsIO.c
+tlsIO.o: $(genericdir)/tlsIO.c $(genericdir)/tlsInt.h Makefile
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o tlsIO.o -c $(genericdir)/tlsIO.c
 
-tlsX509.o: @srcdir@/tlsX509.c @srcdir@/tlsInt.h Makefile
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o tlsX509.o -c @srcdir@/tlsX509.c
+tlsX509.o: $(genericdir)/tlsX509.c $(genericdir)/tlsInt.h Makefile
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o tlsX509.o -c $(genericdir)/tlsX509.c
 
 # Create a C-source-ified version of the script resources
 # for TclTLS so that we only need a single file to enable

@@ -1,32 +1,70 @@
-# call nmake with additional parameter SSL_INSTALL_FOLDER= with the
-# OpenSSL instalation folder following.
+#------------------------------------------------------------- -*- makefile -*-
+#
+# Makefile for TclTLS extensions.
+#
+# Basic build, test and install
+#   nmake /f makefile.vc INSTALLDIR=c:\path\to\tcl
+#   nmake /f makefile.vc INSTALLDIR=c:\path\to\tcl test
+#   nmake /f makefile.vc INSTALLDIR=c:\path\to\tcl install
+#
+# For other build options (debug, static etc.),
+# See TIP 477 (https://core.tcl-lang.org/tips/doc/main/tip/477.md) for
+# detailed documentation.
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+#------------------------------------------------------------------------------
 
+# The name of the package
 PROJECT=tls
-DOTVERSION = 1.8.0
-
-PRJLIBNAME	= $(PROJECT)$(VERSION)$(SUFX).$(EXT)
-PRJLIB		= $(OUT_DIR)\$(PRJLIBNAME)
 
 !include "rules-ext.vc"
 
-PRJ_INCLUDES	= -I"$(SSL_INSTALL_FOLDER)\include"
-PRJ_DEFINES =  -D NO_SSL2 -D NO_SSL3 -D _CRT_SECURE_NO_WARNINGS
+# Define the object files and resource file that make up the extension.
+# Note the resource file does not makes sense if doing a static library build
+# hence it is under that condition. TMP_DIR is the output directory
+# defined by rules for object files.
+PRJ_OBJS = $(TMP_DIR)\tls.obj \
+	$(TMP_DIR)\tlsBIO.obj \
+	$(TMP_DIR)\tlsIO.obj \
+	$(TMP_DIR)\tlsX509.obj
 
+# Define any additional project include flags
+# SSL_INSTALL_FOLDER = with the OpenSSL installation folder following.
+PRJ_INCLUDES = -I"$(SSL_INSTALL_FOLDER)\include" -I"$(OPENSSL_INSTALL_DIR)\include"
+
+# Define any additional compiler flags that might be required for the project
+PRJ_DEFINES = -D NO_SSL2 -D NO_SSL3 -D _CRT_SECURE_NO_WARNINGS
+ 
+# SSL Libs:
+#    1. ${LIBCRYPTO}.dll
+#    2. ${LIBSSL}.dll
+# Where LIBCRYPTO (#1.) and LIBSSL (#2.) are defined as follows:
+#    v1.1: libcrypto-1.1-x64.dll and libssl-1.1-x64.dll
+#    v3: libcrypto-3-x64.dll and libssl-3-x64.dll
+# On *nix libcrypto.so.* and libssl.so.* (where suffix is a version indicator).
+#
 PRJ_LIBS = \
 	"$(SSL_INSTALL_FOLDER)\lib\libssl.lib" \
 	"$(SSL_INSTALL_FOLDER)\lib\libcrypto.lib" \
-	WS2_32.LIB GDI32.LIB ADVAPI32.LIB CRYPT32.LIB USER32.LIB 
+	WS2_32.LIB GDI32.LIB ADVAPI32.LIB CRYPT32.LIB USER32.LIB
 
-
-PRJ_OBJS = $(TMP_DIR)\tls.obj \
-               $(TMP_DIR)\tlsBIO.obj \
-               $(TMP_DIR)\tlsIO.obj \
-               $(TMP_DIR)\tlsX509.obj
-			   
+# Define the standard targets
 !include "targets.vc"
 
-pkgindex: default-pkgindex
-install:
-	copy "$(SSL_INSTALL_FOLDER)\bin\libcrypto-3-x64.dll" "$(INSTALLDIR)\$(PROJECT)$(DOTVERSION)\libcrypto-3-x64.dll"
-	copy "$(SSL_INSTALL_FOLDER)\bin\libssl-3-x64.dll" "$(INSTALLDIR)\$(PROJECT)$(DOTVERSION)\libssl-3-x64.dll"
+# Project specific targets
 
+# We must define a pkgindex target that will create a pkgIndex.tcl
+# file in the $(OUT_DIR) directory. We can just redirect to the
+# default-pkgindex target for our sample extension.
+pkgindex: default-pkgindex
+
+# The default install target only installs binaries and scripts so add
+# an additional target for our documentation. Note this *adds* a target
+# since no commands are listed after it. The original targets for
+# install (from targets.vc) will remain.
+install: default-pkgindex-tea default-install default-install-docs-html
+
+# Test package
+test: default-test
