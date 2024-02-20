@@ -8,7 +8,7 @@ Properties:
 - WSL 
 - OpenSSL dynamically linked to TCLTLS DLL. We used a freely redistributable build of OpenSSL from https://www.firedaemon.com/firedaemon-openssl. Unzip and install OpenSSL in an accessible place (we used the lib subdirectory of our Tcl installation).
 
-1. Visual Studio x86 native prompt. Update environmental variables for building Tcltls. Customize the below entries for your setup. 
+1. Visual Studio x64 native prompt. Update environmental variables for building Tcltls. Customize the below entries for your setup. 
 
 set PATH=%PATH%;C:\tcl-trunk\lib\openssl-3\x64\bin
 set INCLUDE=%INCLUDE%;C:\tcl-trunk\tcl\lib\openssl-3\x64\include\openssl
@@ -27,7 +27,7 @@ od -A n -v -t xC < 'tls.tcl' > tls.tcl.h.new.1
 sed 's@[^0-9A-Fa-f]@@g;s@..@0x&, @g' < tls.tcl.h.new.1 > tls.tcl.h
 rm -f tls.tcl.h.new.1
 
--> Visual Studio x86 native prompt.
+-> Visual Studio x64 native prompt.
 
 cd C:path\to\tcltls\win
 
