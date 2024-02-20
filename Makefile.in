@@ -101,7 +101,7 @@ PACKAGE_VERSION	= @PACKAGE_VERSION@
 CC		= @CC@
 CCLD		= @CCLD@
 CFLAGS_DEFAULT	= @CFLAGS_DEFAULT@
-CFLAGS_WARNING	= @CFLAGS_WARNING@ -Wno-deprecated-declarations
+CFLAGS_WARNING	= @CFLAGS_WARNING@
 EXEEXT		= @EXEEXT@
 LDFLAGS_DEFAULT	= @LDFLAGS_DEFAULT@
 MAKE_LIB	= @MAKE_LIB@
@@ -157,7 +157,7 @@ PKG_CFLAGS	= @PKG_CFLAGS@
 # you do not compile with a similar machine setup as the Tcl core was
 # compiled with.
 #DEFS		= $(TCL_DEFS) @DEFS@ $(PKG_CFLAGS)
-DEFS		= @DEFS@ $(PKG_CFLAGS) -DNO_SSL2 -DNO_SSL3
+DEFS		= @DEFS@ $(PKG_CFLAGS)
 
 # Move pkgIndex.tcl to 'BINARIES' var if it is generated in the Makefile
 CONFIG_CLEAN_FILES = Makefile pkgIndex.tcl generic/tls.tcl.h
@@ -321,13 +321,6 @@ tls.tcl.h: @srcdir@/library/tls.tcl Makefile
 	sed 's@[^0-9A-Fa-f]@@g;s@..@0x&, @g' < tls.tcl.h.new.1 > tls.tcl.h.new.2
 	rm -f tls.tcl.h.new.1
 	mv tls.tcl.h.new.2 @srcdir@/generic/tls.tcl.h
-
-# Create default DH parameters
-dh_params.h: @srcdir@/gen_dh_params Makefile
-	sh @srcdir@/gen_dh_params @GEN_DH_PARAMS_ARGS@ > dh_params.h.new
-	mv dh_params.h.new dh_params.h
-
-tls.o:	dh_params.h
 
 $(srcdir)/manifest.uuid:
 	printf "git-" >$(srcdir)/manifest.uuid

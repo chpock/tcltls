@@ -1,49 +1,84 @@
 	Windows DLL Build instructions using nmake build system
 	2020-10-15 Harald.Oehlmann@elmicron.de
-	2023-08-22 Kevin Walzer (kw@codebykevin.com)
+	2023-04-23 Brian O'Hagan
 
 Properties:
 - 64 bit DLL
-- VisualStudio 2019
-- WSL 
-- OpenSSL dynamically linked to TCLTLS DLL. We used a freely redistributable build of OpenSSL from https://www.firedaemon.com/firedaemon-openssl. Unzip and install OpenSSL in an accessible place (we used the lib subdirectory of our Tcl installation).
+- VisualStudio 2015
+Note: Visual C++ 6 does not build OpenSSL (long long syntax error)
+- Cygwin32 (temporary helper, please help to replace by tclsh)
+- OpenSSL statically linked to TCLTLS DLL.
+Note: Dynamic linking also works but results in a DLL dependency on OPENSSL DLL's
 
-1. Visual Studio x86 native prompt. Update environmental variables for building Tcltls. Customize the below entries for your setup. 
+-----------------------------
 
-set PATH=%PATH%;C:\tcl-trunk\lib\openssl-3\x64\bin
-set INCLUDE=%INCLUDE%;C:\tcl-trunk\tcl\lib\openssl-3\x64\include\openssl
-set LIB=%LIB%;C:\tcl-trunk\tcl\lib\openssl-3\x64\bin
+1) Build OpenSSL static libraries:
 
+set SSLBUILD=\path\to\build\dir
+set SSLINSTALL=\path\to\install\dir
+set SSLCOMMON=\path\to\common\dir
 
-2) Build TCLTLS
+(1a) Get OpenSSL
 
--> Unzip distribution on your system. 
--> Start WSL.
--> cd /mnt/c/path/to/tcltls
+  https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1t/openssl-1.1.1t.tar.gz
 
-./gen_dh_params > dh_params.h
+  Unpack OpenSSL source distribution to %SSLBUILD%
 
-od -A n -v -t xC < 'tls.tcl' > tls.tcl.h.new.1
-sed 's@[^0-9A-Fa-f]@@g;s@..@0x&, @g' < tls.tcl.h.new.1 > tls.tcl.h
+(1b) Install Perl from https://strawberryperl.com/
+
+  https://strawberryperl.com/download/5.32.1.1/strawberry-perl-5.32.1.1-64bit.msi
+  Install to C:\Strawberry\perl
+
+(1c) Install NASM Assembler from https://www.nasm.us/
+
+  https://www.nasm.us/pub/nasm/releasebuilds/2.16.01/win64/nasm-2.16.01-installer-x64.exe
+  Install to: C:\Program Files\NASM
+
+(1d) Configure
+
+  At Visual Studio x86 native prompt:
+
+  set Path=%PATH%;C:\Program Files\NASM;C:\Strawberry\perl\bin
+  perl ..\Configure VC-WIN64A no-shared no-filenames threads no-ssl2 no-ssl3 --api=1.1.0 --prefix="%SSLINSTALL%" --openssldir="%SSLCOMMON%" -DOPENSSL_NO_DEPRECATED
+  # Not used options: no-asm no-zlib no-comp no-ui-console no-autoload-config
+
+(1e) Build OpenSSL
+
+  nmake
+  nmake test
+  nmake install
+
+-----------------------------
+
+2) Build TclTLS
+
+set BUILDDIR=\path\to\build\dir
+set TCLINSTALL=\path\to\tcl\dir
+
+2a) Unzip distribution to %BUILDDIR%
+
+2b) Start BASH shell (MinGW62 Git shell)
+
+cd %BUILDDIR%
+od -A n -v -t xC < 'library/tls.tcl' > tls.tcl.h.new.1
+sed 's@[^0-9A-Fa-f]@@g;s@..@0x&, @g' < tls.tcl.h.new.1 > generic/tls.tcl.h
 rm -f tls.tcl.h.new.1
 
--> Visual Studio x86 native prompt.
+2c) Start Visual Studio shell
 
-cd C:path\to\tcltls\win
+cd %BUILDDIR%\win
 
-Run the following commands (modify the flags to your specific installations).
+nmake -f makefile.vc TCLDIR=%TCLINSTALL% SSL_INSTALL_FOLDER=%SSLINSTALL%
+nmake -f makefile.vc install TCLDIR=c:\test\tcl8610 INSTALLDIR=%TCLINSTALL% SSL_INSTALL_FOLDER=%SSLINSTALL%
 
-nmake -f makefile.vc TCLDIR=c:\users\wordt\tcl INSTALLDIR=c:\tcl-trunk\tcl\lib SSL_INSTALL_FOLDER=C:\tcl-trunk\tcl\lib\openssl-3\x64
-
-nmake -f makefile.vc TCLDIR=c:\users\wordt\tcl INSTALLDIR=c:\tcl-trunk\tcl\lib SSL_INSTALL_FOLDER=C:\tcl-trunk\tcl\lib\openssl-3\x64 install
-
-The resulting installation will include both the tcltls package and also have libcrypto.dll and libssl.dll copied into the same directory. 
+-----------------------------
 
 3) Test
 
-Start tclsh
+Start tclsh or wish
 
 package require tls
 package require http
 http::register https 443 [list ::tls::socket -autoservername true]
 set tok [http::data [http::geturl https://www.tcl-lang.org]]
+::http::cleanup $tok

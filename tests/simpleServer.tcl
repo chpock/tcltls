@@ -1,6 +1,4 @@
-#!/bin/sh
-# The next line is executed by /bin/sh, but not tcl \
-exec tclsh8.3 "$0" ${1+"$@"}
+#!/usr/bin/env tclsh
 
 package require tls
 
