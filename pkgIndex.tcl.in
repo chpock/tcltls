@@ -11,7 +11,7 @@ if {[package vsatisfies [package provide Tcl] 9.0-]} {
 } else {
     if {![package vsatisfies [package provide Tcl] 8.5]} {return}
     package ifneeded @PACKAGE_NAME@ @PACKAGE_VERSION@ [list apply {{dir} {
-	if {[string tolower [file extension @PKG_LIB_FILE8@]] in [list ".dll" ".so"]} {
+	if {[string tolower [file extension @PKG_LIB_FILE8@]] in [list .dll .dylib .so]} {
 	    load [file join $dir @PKG_LIB_FILE8@] [string totitle @PACKAGE_NAME@]
 	} else {
 	    load {} [string totitle @PACKAGE_NAME@]

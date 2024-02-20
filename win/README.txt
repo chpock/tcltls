@@ -5,7 +5,7 @@
 Properties:
 - 64 bit DLL
 - VisualStudio 2019
-- WSL 
+- WSL
 - OpenSSL dynamically linked to TCLTLS DLL. We used a freely redistributable build of OpenSSL from https://www.firedaemon.com/firedaemon-openssl. Unzip and install OpenSSL in an accessible place (we used the lib subdirectory of our Tcl installation).
 
 1. Visual Studio x64 native prompt. Update environmental variables for building Tcltls. Customize the below entries for your setup. 
@@ -17,7 +17,7 @@ set LIB=%LIB%;C:\tcl-trunk\tcl\lib\openssl-3\x64\bin
 
 2) Build TCLTLS
 
--> Unzip distribution on your system. 
+-> Unzip distribution on your system.
 -> Start WSL.
 -> cd /mnt/c/path/to/tcltls
 
@@ -37,7 +37,7 @@ nmake -f makefile.vc TCLDIR=c:\users\wordt\tcl INSTALLDIR=c:\tcl-trunk\tcl\lib S
 
 nmake -f makefile.vc TCLDIR=c:\users\wordt\tcl INSTALLDIR=c:\tcl-trunk\tcl\lib SSL_INSTALL_FOLDER=C:\tcl-trunk\tcl\lib\openssl-3\x64 install
 
-The resulting installation will include both the tcltls package and also have libcrypto.dll and libssl.dll copied into the same directory. 
+The resulting installation will include both the tcltls package and also have libcrypto.dll and libssl.dll copied into the same directory.
 
 3) Test
 

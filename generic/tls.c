@@ -110,8 +110,12 @@ static Tcl_Mutex *locks = NULL;
 static int locksCount = 0;
 static Tcl_Mutex init_mx;
 
-void CryptoThreadLockCallback(int mode, int n, const char *file, int line) {
-
+void CryptoThreadLockCallback(
+    int mode,
+    int n,
+    TCL_UNUSED(const char *),
+    TCL_UNUSED(int))
+{
 	if (mode & CRYPTO_LOCK) {
 		/* This debugging is turned off by default -- it's too noisy. */
 		/* dprintf("Called to lock (n=%i of %i)", n, locksCount); */
@@ -124,8 +128,6 @@ void CryptoThreadLockCallback(int mode, int n, const char *file, int line) {
 	/* dprintf("Returning"); */
 
 	return;
-	file = file;
-	line = line;
 }
 
 unsigned long CryptoThreadIdCallback(void) {
@@ -417,7 +419,7 @@ PasswordCallback(char *buf, int size, int verify)
 }
 #else
 static int
-PasswordCallback(char *buf, int size, int verify, void *udata)
+PasswordCallback(char *buf, int size, TCL_UNUSED(int) /* verify */, void *udata)
 {
     State *statePtr	= (State *) udata;
     Tcl_Interp *interp	= statePtr->interp;
@@ -459,7 +461,6 @@ PasswordCallback(char *buf, int size, int verify, void *udata)
     } else {
 	return -1;
     }
-    	verify = verify;
 }
 #endif
 
