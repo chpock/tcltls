@@ -425,7 +425,11 @@ PasswordCallback(
 }
 #else
 static int
-PasswordCallback(char *buf, int size, TCL_UNUSED(int) /* verify */, void *udata)
+PasswordCallback(
+    char *buf,
+    int size,
+    TCL_UNUSED(int), /* verify */
+    void *udata)
 {
     State *statePtr	= (State *) udata;
     Tcl_Interp *interp	= statePtr->interp;
@@ -437,7 +441,7 @@ PasswordCallback(char *buf, int size, TCL_UNUSED(int) /* verify */, void *udata)
     if (statePtr->password == NULL) {
 	if (Tcl_EvalEx(interp, "tls::password", -1, TCL_EVAL_GLOBAL)
 		== TCL_OK) {
-	    char *ret = (char *) Tcl_GetStringResult(interp);
+	    const char *ret = Tcl_GetStringResult(interp);
 	    strncpy(buf, ret, (size_t) size);
 	    return (int)strlen(ret);
 	} else {
@@ -461,7 +465,7 @@ PasswordCallback(char *buf, int size, TCL_UNUSED(int) /* verify */, void *udata)
     Tcl_Release((ClientData) statePtr->interp);
 
     if (result == TCL_OK) {
-	char *ret = (char *) Tcl_GetStringResult(interp);
+	const char *ret = Tcl_GetStringResult(interp);
 	strncpy(buf, ret, (size_t) size);
 	return (int)strlen(ret);
     } else {
@@ -749,7 +753,7 @@ ImportObjCmd(
 
     dprintf("Called");
 
-#if defined(NO_TLS1) && defined(NO_TLS1_1) && defined(NO_TLS1_2) && !defined(NO_SSL3)
+#if defined(NO_TLS1) && defined(NO_TLS1_1) && defined(NO_TLS1_2) && defined(NO_TLS1_3) && !defined(NO_SSL3)
     ssl3 = 1;
 #endif
 #if defined(NO_TLS1)
