@@ -35,7 +35,7 @@ PRJ_OBJS = $(TMP_DIR)\tls.obj \
 PRJ_INCLUDES = -I"$(SSL_INSTALL_FOLDER)\include" -I"$(OPENSSL_INSTALL_DIR)\include"
 
 # Define any additional compiler flags that might be required for the project
-PRJ_DEFINES = -D NO_SSL2 -D NO_SSL3 -D _CRT_SECURE_NO_WARNINGS
+PRJ_DEFINES = -D NO_SSL3 -D _CRT_SECURE_NO_WARNINGS
 
 # SSL Libs:
 #    1. ${LIBCRYPTO}.dll

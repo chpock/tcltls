@@ -35,9 +35,6 @@
 #  define NO_RC4
 #  define NO_RC5
 #  define NO_RSA
-#  ifndef NO_SSL2
-#    define NO_SSL2
-#  endif
 #endif
 
 #include <openssl/ssl.h>
@@ -49,7 +46,7 @@
  * Determine if we should use the pre-OpenSSL 1.1.0 API
  */
 #undef TCLTLS_OPENSSL_PRE_1_1
-#if (defined(LIBRESSL_VERSION_NUMBER)) || OPENSSL_VERSION_NUMBER < 0x10100000L
+#if defined(LIBRESSL_VERSION_NUMBER)
 #  define TCLTLS_OPENSSL_PRE_1_1_API 1
 #endif
 
