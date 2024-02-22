@@ -371,7 +371,10 @@ Tcl_Obj *Tls_x509CaIssuers(Tcl_Interp *interp, X509 *cert) {
  */
 
 Tcl_Obj*
-Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
+Tls_NewX509Obj(
+    Tcl_Interp *interp,
+    X509 *cert)
+{
     Tcl_Obj *certPtr = Tcl_NewListObj(0, NULL);
     BIO *bio = BIO_new(BIO_s_mem());
     int mdnid, pknid, bits, len;

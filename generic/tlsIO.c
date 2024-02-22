@@ -23,7 +23,7 @@
 /*
  * Forward declarations
  */
-static void TlsChannelHandlerTimer(ClientData clientData);
+static void TlsChannelHandlerTimer(void *clientData);
 
 /*
  *-------------------------------------------------------------------
@@ -41,7 +41,7 @@ static void TlsChannelHandlerTimer(ClientData clientData);
  *
  *-------------------------------------------------------------------
  */
-static int TlsBlockModeProc(ClientData instanceData, int mode) {
+static int TlsBlockModeProc(void *instanceData, int mode) {
     State *statePtr = (State *) instanceData;
 
     if (mode == TCL_MODE_NONBLOCKING) {
@@ -71,25 +71,27 @@ static int TlsBlockModeProc(ClientData instanceData, int mode) {
  *
  *-------------------------------------------------------------------
  */
-static int TlsCloseProc(ClientData instanceData, Tcl_Interp *interp) {
-    State *statePtr = (State *) instanceData;
+static int TlsCloseProc(
+    void *instanceData,
+    TCL_UNUSED(Tcl_Interp *))
+{
+    State *statePtr = (State *)instanceData;
 
-    dprintf("TlsCloseProc(%p)", (void *) statePtr);
+    dprintf("TlsCloseProc(%p)", statePtr);
 
     Tls_Clean(statePtr);
-    Tcl_EventuallyFree((ClientData)statePtr, Tls_Free);
-    return(0);
+    Tcl_EventuallyFree(statePtr, Tls_Free);
+    return TCL_OK;
 }
 
-static int TlsClose2Proc(ClientData instanceData,    /* The socket state. */
+static int TlsClose2Proc(
+    void *instanceData,    /* The socket state. */
     Tcl_Interp *interp,		/* For errors - can be NULL. */
     int flags)			/* Flags to close read and/or write side of channel */
 {
-    State *statePtr = (State *) instanceData;
+    dprintf("TlsClose2Proc(%p)", instanceData);
 
-    dprintf("TlsClose2Proc(%p)", (void *) statePtr);
-
-    if ((flags & (TCL_CLOSE_READ|TCL_CLOSE_WRITE)) == 0) {
+    if (!(flags & (TCL_CLOSE_READ|TCL_CLOSE_WRITE))) {
 	return TlsCloseProc(instanceData, interp);
     }
     return EINVAL;
@@ -114,7 +116,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
     int bioShouldRetry;
     *errorCodePtr = 0;
 
-    dprintf("WaitForConnect(%p)", (void *) statePtr);
+    dprintf("WaitForConnect(%p)", statePtr);
     dprintFlags(statePtr);
 
     if (!(statePtr->flags & TLS_TCL_INIT)) {
@@ -145,7 +147,6 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	if (statePtr->flags & TLS_TCL_SERVER) {
 	    dprintf("Calling SSL_accept()");
 	    err = SSL_accept(statePtr->ssl);
-
 	} else {
 	    dprintf("Calling SSL_connect()");
 	    err = SSL_connect(statePtr->ssl);
@@ -280,7 +281,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 
     dprintf("Returning in success");
     *errorCodePtr = 0;
-    return(0);
+    return 0;
 }
 
 /*
@@ -300,7 +301,13 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
  *
  *-------------------------------------------------------------------
  */
-static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *errorCodePtr) {
+
+static int TlsInputProc(
+    void *instanceData,
+    char *buf,
+    int bufSize,
+    int *errorCodePtr)
+{
     unsigned long backingError;
     State *statePtr = (State *) instanceData;
     int bytesRead;
@@ -436,7 +443,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
     }
 
     dprintf("Input(%d) -> %d [%d]", bufSize, bytesRead, *errorCodePtr);
-    return(bytesRead);
+    return bytesRead;
 }
 
 /*
@@ -456,7 +463,13 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
  *
  *-------------------------------------------------------------------
  */
-static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, int *errorCodePtr) {
+
+static int TlsOutputProc(
+    void *instanceData,
+    const char *buf,
+    int toWrite,
+    int *errorCodePtr)
+{
     unsigned long backingError;
     State *statePtr = (State *) instanceData;
     int written, err;
@@ -525,38 +538,32 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 
     err = SSL_get_error(statePtr->ssl, written);
     backingError = ERR_get_error();
-
     switch (err) {
 	case SSL_ERROR_NONE:
 	    if (written < 0) {
 		written = 0;
 	    }
 	    break;
-
 	case SSL_ERROR_WANT_WRITE:
 	    dprintf("Got SSL_ERROR_WANT_WRITE, mapping it to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    written = -1;
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_WRITE");
 	    break;
-
 	case SSL_ERROR_WANT_READ:
 	    dprintf(" write R BLOCK");
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_READ");
 	    break;
-
 	case SSL_ERROR_WANT_X509_LOOKUP:
 	    dprintf(" write X BLOCK");
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_X509_LOOKUP");
 	    break;
-
 	case SSL_ERROR_ZERO_RETURN:
 	    dprintf(" closed");
 	    written = 0;
 	    *errorCodePtr = 0;
 	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
 	    break;
-
 	case SSL_ERROR_SYSCALL:
 	    /* Some non-recoverable, fatal I/O error occurred */
 
@@ -593,7 +600,6 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    *errorCodePtr = ECONNABORTED;
 	    written = -1;
 	    break;
-
 	default:
 	    dprintf("unknown error: %d", err);
 	    Tls_Error(statePtr, "Unknown error");
@@ -621,7 +627,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
  *-------------------------------------------------------------------
  */
 static int
-TlsSetOptionProc(ClientData instanceData,    /* Socket state. */
+TlsSetOptionProc(void *instanceData,    /* Socket state. */
     Tcl_Interp *interp,		/* For errors - can be NULL. */
     const char *optionName,	/* Name of the option to set the value for, or
 				 * NULL to get all options and their values. */
@@ -666,7 +672,8 @@ TlsSetOptionProc(ClientData instanceData,    /* Socket state. */
  *-------------------------------------------------------------------
  */
 static int
-TlsGetOptionProc(ClientData instanceData,    /* Socket state. */
+TlsGetOptionProc(
+    void *instanceData,	/* Socket state. */
     Tcl_Interp *interp,		/* For errors - can be NULL. */
     const char *optionName,	/* Name of the option to retrieve the value for, or
 				 * NULL to get all options and their values. */
@@ -708,8 +715,10 @@ TlsGetOptionProc(ClientData instanceData,    /* Socket state. */
  *
  *-------------------------------------------------------------------
  */
+
 static void
-TlsWatchProc(ClientData instanceData,    /* The socket state. */
+TlsWatchProc(
+    void *instanceData,    /* The socket state. */
     int mask)			/* Events of interest; an OR-ed combination of
 				 * TCL_READABLE, TCL_WRITABLE and TCL_EXCEPTION. */
 {
@@ -770,7 +779,7 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
 	 * data waiting, so generate a timer to flush that.
 	 */
 	dprintf("Creating a new timer since data appears to be waiting");
-	statePtr->timer = Tcl_CreateTimerHandler(TLS_TCL_DELAY, TlsChannelHandlerTimer, (ClientData) statePtr);
+	statePtr->timer = Tcl_CreateTimerHandler(TLS_TCL_DELAY, TlsChannelHandlerTimer, statePtr);
     }
 }
 
@@ -790,11 +799,12 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
  *
  *-------------------------------------------------------------------
  */
-static int TlsGetHandleProc(ClientData instanceData,    /* Socket state. */
+static int TlsGetHandleProc(
+    void *instanceData,    /* Socket state. */
     int direction,		/* TCL_READABLE or TCL_WRITABLE */
-    ClientData *handlePtr)	/* Handle associated with the channel */
+    void **handlePtr)	/* Handle associated with the channel */
 {
-    State *statePtr = (State *) instanceData;
+    State *statePtr = (State *)instanceData;
 
     return(Tcl_GetChannelHandle(Tls_GetParent(statePtr, TLS_TCL_FASTPATH), direction, handlePtr));
 }
@@ -815,11 +825,13 @@ static int TlsGetHandleProc(ClientData instanceData,    /* Socket state. */
  *
  *-------------------------------------------------------------------
  */
-static int TlsNotifyProc(ClientData instanceData,    /* Socket state. */
+
+static int TlsNotifyProc(
+    void *instanceData,    /* Socket state. */
     int mask)			/* type of event that occurred:
 				 * OR-ed combination of TCL_READABLE or TCL_WRITABLE */
 {
-    State *statePtr = (State *) instanceData;
+    State *statePtr = (State *)instanceData;
     int errorCode;
 
     /*
@@ -880,7 +892,7 @@ static int TlsNotifyProc(ClientData instanceData,    /* Socket state. */
  *
  *------------------------------------------------------*
  */
-static void TlsChannelHandlerTimer(ClientData clientData) {
+static void TlsChannelHandlerTimer(void *clientData) {
     State *statePtr = (State *) clientData;
     int mask = 0;
 
@@ -939,16 +951,16 @@ static const Tcl_ChannelType tlsChannelType = {
     TlsCloseProc,		/* Close proc */
     TlsInputProc,		/* Input proc */
     TlsOutputProc,		/* Output proc */
-    NULL,			/* Seek proc */
+    0,			/* Seek proc */
     TlsSetOptionProc,		/* Set option proc */
     TlsGetOptionProc,		/* Get option proc */
     TlsWatchProc,		/* Initialize notifier */
     TlsGetHandleProc,		/* Get OS handles out of channel */
     TlsClose2Proc,		/* close2proc */
     TlsBlockModeProc,		/* Set blocking/nonblocking mode*/
-    NULL,			/* Flush proc */
+    0,			/* Flush proc */
     TlsNotifyProc,		/* Handling of events bubbling up */
-    NULL,			/* Wide seek proc */
+    0,			/* Wide seek proc */
     NULL,			/* Thread action */
     NULL			/* Truncate */
 };

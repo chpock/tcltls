@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1997-2000 Matt Newman <matt@novadigm.com>
  *
- * Provides BIO layer to interface OpenSSL to TCL.
+ * Provides BIO layer to interface OpenSSL to Tcl.
  */
 
 #include "tlsInt.h"
@@ -16,13 +16,13 @@ static int BioWrite(BIO *bio, const char *buf, int bufLen) {
 
     dprintf("[chan=%p] BioWrite(%p, <buf>, %d)", (void *)chan, (void *) bio, bufLen);
 
-    ret = Tcl_WriteRaw(chan, buf, (Tcl_Size) bufLen);
+    ret = Tcl_WriteRaw(chan, buf, (Tcl_Size)bufLen);
 
     tclEofChan = Tcl_Eof(chan);
     tclErrno = Tcl_GetErrno();
 
     dprintf("[chan=%p] BioWrite(%d) -> %" TCL_SIZE_MODIFIER "d [tclEof=%d; tclErrno=%d]",
-	(void *) chan, bufLen, ret, tclEofChan, tclErrno);
+	    (void *) chan, bufLen, ret, tclEofChan, tclErrno);
 
     BIO_clear_flags(bio, BIO_FLAGS_WRITE | BIO_FLAGS_SHOULD_RETRY);
 
@@ -30,12 +30,10 @@ static int BioWrite(BIO *bio, const char *buf, int bufLen) {
 	dprintf("Got EOF while reading, returning a Connection Reset error which maps to Soft EOF");
 	Tcl_SetErrno(ECONNRESET);
 	ret = 0;
-
     } else if (ret == 0) {
 	dprintf("Got 0 from Tcl_WriteRaw, and EOF is not set; ret = 0");
 	dprintf("Setting retry read flag");
 	BIO_set_retry_read(bio);
-
     } else if (ret < 0) {
 	dprintf("We got some kind of I/O error");
 
@@ -44,7 +42,6 @@ static int BioWrite(BIO *bio, const char *buf, int bufLen) {
 	} else {
 	    dprintf("It's an unexpected error: %s/%i", Tcl_ErrnoMsg(tclErrno), tclErrno);
 	}
-
     } else {
 	dprintf("Successfully wrote %" TCL_SIZE_MODIFIER "d bytes of data", ret);
     }
@@ -73,13 +70,13 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
 	return 0;
     }
 
-    ret = Tcl_ReadRaw(chan, buf, (Tcl_Size) bufLen);
+    ret = Tcl_ReadRaw(chan, buf, (Tcl_Size)bufLen);
 
     tclEofChan = Tcl_Eof(chan);
     tclErrno = Tcl_GetErrno();
 
     dprintf("[chan=%p] BioRead(%d) -> %" TCL_SIZE_MODIFIER "d [tclEof=%d; tclErrno=%d]",
-	(void *) chan, bufLen, ret, tclEofChan, tclErrno);
+	    (void *) chan, bufLen, ret, tclEofChan, tclErrno);
 
     BIO_clear_flags(bio, BIO_FLAGS_READ | BIO_FLAGS_SHOULD_RETRY);
 
@@ -87,12 +84,10 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
 	dprintf("Got EOF while reading, returning a Connection Reset error which maps to Soft EOF");
 	Tcl_SetErrno(ECONNRESET);
 	ret = 0;
-
     } else if (ret == 0) {
 	dprintf("Got 0 from Tcl_Read or Tcl_ReadRaw, and EOF is not set; ret = 0");
 	dprintf("Setting retry read flag");
 	BIO_set_retry_read(bio);
-
     } else if (ret < 0) {
 	dprintf("We got some kind of I/O error");
 
@@ -101,7 +96,6 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
 	} else {
 	    dprintf("It's an unexpected error: %s/%i", Tcl_ErrnoMsg(tclErrno), tclErrno);
 	}
-
     } else {
 	dprintf("Successfully read %" TCL_SIZE_MODIFIER "d bytes of data", ret);
     }
@@ -114,16 +108,16 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
 	}
     }
 
-    dprintf("BioRead(%p, <buf>, %d) [%p] returning %" TCL_SIZE_MODIFIER "d", (void *) bio,
-	bufLen, (void *) chan, ret);
+    dprintf("BioRead(%p, <buf>, %d) [%p] returning %" TCL_SIZE_MODIFIER "d",
+	    (void *)bio, bufLen, (void *) chan, ret);
 
-    return((int) ret);
+    return (int)ret;
 }
 
 static int BioPuts(BIO *bio, const char *str) {
     dprintf("BioPuts(%p, <string:%p>) called", bio, str);
 
-    return(BioWrite(bio, str, (int) strlen(str)));
+    return BioWrite(bio, str, (int) strlen(str));
 }
 
 static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
@@ -132,12 +126,11 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
 
     chan = Tls_GetParent((State *) BIO_get_data(bio), 0);
 
-    dprintf("BioCtrl(%p, 0x%x, 0x%lx, %p)", (void *) bio, cmd, num, ptr);
+    dprintf("BioCtrl(%p, 0x%x, 0x%lx, %p)", bio, cmd, num, ptr);
 
     switch (cmd) {
 	case BIO_CTRL_RESET:
 		dprintf("Got BIO_CTRL_RESET");
-		num = 0;
 		ret = 0;
 		break;
 	case BIO_C_FILE_SEEK:
@@ -219,10 +212,10 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
 #endif
 	default:
 		dprintf("Got unknown control command (%i)", cmd);
-		ret = 0;
+		ret = -2;
 		break;
     }
-    return(ret);
+    return ret;
 }
 
 static int BioNew(BIO *bio) {
@@ -231,7 +224,7 @@ static int BioNew(BIO *bio) {
     BIO_set_init(bio, 0);
     BIO_set_data(bio, NULL);
     BIO_clear_flags(bio, -1);
-    return(1);
+    return 1;
 }
 
 static int BioFree(BIO *bio) {
@@ -250,7 +243,7 @@ static int BioFree(BIO *bio) {
 	BIO_set_init(bio, 0);
 	BIO_clear_flags(bio, -1);
     }
-    return(1);
+    return 1;
 }
 
 BIO *BIO_new_tcl(State *statePtr, int flags) {

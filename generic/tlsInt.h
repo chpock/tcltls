@@ -166,7 +166,7 @@ typedef struct State {
 	unsigned char *protos;	/* List of supported protocols in protocol format */
 	unsigned int protos_len; /* Length of protos */
 
-	char *err;
+	const char *err;
 } State;
 
 #ifdef USE_TCL_STUBS
