@@ -6,7 +6,40 @@
 
 #include "tlsInt.h"
 
-/* Called by SSL_write() */
+#ifdef TCLTLS_OPENSSL_PRE_1_1_API
+#define BIO_get_data(bio)                ((bio)->ptr)
+#define BIO_get_init(bio)                ((bio)->init)
+#define BIO_get_shutdown(bio)            ((bio)->shutdown)
+#define BIO_set_data(bio, val)           (bio)->ptr = (val)
+#define BIO_set_init(bio, val)           (bio)->init = (val)
+#define BIO_set_shutdown(bio, val)       (bio)->shutdown = (val)
+
+/* XXX: This assumes the variable being assigned to is BioMethods */
+#define BIO_meth_new(type_, name_)       (BIO_METHOD *)Tcl_Alloc(sizeof(BIO_METHOD)); \
+                                         memset(BioMethods, 0, sizeof(BIO_METHOD)); \
+                                         BioMethods->type = type_; \
+                                         BioMethods->name = name_;
+#define BIO_meth_set_write(bio, val)     (bio)->bwrite = val;
+#define BIO_meth_set_read(bio, val)      (bio)->bread = val;
+#define BIO_meth_set_puts(bio, val)      (bio)->bputs = val;
+#define BIO_meth_set_ctrl(bio, val)      (bio)->ctrl = val;
+#define BIO_meth_set_create(bio, val)    (bio)->create = val;
+#define BIO_meth_set_destroy(bio, val)   (bio)->destroy = val;
+#endif
+
+#if 0
+/*
+ * Forward declarations
+ */
+
+static int BioWrite (BIO *h, const char *buf, int num);
+static int BioRead  (BIO *h, char *buf, int num);
+static int BioPuts  (BIO *h, const char *str);
+static long BioCtrl (BIO *h, int cmd, long arg1, void *ptr);
+static int BioNew   (BIO *h);
+static int BioFree  (BIO *h);
+#endif
+
 static int BioWrite(BIO *bio, const char *buf, int bufLen) {
     Tcl_Channel chan;
     Tcl_Size ret;
@@ -22,7 +55,7 @@ static int BioWrite(BIO *bio, const char *buf, int bufLen) {
     tclErrno = Tcl_GetErrno();
 
     dprintf("[chan=%p] BioWrite(%d) -> %" TCL_SIZE_MODIFIER "d [tclEof=%d; tclErrno=%d]",
-	    (void *) chan, bufLen, ret, tclEofChan, tclErrno);
+	    chan, bufLen, ret, tclEofChan, tclErrno);
 
     BIO_clear_flags(bio, BIO_FLAGS_WRITE | BIO_FLAGS_SHOULD_RETRY);
 
@@ -53,7 +86,7 @@ static int BioWrite(BIO *bio, const char *buf, int bufLen) {
 	    BIO_set_retry_read(bio);
 	}
     }
-    return((int) ret);
+    return (int)ret;
 }
 
 /* Called by SSL_read()*/
@@ -76,7 +109,7 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
     tclErrno = Tcl_GetErrno();
 
     dprintf("[chan=%p] BioRead(%d) -> %" TCL_SIZE_MODIFIER "d [tclEof=%d; tclErrno=%d]",
-	    (void *) chan, bufLen, ret, tclEofChan, tclErrno);
+	    chan, bufLen, ret, tclEofChan, tclErrno);
 
     BIO_clear_flags(bio, BIO_FLAGS_READ | BIO_FLAGS_SHOULD_RETRY);
 
@@ -109,7 +142,7 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
     }
 
     dprintf("BioRead(%p, <buf>, %d) [%p] returning %" TCL_SIZE_MODIFIER "d",
-	    (void *)bio, bufLen, (void *) chan, ret);
+	    bio, bufLen, (void *) chan, ret);
 
     return (int)ret;
 }
@@ -182,22 +215,30 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
 		ret = ((chan) && (Tcl_WriteRaw(chan, "", 0) >= 0) ? 1 : -1);
 		dprintf("BIO_CTRL_FLUSH returning value %li", ret);
 		break;
+#ifdef BIO_CTRL_PUSH
 	case BIO_CTRL_PUSH:
 		dprintf("Got BIO_CTRL_PUSH");
 		ret = 0;
 		break;
+#endif
+#ifdef BIO_CTRL_POP
 	case BIO_CTRL_POP:
 		dprintf("Got BIO_CTRL_POP");
 		ret = 0;
 		break;
+#endif
+#ifdef BIO_CTRL_SET
 	case BIO_CTRL_SET:
 		dprintf("Got BIO_CTRL_SET");
 		ret = 0;
 		break;
+#endif
+#ifdef BIO_CTRL_GET
 	case BIO_CTRL_GET :
 		dprintf("Got BIO_CTRL_GET ");
 		ret = 0;
 		break;
+#endif
 #ifdef BIO_CTRL_GET_KTLS_SEND
 	case BIO_CTRL_GET_KTLS_SEND:
 		dprintf("Got BIO_CTRL_GET_KTLS_SEND");
@@ -246,7 +287,10 @@ static int BioFree(BIO *bio) {
     return 1;
 }
 
-BIO *BIO_new_tcl(State *statePtr, int flags) {
+BIO *BIO_new_tcl(
+    State *statePtr,
+    int flags)
+{
     BIO *bio;
     static BIO_METHOD *BioMethods = NULL;
 #ifdef TCLTLS_SSL_USE_FASTPATH
@@ -286,9 +330,9 @@ BIO *BIO_new_tcl(State *statePtr, int flags) {
 
     validParentChannelFd = 0;
     if (strcmp(parentChannelType->typeName, "tcp") == 0) {
-	tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_READABLE, (ClientData) &parentChannelFdIn_p);
+	tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_READABLE, &parentChannelFdIn_p);
 	if (tclGetChannelHandleRet == TCL_OK) {
-	    tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_WRITABLE, (ClientData) &parentChannelFdOut_p);
+	    tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_WRITABLE, &parentChannelFdOut_p);
 	    if (tclGetChannelHandleRet == TCL_OK) {
 		parentChannelFdIn = PTR2INT(parentChannelFdIn_p);
 		parentChannelFdOut = PTR2INT(parentChannelFdOut_p);
