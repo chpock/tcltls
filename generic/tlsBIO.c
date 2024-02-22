@@ -27,19 +27,6 @@
 #define BIO_meth_set_destroy(bio, val)   (bio)->destroy = val;
 #endif
 
-#if 0
-/*
- * Forward declarations
- */
-
-static int BioWrite (BIO *h, const char *buf, int num);
-static int BioRead  (BIO *h, char *buf, int num);
-static int BioPuts  (BIO *h, const char *str);
-static long BioCtrl (BIO *h, int cmd, long arg1, void *ptr);
-static int BioNew   (BIO *h);
-static int BioFree  (BIO *h);
-#endif
-
 static int BioWrite(BIO *bio, const char *buf, int bufLen) {
     Tcl_Channel chan;
     Tcl_Size ret;
