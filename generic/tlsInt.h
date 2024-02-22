@@ -23,7 +23,7 @@
 #include <string.h>
 #include <stdint.h>
 
-#ifdef __WIN32__
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <wincrypt.h> /* OpenSSL needs this on Windows */
@@ -60,39 +60,39 @@
 #ifdef TCLEXT_TCLTLS_DEBUG
 #include <ctype.h>
 #define dprintf(...) { \
-                       char dprintfBuffer[8192], *dprintfBuffer_p; \
-                       dprintfBuffer_p = &dprintfBuffer[0]; \
-                       dprintfBuffer_p += sprintf(dprintfBuffer_p, "%s:%i:%s():", __FILE__, __LINE__, __func__); \
-                       dprintfBuffer_p += sprintf(dprintfBuffer_p, __VA_ARGS__); \
-                       fprintf(stderr, "%s\n", dprintfBuffer); \
-                     }
+	char dprintfBuffer[8192], *dprintfBuffer_p; \
+	dprintfBuffer_p = &dprintfBuffer[0]; \
+	dprintfBuffer_p += sprintf(dprintfBuffer_p, "%s:%i:%s():", __FILE__, __LINE__, __func__); \
+	dprintfBuffer_p += sprintf(dprintfBuffer_p, __VA_ARGS__); \
+	fprintf(stderr, "%s\n", dprintfBuffer); \
+}
 #define dprintBuffer(bufferName, bufferLength) { \
-                                                 int dprintBufferIdx; \
-                                                 unsigned char dprintBufferChar; \
-                                                 fprintf(stderr, "%s:%i:%s():%s[%llu]={", __FILE__, __LINE__, __func__, #bufferName, (unsigned long long) bufferLength); \
-                                                 for (dprintBufferIdx = 0; dprintBufferIdx < bufferLength; dprintBufferIdx++) { \
-                                                         dprintBufferChar = bufferName[dprintBufferIdx]; \
-                                                         if (isalpha(dprintBufferChar) || isdigit(dprintBufferChar)) { \
-                                                                 fprintf(stderr, "'%c' ", dprintBufferChar); \
-                                                         } else { \
-                                                                 fprintf(stderr, "%02x ", (unsigned int) dprintBufferChar); \
-                                                         }; \
-                                                 }; \
-                                                 fprintf(stderr, "}\n"); \
-                                               }
+	int dprintBufferIdx; \
+	unsigned char dprintBufferChar; \
+	fprintf(stderr, "%s:%i:%s():%s[%llu]={", __FILE__, __LINE__, __func__, #bufferName, (unsigned long long) bufferLength); \
+	for (dprintBufferIdx = 0; dprintBufferIdx < bufferLength; dprintBufferIdx++) { \
+		dprintBufferChar = bufferName[dprintBufferIdx]; \
+		if (isalpha(dprintBufferChar) || isdigit(dprintBufferChar)) { \
+			fprintf(stderr, "'%c' ", dprintBufferChar); \
+		} else { \
+			fprintf(stderr, "%02x ", (unsigned int) dprintBufferChar); \
+		}; \
+	}; \
+	fprintf(stderr, "}\n"); \
+}
 #define dprintFlags(statePtr) { \
-                                char dprintfBuffer[8192], *dprintfBuffer_p; \
-                                dprintfBuffer_p = &dprintfBuffer[0]; \
-                                dprintfBuffer_p += sprintf(dprintfBuffer_p, "%s:%i:%s():%s->flags=0", __FILE__, __LINE__, __func__, #statePtr); \
-                                if (((statePtr)->flags & TLS_TCL_ASYNC) == TLS_TCL_ASYNC) { dprintfBuffer_p += sprintf(dprintfBuffer_p, "|TLS_TCL_ASYNC"); }; \
-                                if (((statePtr)->flags & TLS_TCL_SERVER) == TLS_TCL_SERVER) { dprintfBuffer_p += sprintf(dprintfBuffer_p, "|TLS_TCL_SERVER"); }; \
-                                if (((statePtr)->flags & TLS_TCL_INIT) == TLS_TCL_INIT) { dprintfBuffer_p += sprintf(dprintfBuffer_p, "|TLS_TCL_INIT"); }; \
-                                if (((statePtr)->flags & TLS_TCL_DEBUG) == TLS_TCL_DEBUG) { dprintfBuffer_p += sprintf(dprintfBuffer_p, "|TLS_TCL_DEBUG"); }; \
-                                if (((statePtr)->flags & TLS_TCL_CALLBACK) == TLS_TCL_CALLBACK) { dprintfBuffer_p += sprintf(dprintfBuffer_p, "|TLS_TCL_CALLBACK"); }; \
-                                if (((statePtr)->flags & TLS_TCL_HANDSHAKE_FAILED) == TLS_TCL_HANDSHAKE_FAILED) { dprintfBuffer_p += sprintf(dprintfBuffer_p, "|TLS_TCL_HANDSHAKE_FAILED"); }; \
-                                if (((statePtr)->flags & TLS_TCL_FASTPATH) == TLS_TCL_FASTPATH) { dprintfBuffer_p += sprintf(dprintfBuffer_p, "|TLS_TCL_FASTPATH"); }; \
-                                fprintf(stderr, "%s\n", dprintfBuffer); \
-                              }
+	char dprintfBuffer[8192], *dprintfBuffer_p; \
+	dprintfBuffer_p = &dprintfBuffer[0]; \
+	dprintfBuffer_p += sprintf(dprintfBuffer_p, "%s:%i:%s():%s->flags=0", __FILE__, __LINE__, __func__, #statePtr); \
+	if (((statePtr)->flags & TLS_TCL_ASYNC) == TLS_TCL_ASYNC) { dprintfBuffer_p += sprintf(dprintfBuffer_p, "|TLS_TCL_ASYNC"); }; \
+	if (((statePtr)->flags & TLS_TCL_SERVER) == TLS_TCL_SERVER) { dprintfBuffer_p += sprintf(dprintfBuffer_p, "|TLS_TCL_SERVER"); }; \
+	if (((statePtr)->flags & TLS_TCL_INIT) == TLS_TCL_INIT) { dprintfBuffer_p += sprintf(dprintfBuffer_p, "|TLS_TCL_INIT"); }; \
+	if (((statePtr)->flags & TLS_TCL_DEBUG) == TLS_TCL_DEBUG) { dprintfBuffer_p += sprintf(dprintfBuffer_p, "|TLS_TCL_DEBUG"); }; \
+	if (((statePtr)->flags & TLS_TCL_CALLBACK) == TLS_TCL_CALLBACK) { dprintfBuffer_p += sprintf(dprintfBuffer_p, "|TLS_TCL_CALLBACK"); }; \
+	if (((statePtr)->flags & TLS_TCL_HANDSHAKE_FAILED) == TLS_TCL_HANDSHAKE_FAILED) { dprintfBuffer_p += sprintf(dprintfBuffer_p, "|TLS_TCL_HANDSHAKE_FAILED"); }; \
+	if (((statePtr)->flags & TLS_TCL_FASTPATH) == TLS_TCL_FASTPATH) { dprintfBuffer_p += sprintf(dprintfBuffer_p, "|TLS_TCL_FASTPATH"); }; \
+	fprintf(stderr, "%s\n", dprintfBuffer); \
+}
 #else
 #define dprintf(...) if (0) { fprintf(stderr, __VA_ARGS__); }
 #define dprintBuffer(bufferName, bufferLength) /**/
@@ -108,41 +108,39 @@
 /*
  * Defines for State.flags
  */
-#define TLS_TCL_ASYNC	(1<<0)	/* non-blocking mode */
-#define TLS_TCL_SERVER	(1<<1)	/* Server-Side */
-#define TLS_TCL_INIT	(1<<2)	/* Initializing connection */
-#define TLS_TCL_DEBUG	(1<<3)	/* Show debug tracing */
+#define TLS_TCL_ASYNC		(1<<0)	/* non-blocking mode */
+#define TLS_TCL_SERVER		(1<<1)	/* Server-Side */
+#define TLS_TCL_INIT		(1<<2)	/* Initializing connection */
+#define TLS_TCL_DEBUG		(1<<3)	/* Show debug tracing */
 #define TLS_TCL_CALLBACK	(1<<4)	/* In a callback, prevent update
 					 * looping problem. [Bug 1652380] */
-#define TLS_TCL_HANDSHAKE_FAILED (1<<5) /* Set on handshake failures and once
-                                         * set, all further I/O will result
-                                         * in ECONNABORTED errors. */
-#define TLS_TCL_FASTPATH (1<<6)         /* The parent channel is being used directly by the SSL library */
+#define TLS_TCL_HANDSHAKE_FAILED (1<<5) /* Set on handshake failures and once set, all
+                                         * further I/O will result in ECONNABORTED errors. */
+#define TLS_TCL_FASTPATH 	(1<<6)	/* The parent channel is being used directly by the SSL library */
 #define TLS_TCL_DELAY (5)
 
 /*
- * This structure describes the per-instance state
- * of an ssl channel.
+ * This structure describes the per-instance state of an SSL channel.
  *
  * The SSL processing context is maintained here, in the ClientData
  */
 typedef struct State {
-	Tcl_Channel self;       /* this socket channel */
+	Tcl_Channel self;	/* this socket channel */
 	Tcl_TimerToken timer;
 
-	int flags;              /* see State.flags above  */
-	int watchMask;          /* current WatchProc mask */
-	int mode;               /* current mode of parent channel */
+	int flags;		/* see State.flags above  */
+	int watchMask;		/* current WatchProc mask */
+	int mode;		/* current mode of parent channel */
 
-	Tcl_Interp *interp;     /* interpreter in which this resides */
-	Tcl_Obj *callback;      /* script called for tracing, verifying and errors */
-	Tcl_Obj *password;      /* script called for certificate password */
+	Tcl_Interp *interp;	/* interpreter in which this resides */
+	Tcl_Obj *callback;	/* script called for tracing, info, and errors */
+	Tcl_Obj *password;	/* script called for certificate password */
 
-	int vflags;             /* verify flags */
-	SSL *ssl;               /* Struct for SSL processing */
-	SSL_CTX *ctx;           /* SSL Context */
-	BIO *bio;               /* Struct for SSL processing */
-	BIO *p_bio;             /* Parent BIO (that is layered on Tcl_Channel) */
+	int vflags;		/* verify flags */
+	SSL *ssl;		/* Struct for SSL processing */
+	SSL_CTX *ctx;		/* SSL Context */
+	BIO *bio;		/* Struct for SSL processing */
+	BIO *p_bio;		/* Parent BIO (that is layered on Tcl_Channel) */
 
 	const char *err;
 } State;
@@ -170,6 +168,7 @@ typedef struct State {
 
 #if (TCL_MAJOR_VERSION < 9) && defined(TCL_MINOR_VERSION) && (TCL_MINOR_VERSION < 7) && !defined(Tcl_Size)
 #   define Tcl_Size int
+#   define TCL_SIZE_MODIFIER ""
 #endif
 
 /*
@@ -178,7 +177,7 @@ typedef struct State {
 const Tcl_ChannelType *Tls_ChannelType(void);
 Tcl_Channel     Tls_GetParent(State *statePtr, int maskFlags);
 
-Tcl_Obj         *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert);
+Tcl_Obj        *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert);
 void            Tls_Error(State *statePtr, char *msg);
 #if TCL_MAJOR_VERSION > 8
 void            Tls_Free(void *blockPtr);
@@ -188,7 +187,7 @@ void            Tls_Free(char *blockPtr);
 void            Tls_Clean(State *statePtr);
 int             Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureIsPermanent);
 
-BIO             *BIO_new_tcl(State* statePtr, int flags);
+BIO            *BIO_new_tcl(State* statePtr, int flags);
 
 #define PTR2INT(x) ((int) ((intptr_t) (x)))
 
