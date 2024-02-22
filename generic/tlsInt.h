@@ -29,19 +29,26 @@
 #include <wincrypt.h> /* OpenSSL needs this on Windows */
 #endif
 
-/* Handle TCL 8.6 CONST changes */
-#ifndef CONST86
-#   if TCL_MAJOR_VERSION > 8
-#	define CONST86 const
-#   else
-#	define CONST86
-#   endif
+#ifdef NO_PATENTS
+#  define NO_IDEA
+#  define NO_RC2
+#  define NO_RC4
+#  define NO_RC5
+#  define NO_RSA
 #endif
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
 #include <openssl/opensslv.h>
+
+/*
+ * Determine if we should use the pre-OpenSSL 1.1.0 API
+ */
+#undef TCLTLS_OPENSSL_PRE_1_1
+#if defined(LIBRESSL_VERSION_NUMBER)
+#  define TCLTLS_OPENSSL_PRE_1_1_API 1
+#endif
 
 #ifndef ECONNABORTED
 #define ECONNABORTED	130	/* Software caused connection abort */
@@ -190,8 +197,7 @@ typedef struct State {
 # endif
 #endif
 
-#if (TCL_MAJOR_VERSION < 9) && defined(TCL_MINOR_VERSION) && (TCL_MINOR_VERSION < 7) && !defined(Tcl_Size)
-#   define Tcl_Size int
+#if (TCL_MAJOR_VERSION < 9) && defined(TCL_MINOR_VERSION) && (TCL_MINOR_VERSION < 7) && !defined(TCL_SIZE_MODIFIER)
 #   define TCL_SIZE_MODIFIER ""
 #endif
 
@@ -202,7 +208,7 @@ const Tcl_ChannelType *Tls_ChannelType(void);
 Tcl_Channel     Tls_GetParent(State *statePtr, int maskFlags);
 
 Tcl_Obj        *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert);
-Tcl_Obj	       *Tls_NewCAObj(Tcl_Interp *interp, const SSL *ssl, int peer);
+Tcl_Obj        *Tls_NewCAObj(Tcl_Interp *interp, const SSL *ssl, int peer);
 void            Tls_Error(State *statePtr, char *msg);
 #if TCL_MAJOR_VERSION > 8
 void            Tls_Free(void *blockPtr);
