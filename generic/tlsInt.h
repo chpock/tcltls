@@ -166,8 +166,7 @@ typedef struct State {
 # endif
 #endif
 
-#if (TCL_MAJOR_VERSION < 9) && defined(TCL_MINOR_VERSION) && (TCL_MINOR_VERSION < 7) && !defined(Tcl_Size)
-#   define Tcl_Size int
+#if (TCL_MAJOR_VERSION < 9) && defined(TCL_MINOR_VERSION) && (TCL_MINOR_VERSION < 7) && !defined(TCL_SIZE_MODIFIER)
 #   define TCL_SIZE_MODIFIER ""
 #endif
 
