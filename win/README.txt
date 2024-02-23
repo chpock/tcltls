@@ -21,8 +21,6 @@ set LIB=%LIB%;C:\tcl-trunk\tcl\lib\openssl-3\x64\bin
 -> Start WSL.
 -> cd /mnt/c/path/to/tcltls
 
-./gen_dh_params > dh_params.h
-
 od -A n -v -t xC < 'tls.tcl' > tls.tcl.h.new.1
 sed 's@[^0-9A-Fa-f]@@g;s@..@0x&, @g' < tls.tcl.h.new.1 > tls.tcl.h
 rm -f tls.tcl.h.new.1

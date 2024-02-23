@@ -24,8 +24,9 @@
 
 #include "tlsInt.h"
 #include "tclOpts.h"
-#include "tlsUuid.h"
+#include <stdio.h>
 #include <stdlib.h>
+#include "tlsUuid.h"
 
 /* Min OpenSSL version */
 #if OPENSSL_VERSION_NUMBER < 0x10101000L
@@ -69,14 +70,6 @@ static int	TlsLibInit(int uninitialize);
 #define TLS_PROTO_TLS1_2	0x10
 #define TLS_PROTO_TLS1_3	0x20
 #define ENABLED(flag, mask)	(((flag) & (mask)) == (mask))
-
-/*
- * Static data structures
- */
-
-#ifndef OPENSSL_NO_DH
-#include "dh_params.h"
-#endif
 
 /*
  * We lose the tcl password callback when we use the RSA BSAFE SSL-C 1.1.2
@@ -676,7 +669,7 @@ static int HandshakeObjCmd(
 	Tcl_ResetResult(interp);
 	Tcl_SetErrno(err);
 
-	if (!errStr || *errStr == 0) {
+	if (!errStr || (*errStr == 0)) {
 	    errStr = Tcl_PosixError(interp);
 	}
 
@@ -1196,8 +1189,7 @@ CTX_Init(
     /* read a Diffie-Hellman parameters file, or use the built-in one */
 #ifdef OPENSSL_NO_DH
     if (DHparams != NULL) {
-	Tcl_AppendResult(interp,
-		"DH parameter support not available", (char *)NULL);
+	Tcl_AppendResult(interp, "DH parameter support not available", (char *)NULL);
 	SSL_CTX_free(ctx);
 	return NULL;
     }
@@ -1210,8 +1202,7 @@ CTX_Init(
 	    bio = BIO_new_file(F2N(DHparams, &ds), "r");
 	    if (!bio) {
 		Tcl_DStringFree(&ds);
-		Tcl_AppendResult(interp,
-		    "Could not find DH parameters file", (char *)NULL);
+		Tcl_AppendResult(interp, "Could not find DH parameters file", (char *)NULL);
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
@@ -1220,16 +1211,20 @@ CTX_Init(
 	    BIO_free(bio);
 	    Tcl_DStringFree(&ds);
 	    if (!dh) {
-		Tcl_AppendResult(interp,
-		    "Could not read DH parameters from file", (char *)NULL);
+		Tcl_AppendResult(interp, "Could not read DH parameters from file", (char *)NULL);
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
+	    SSL_CTX_set_tmp_dh(ctx, dh);
+	    DH_free(dh);
 	} else {
-	    dh = get_dhParams();
+	    /* Use well known DH parameters that have built-in support in OpenSSL */
+	    if (!SSL_CTX_set_dh_auto(ctx, 1)) {
+		Tcl_AppendResult(interp, "Could not enable set DH auto: ", REASON(), (char *)NULL);
+		SSL_CTX_free(ctx);
+		return NULL;
+	    }
 	}
-	SSL_CTX_set_tmp_dh(ctx, dh);
-	DH_free(dh);
     }
 #endif
 
@@ -1240,12 +1235,10 @@ CTX_Init(
 
 	Tcl_DStringInit(&ds);
 
-	if (SSL_CTX_use_certificate_file(ctx, F2N( certfile, &ds),
-					SSL_FILETYPE_PEM) <= 0) {
+	if (SSL_CTX_use_certificate_file(ctx, F2N(certfile, &ds), SSL_FILETYPE_PEM) <= 0) {
 	    Tcl_DStringFree(&ds);
-	    Tcl_AppendResult(interp,
-			     "unable to set certificate file ", certfile, ": ",
-			     REASON(), (char *)NULL);
+	    Tcl_AppendResult(interp, "unable to set certificate file ", certfile, ": ",
+		    REASON(), (char *)NULL);
 	    SSL_CTX_free(ctx);
 	    return NULL;
 	}
@@ -1253,22 +1246,19 @@ CTX_Init(
 	load_private_key = 1;
 	if (SSL_CTX_use_certificate_ASN1(ctx, cert_len, cert) <= 0) {
 	    Tcl_DStringFree(&ds);
-	    Tcl_AppendResult(interp,
-			     "unable to set certificate: ",
-			     REASON(), (char *)NULL);
+	    Tcl_AppendResult(interp, "unable to set certificate: ",
+		    REASON(), (char *)NULL);
 	    SSL_CTX_free(ctx);
 	    return NULL;
 	}
     } else {
 	certfile = (char*)X509_get_default_cert_file();
 
-	if (SSL_CTX_use_certificate_file(ctx, certfile,
-					SSL_FILETYPE_PEM) <= 0) {
+	if (SSL_CTX_use_certificate_file(ctx, certfile, SSL_FILETYPE_PEM) <= 0) {
 #if 0
 	    Tcl_DStringFree(&ds);
-	    Tcl_AppendResult(interp,
-			     "unable to use default certificate file ", certfile, ": ",
-			     REASON(), (char *)NULL);
+	    Tcl_AppendResult(interp, "unable to use default certificate file ", certfile, ": ",
+		    REASON(), (char *)NULL);
 	    SSL_CTX_free(ctx);
 	    return NULL;
 #endif
@@ -1287,17 +1277,15 @@ CTX_Init(
 		keyfile = certfile;
 	    }
 
-	    if (SSL_CTX_use_PrivateKey_file(ctx, F2N( keyfile, &ds), SSL_FILETYPE_PEM) <= 0) {
+	    if (SSL_CTX_use_PrivateKey_file(ctx, F2N(keyfile, &ds), SSL_FILETYPE_PEM) <= 0) {
 		Tcl_DStringFree(&ds);
 		/* flush the passphrase which might be left in the result */
 		Tcl_SetResult(interp, NULL, TCL_STATIC);
-		Tcl_AppendResult(interp,
-			         "unable to set public key file ", keyfile, " ",
-			         REASON(), (char *)NULL);
+		Tcl_AppendResult(interp, "unable to set public key file ", keyfile, " ",
+			REASON(), (char *)NULL);
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
-
 	    Tcl_DStringFree(&ds);
 	} else if (key != NULL) {
 	    if (SSL_CTX_use_PrivateKey_ASN1(EVP_PKEY_RSA, ctx, key,key_len) <= 0) {
@@ -1313,8 +1301,8 @@ CTX_Init(
 	 * the SSL context */
 	if (!SSL_CTX_check_private_key(ctx)) {
 	    Tcl_AppendResult(interp,
-			     "private key does not match the certificate public key",
-			     (char *)NULL);
+		    "private key does not match the certificate public key",
+		    (char *)NULL);
 	    SSL_CTX_free(ctx);
 	    return NULL;
 	}
@@ -1338,10 +1326,10 @@ CTX_Init(
 
     /* https://sourceforge.net/p/tls/bugs/57/ */
     /* XXX:TODO: Let the user supply values here instead of something that exists on the filesystem */
-    if ( CAfile != NULL ) {
-        STACK_OF(X509_NAME) *certNames = SSL_load_client_CA_file( F2N(CAfile, &ds) );
-	if ( certNames != NULL ) {
-	    SSL_CTX_set_client_CA_list(ctx, certNames );
+    if (CAfile != NULL) {
+        STACK_OF(X509_NAME) *certNames = SSL_load_client_CA_file(F2N(CAfile, &ds));
+	if (certNames != NULL) {
+	    SSL_CTX_set_client_CA_list(ctx, certNames);
 	}
     }
 
@@ -1409,14 +1397,20 @@ StatusObjCmd(
 	return TCL_ERROR;
     }
     statePtr = (State *) Tcl_GetChannelInstanceData(chan);
+
+    /* Get certificate for peer or self */
     if (objc == 2) {
 	peer = SSL_get_peer_certificate(statePtr->ssl);
     } else {
 	peer = SSL_get_certificate(statePtr->ssl);
     }
+    /* Get X509 certificate info */
     if (peer) {
 	objPtr = Tls_NewX509Obj(interp, peer);
-	if (objc == 2) { X509_free(peer); }
+	if (objc == 2) {
+	    X509_free(peer);
+	    peer = NULL;
+	}
     } else {
 	objPtr = Tcl_NewListObj(0, NULL);
     }
@@ -1439,7 +1433,7 @@ StatusObjCmd(
     Tcl_ListObjAppendElement(interp, objPtr,
 	Tcl_NewStringObj(SSL_get_version(statePtr->ssl), -1));
 
-    Tcl_SetObjResult( interp, objPtr);
+    Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
 }
 
@@ -1534,8 +1528,7 @@ MiscObjCmd(
 	    pemout=Tcl_GetString(objv[4]);
 
 	    if (objc>=6) {
-		if (Tcl_ListObjGetElements(interp, objv[5],
-			&listc, &listv) != TCL_OK) {
+		if (Tcl_ListObjGetElements(interp, objv[5], &listc, &listv) != TCL_OK) {
 		    return TCL_ERROR;
 		}
 
@@ -1840,7 +1833,7 @@ DLLEXPORT int Tls_Init(
 		), NULL);
     }
 
-    return Tcl_PkgProvideEx(interp, "tls", PACKAGE_VERSION, NULL);
+    return Tcl_PkgProvideEx(interp, PACKAGE_NAME, PACKAGE_VERSION, NULL);
 }
 
 /*

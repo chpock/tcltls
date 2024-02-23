@@ -322,12 +322,7 @@ tls.tcl.h: @srcdir@/library/tls.tcl Makefile
 	rm -f tls.tcl.h.new.1
 	mv tls.tcl.h.new.2 @srcdir@/generic/tls.tcl.h
 
-# Create default DH parameters
-dh_params.h: @srcdir@/gen_dh_params Makefile
-	sh @srcdir@/gen_dh_params @GEN_DH_PARAMS_ARGS@ > dh_params.h.new
-	mv dh_params.h.new dh_params.h
-
-tls.o:	dh_params.h tlsUuid.h
+tls.o:	tlsUuid.h
 
 $(srcdir)/manifest.uuid:
 	printf "git-" >$(srcdir)/manifest.uuid
