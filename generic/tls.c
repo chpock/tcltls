@@ -1414,23 +1414,14 @@ StatusObjCmd(
 	objPtr = Tcl_NewListObj(0, NULL);
     }
 
-    Tcl_ListObjAppendElement (interp, objPtr,
-	    Tcl_NewStringObj ("sbits", -1));
-    Tcl_ListObjAppendElement (interp, objPtr,
-	    Tcl_NewIntObj (SSL_get_cipher_bits (statePtr->ssl, NULL)));
+    LAPPEND_INT(interp, objPtr, "sbits", SSL_get_cipher_bits(statePtr->ssl, NULL));
 
     ciphers = (char*)SSL_get_cipher(statePtr->ssl);
     if (ciphers != NULL && strcmp(ciphers, "(NONE)")!=0) {
-	Tcl_ListObjAppendElement(interp, objPtr,
-		Tcl_NewStringObj("cipher", -1));
-	Tcl_ListObjAppendElement(interp, objPtr,
-		Tcl_NewStringObj(SSL_get_cipher(statePtr->ssl), -1));
+	LAPPEND_STR(interp, objPtr, "cipher", ciphers, -1);
     }
 
-    Tcl_ListObjAppendElement(interp, objPtr,
-	Tcl_NewStringObj("version", -1));
-    Tcl_ListObjAppendElement(interp, objPtr,
-	Tcl_NewStringObj(SSL_get_version(statePtr->ssl), -1));
+    LAPPEND_STR(interp, objPtr, "version", SSL_get_version(statePtr->ssl), -1);
 
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
@@ -1539,9 +1530,6 @@ MiscObjCmd(
 		    str=Tcl_GetString(listv[i]);
 		    if (strcmp(str,"days")==0) {
 			if (Tcl_GetIntFromObj(interp,listv[i+1],&days)!=TCL_OK)
-			    return TCL_ERROR;
-		    } else if (strcmp(str,"serial")==0) {
-			if (Tcl_GetIntFromObj(interp,listv[i+1],&serial)!=TCL_OK)
 			    return TCL_ERROR;
 		    } else if (strcmp(str,"serial")==0) {
 			if (Tcl_GetIntFromObj(interp,listv[i+1],&serial)!=TCL_OK)
@@ -1727,7 +1715,7 @@ void Tls_Clean(State *statePtr) {
  * Results:  Ssl configured and loaded
  *
  * Side effects:
- *	 create the ssl command, initialise ssl context
+ *	 create the ssl command, initialize ssl context
  *
  *-------------------------------------------------------------------
  */
