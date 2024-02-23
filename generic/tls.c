@@ -447,7 +447,7 @@ Tls_Error(State *statePtr, char *msg) {
     if (msg != NULL) {
 	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(msg, -1));
 
-    } else if ((msg = Tcl_GetStringFromObj(Tcl_GetObjResult(interp), (Tcl_Size *) NULL)) != NULL) {
+    } else if ((msg = Tcl_GetString(Tcl_GetObjResult(interp))) != NULL) {
 	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(msg, -1));
 
     } else {
@@ -922,10 +922,6 @@ HelloCallback(SSL *ssl, int *alert, void *arg) {
     return res;
 }
 
-/********************/
-/* Commands         */
-/********************/
-
 /*
  *-------------------------------------------------------------------
  *
@@ -989,7 +985,7 @@ CiphersObjCmd(
 	return TCL_ERROR;
     case TLS_SSL3:
 #if defined(NO_SSL3) || defined(OPENSSL_NO_SSL3) || defined(OPENSSL_NO_SSL3_METHOD)
-	Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
+	Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *)NULL);
 	return TCL_ERROR;
 #else
 	method = SSLv3_method(); break;
@@ -1016,7 +1012,7 @@ CiphersObjCmd(
 	method = TLSv1_2_method(); break;
 #endif
     case TLS_TLS1_3:
-#if defined(NO_TLS1_3) || defined(OPENSSL_NO_TLS1_3)
+#if defined(NO_TLS1_3) || defined(OPENSSL_NO_TLS1_3) || defined(OPENSSL_NO_TLS1_3_METHOD)
 	Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *)NULL);
 	return TCL_ERROR;
 #else
@@ -1029,13 +1025,11 @@ CiphersObjCmd(
 	method = TLS_method();
 	break;
     }
-
     ctx = SSL_CTX_new(method);
     if (ctx == NULL) {
 	Tcl_AppendResult(interp, GET_ERR_REASON(), (char *)NULL);
 	return TCL_ERROR;
     }
-
     ssl = SSL_new(ctx);
     if (ssl == NULL) {
 	Tcl_AppendResult(interp, GET_ERR_REASON(), (char *)NULL);
@@ -1828,7 +1822,7 @@ CTX_Init(
 	method = isServer ? TLSv1_2_server_method() : TLSv1_2_client_method();
 	break;
 #endif
-#if !defined(NO_TLS1_3) && !defined(OPENSSL_NO_TLS1_3)
+#if !defined(NO_TLS1_3) && !defined(OPENSSL_NO_TLS1_3) && !defined(OPENSSL_NO_TLS1_3_METHOD)
     case TLS_PROTO_TLS1_3:
 	/* Use the generic method and constraint range after context is created */
 	method = isServer ? TLS_server_method() : TLS_client_method();
@@ -1936,7 +1930,6 @@ CTX_Init(
 	    }
 	    SSL_CTX_set_tmp_dh(ctx, dh);
 	    DH_free(dh);
-
 	} else {
 	    /* Use well known DH parameters that have built-in support in OpenSSL */
 	    if (!SSL_CTX_set_dh_auto(ctx, 1)) {
@@ -2018,8 +2011,8 @@ CTX_Init(
 	 * the SSL context */
 	if (!SSL_CTX_check_private_key(ctx)) {
 	    Tcl_AppendResult(interp,
-			    "private key does not match the certificate public key",
-			    (char *)NULL);
+		    "private key does not match the certificate public key",
+		    (char *)NULL);
 	    SSL_CTX_free(ctx);
 	    return NULL;
 	}
@@ -2116,18 +2109,18 @@ StatusObjCmd(
 	return TCL_ERROR;
     }
 
-    /* Get channel Id */
-    channelName = Tcl_GetStringFromObj(objv[(objc == 2 ? 1 : 2)], (Tcl_Size *) NULL);
+    channelName = Tcl_GetString(objv[(objc == 2 ? 1 : 2)]);
     chan = Tcl_GetChannel(interp, channelName, &mode);
     if (chan == (Tcl_Channel) NULL) {
 	return TCL_ERROR;
     }
-
-    /* Make sure to operate on the topmost channel */
+    /*
+     * Make sure to operate on the topmost channel
+     */
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-		"\": not a TLS channel", NULL);
+		"\": not a TLS channel", (char *)NULL);
 	Tcl_SetErrorCode(interp, "TLS", "STATUS", "CHANNEL", "INVALID", (char *)NULL);
 	return TCL_ERROR;
     }
@@ -2241,7 +2234,7 @@ static int ConnectionInfoObjCmd(
 	return(TCL_ERROR);
     }
 
-    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], (Tcl_Size *)NULL), NULL);
+    chan = Tcl_GetChannel(interp, Tcl_GetString(objv[1]), NULL);
     if (chan == (Tcl_Channel) NULL) {
 	return(TCL_ERROR);
     }
@@ -2827,6 +2820,9 @@ DLLEXPORT int Tls_Init(
 
     dprintf("Called");
 
+	/*
+	 * We only support Tcl 8.6 or newer
+	 */
     if (Tcl_InitStubs(interp, "8.6-", 0) == NULL) {
 	return TCL_ERROR;
     }

@@ -75,7 +75,7 @@ $(TMP_DIR)\tlsUuid.h:	$(ROOT)\manifest.uuid
 install: default-pkgindex-tea default-install default-install-docs-html
 
 # Explicit dependency rules
-$(GENERICDIR)\tls.c : $(GENERICDIR)\dh_params.h $(TMP_DIR)\tlsUuid.h
+$(GENERICDIR)\tls.c: $(TMP_DIR)\tlsUuid.h
 
 # Test package
 test: default-test
