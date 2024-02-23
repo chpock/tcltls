@@ -18,7 +18,6 @@
  */
 
 #include "tlsInt.h"
-#include <errno.h>
 
 /*
  * Forward declarations
@@ -55,7 +54,7 @@ static int TlsBlockModeProc(void *instanceData, int mode) {
 /*
  *-------------------------------------------------------------------
  *
- * TlsCloseProc --
+ * TlsClose2Proc --
  *
  *    This procedure is invoked by the generic IO level to perform
  *    channel-type-specific cleanup when a SSL socket based channel
@@ -71,6 +70,9 @@ static int TlsBlockModeProc(void *instanceData, int mode) {
  *
  *-------------------------------------------------------------------
  */
+#if TCL_MAJOR_VERSION > 8
+#   define TlsCloseProc NULL /* No longer neccessary in Tcl 9 */
+#else
 static int TlsCloseProc(
     void *instanceData,
     TCL_UNUSED(Tcl_Interp *))
@@ -83,18 +85,23 @@ static int TlsCloseProc(
     Tcl_EventuallyFree(statePtr, Tls_Free);
     return TCL_OK;
 }
+#endif
 
 static int TlsClose2Proc(
     void *instanceData,    /* The socket state. */
     Tcl_Interp *interp,		/* For errors - can be NULL. */
     int flags)			/* Flags to close read and/or write side of channel */
 {
-    dprintf("TlsClose2Proc(%p)", instanceData);
+    State *statePtr = (State *)instanceData;
 
-    if (!(flags & (TCL_CLOSE_READ|TCL_CLOSE_WRITE))) {
-	return TlsCloseProc(instanceData, interp);
+    dprintf("TlsClose2Proc(%p)", statePtr);
+
+    if ((flags&(TCL_CLOSE_READ|TCL_CLOSE_WRITE))) {
+	return EINVAL;
     }
-    return EINVAL;
+    Tls_Clean(statePtr);
+    Tcl_EventuallyFree(statePtr, Tls_Free);
+    return TCL_OK;
 }
 
 /*
@@ -762,7 +769,6 @@ TlsWatchProc(
     watchProc = Tcl_ChannelWatchProc(Tcl_GetChannelType(downChan));
     watchProc(Tcl_GetChannelInstanceData(downChan), mask);
 
-
     /*
      * Management of the internal timer.
      */
@@ -893,7 +899,7 @@ static int TlsNotifyProc(
  *------------------------------------------------------*
  */
 static void TlsChannelHandlerTimer(void *clientData) {
-    State *statePtr = (State *) clientData;
+    State *statePtr = (State *)clientData;
     int mask = 0;
 
     dprintf("Called");
@@ -927,7 +933,7 @@ Tcl_Channel Tls_GetParent(State *statePtr, int maskFlags) {
 	dprintf("Asked to get the parent channel while we are using FastPath -- returning NULL");
 	return(NULL);
     }
-    return(Tcl_GetStackedChannel(statePtr->self));
+    return Tcl_GetStackedChannel(statePtr->self);
 }
 
 /*
