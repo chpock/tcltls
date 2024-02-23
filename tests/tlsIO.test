@@ -1105,6 +1105,7 @@ test tlsIO-8.1 {testing -async flag on sockets} {socket} {
     puts $s1 a
     # need update to complete TLS handshake in-process
     update
+    fconfigure $s1 -blocking 1
     set z [gets $s1]
     close $s
     close $s1
@@ -2014,11 +2015,9 @@ test tlsIO-14.5 {test tls::unimport} {socket} {
 	fileevent $s readable [list do_handshake $s readable readlittle \
 		-buffering none]
     }
-    set s [tls::socket \
-	    -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+    set s [tls::socket -certfile $serverCert -cafile $caCert -keyfile $serverKey \
 	    -server accept 8831]
-    set c [tls::socket \
-	    -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+    set c [tls::socket -certfile $clientCert -cafile $caCert -keyfile $clientKey \
 	    localhost 8831]
     # only the client gets tls::import
     set res [tls::unimport $c]
@@ -2043,14 +2042,12 @@ test tls-bug58-1.0 {test protocol negotiation failure} {socket} {
 
     # Server - Only accept TLS 1.2
     set s [tls::socket \
-               -certfile $serverCert -cafile $caCert -keyfile $serverKey \
-               -request 0 -require 0 -ssl2 0 -ssl3 0 -tls1 0 -tls1.1 0 -tls1.2 1 \
-               -server Accept 8831]
+	    -certfile $serverCert -cafile $caCert -keyfile $serverKey -request 0 \
+	    -require 0 -ssl2 0 -ssl3 0 -tls1 0 -tls1.1 0 -tls1.2 1 \
+	    -server Accept 8831]
     # Client - Only propose TLS1.0
-    set c [tls::socket -async \
-               -cafile $caCert \
-               -request 0 -require 0 -ssl2 0 -ssl3 0 -tls1 1 -tls1.1 0 -tls1.2 0 \
-               localhost 8831]
+    set c [tls::socket -async -cafile $caCert -request 0 -require 0 \
+	    -ssl2 0 -ssl3 0 -tls1 1 -tls1.1 0 -tls1.2 0 localhost 8831]
     fconfigure $c -blocking 0
     puts $c a ; flush $c
     after 5000 [list set ::done timeout]
