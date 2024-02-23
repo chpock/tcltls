@@ -41,7 +41,7 @@ static void TlsChannelHandlerTimer(void *clientData);
  *-------------------------------------------------------------------
  */
 static int TlsBlockModeProc(void *instanceData, int mode) {
-    State *statePtr = (State *) instanceData;
+    State *statePtr = (State *)instanceData;
 
     if (mode == TCL_MODE_NONBLOCKING) {
 	statePtr->flags |= TLS_TCL_ASYNC;
@@ -233,7 +233,6 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 		}
 
 		statePtr->flags |= TLS_TCL_HANDSHAKE_FAILED;
-
 		return -1;
 	case SSL_ERROR_SSL:
 	    dprintf("Got permanent fatal SSL error, aborting immediately");
@@ -241,14 +240,11 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    statePtr->flags |= TLS_TCL_HANDSHAKE_FAILED;
 	    *errorCodePtr = ECONNABORTED;
 	    return(-1);
-	case SSL_ERROR_WANT_CONNECT:
-	case SSL_ERROR_WANT_ACCEPT:
-	case SSL_ERROR_WANT_X509_LOOKUP:
 	default:
 	    dprintf("We got a confusing reply: %i", rc);
 	    *errorCodePtr = Tcl_GetErrno();
 	    dprintf("ERR(%d, %d) ", rc, *errorCodePtr);
-	    return(-1);
+	    return -1;
     }
 
 #if 0
@@ -300,7 +296,7 @@ static int TlsInputProc(
     int *errorCodePtr)
 {
     unsigned long backingError;
-    State *statePtr = (State *) instanceData;
+    State *statePtr = (State *)instanceData;
     int bytesRead;
     int tlsConnect;
     int err;
@@ -432,7 +428,7 @@ static int TlsOutputProc(
     int *errorCodePtr)
 {
     unsigned long backingError;
-    State *statePtr = (State *) instanceData;
+    State *statePtr = (State *)instanceData;
     int written, err;
     int tlsConnect;
 
@@ -552,6 +548,49 @@ static int TlsOutputProc(
 /*
  *-------------------------------------------------------------------
  *
+ * TlsSetOptionProc --
+ *
+ *    Sets an option value for a SSL socket based channel, or a
+ *    list of all options and their values.
+ *
+ * Results:
+ *    TCL_OK if successful or TCL_ERROR if failed.
+ *
+ * Side effects:
+ *    Updates channel option to new value.
+ *
+ *-------------------------------------------------------------------
+ */
+static int
+TlsSetOptionProc(void *instanceData,    /* Socket state. */
+    Tcl_Interp *interp,		/* For errors - can be NULL. */
+    const char *optionName,	/* Name of the option to set the value for, or
+				 * NULL to get all options and their values. */
+    const char *optionValue)	/* Value for option. */
+{
+    State *statePtr = (State *)instanceData;
+
+    Tcl_Channel downChan = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
+    Tcl_DriverSetOptionProc *setOptionProc;
+
+    setOptionProc = Tcl_ChannelSetOptionProc(Tcl_GetChannelType(downChan));
+    if (setOptionProc != NULL) {
+	return (*setOptionProc)(Tcl_GetChannelInstanceData(downChan), interp, optionName, optionValue);
+    } else if (optionName == (char*) NULL) {
+	/*
+	 * Request is query for all options, this is ok.
+	 */
+	return TCL_OK;
+    }
+    /*
+     * Request for a specific option has to fail, we don't have any.
+     */
+    return Tcl_BadChannelOption(interp, optionName, "");
+}
+
+/*
+ *-------------------------------------------------------------------
+ *
  * TlsGetOptionProc --
  *
  *    Gets an option value for a SSL socket based channel, or a
@@ -575,7 +614,7 @@ TlsGetOptionProc(
 				 * NULL to get all options and their values. */
     Tcl_DString *optionValue)	/* Where to store the computed value initialized by caller. */
 {
-    State *statePtr = (State *) instanceData;
+    State *statePtr = (State *)instanceData;
 
     Tcl_Channel downChan = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
     Tcl_DriverGetOptionProc *getOptionProc;
@@ -592,7 +631,7 @@ TlsGetOptionProc(
     /*
      * Request for a specific option has to fail, we don't have any.
      */
-    return TCL_ERROR;
+    return Tcl_BadChannelOption(interp, optionName, "");
 }
 
 /*
@@ -619,7 +658,7 @@ TlsWatchProc(
 				 * TCL_READABLE, TCL_WRITABLE and TCL_EXCEPTION. */
 {
     Tcl_Channel     downChan;
-    State *statePtr = (State *) instanceData;
+    State *statePtr = (State *)instanceData;
 
     dprintf("TlsWatchProc(0x%x)", mask);
 
@@ -638,7 +677,7 @@ TlsWatchProc(
 	dprintf("Asked to watch a socket with a failed handshake -- nothing can happen here");
 	dprintf("Unregistering interest in the lower channel");
 
-	(Tcl_GetChannelType(downChan))->watchProc(Tcl_GetChannelInstanceData(downChan), 0);
+	Tcl_GetChannelType(downChan)->watchProc(Tcl_GetChannelInstanceData(downChan), 0);
 	statePtr->watchMask = 0;
 	return;
     }
@@ -653,8 +692,7 @@ TlsWatchProc(
      * the request down, unchanged.
      */
     dprintf("Registering our interest in the lower channel (chan=%p)", (void *) downChan);
-    (Tcl_GetChannelType(downChan))
-	    ->watchProc(Tcl_GetChannelInstanceData(downChan), mask);
+    Tcl_GetChannelType(downChan)->watchProc(Tcl_GetChannelInstanceData(downChan), mask);
 
     /*
      * Management of the internal timer.
@@ -844,7 +882,7 @@ static const Tcl_ChannelType tlsChannelType = {
     TlsInputProc,		/* Input proc */
     TlsOutputProc,		/* Output proc */
     0,			/* Seek proc */
-    0,		/* Set option proc */
+    TlsSetOptionProc,		/* Set option proc */
     TlsGetOptionProc,		/* Get option proc */
     TlsWatchProc,		/* Initialize notifier */
     TlsGetHandleProc,		/* Get OS handles out of channel */
