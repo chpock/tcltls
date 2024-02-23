@@ -34,7 +34,7 @@ set SSLCOMMON=\path\to\common\dir
   https://www.nasm.us/pub/nasm/releasebuilds/2.16.01/win64/nasm-2.16.01-installer-x64.exe
   Install to: C:\Program Files\NASM
 
-(1d) Configure
+(1d) Configure Open SSL 1.1.1
 
   At Visual Studio x86 native prompt:
 
@@ -42,7 +42,15 @@ set SSLCOMMON=\path\to\common\dir
   perl ..\Configure VC-WIN64A no-shared no-filenames threads no-ssl2 no-ssl3 --api=1.1.0 --prefix="%SSLINSTALL%" --openssldir="%SSLCOMMON%" -DOPENSSL_NO_DEPRECATED
   # Not used options: no-asm no-zlib no-comp no-ui-console no-autoload-config
 
-(1e) Build OpenSSL
+(1e) Configure Open SSL 3.0+
+
+  At Visual Studio x86 native prompt:
+
+  set Path=%PATH%;C:\Program Files\NASM;C:\Strawberry\perl\bin
+  perl ..\Configure VC-WIN64A no-shared no-filenames threads no-ssl2 no-ssl3 --prefix="%SSLINSTALL%" --openssldir="%SSLCOMMON%"
+  # Not used options: no-asm no-zlib no-comp no-ui-console no-autoload-config
+
+(1f) Build OpenSSL
 
   nmake
   nmake test
