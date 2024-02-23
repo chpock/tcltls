@@ -51,7 +51,7 @@ PRJ_LIBS = \
 	WS2_32.LIB GDI32.LIB ADVAPI32.LIB CRYPT32.LIB USER32.LIB
 
 # Define the standard targets
-!include "targets.vc"
+!include "$(_RULESDIR)\targets.vc"
 
 # Project specific targets
 
@@ -60,11 +60,22 @@ PRJ_LIBS = \
 # default-pkgindex target for our sample extension.
 pkgindex: default-pkgindex
 
+$(ROOT)\manifest.uuid:
+   copy $(WIN_DIR)\gitmanifest.in $(ROOT)\manifest.uuid
+   git rev-parse HEAD >>$(ROOT)\manifest.uuid
+
+$(TMP_DIR)\tlsUuid.h:	$(ROOT)\manifest.uuid
+	copy $(WIN_DIR)\tlsUuid.h.in+$(ROOT)\manifest.uuid $(TMP_DIR)\tlsUuid.h
+
+
 # The default install target only installs binaries and scripts so add
 # an additional target for our documentation. Note this *adds* a target
 # since no commands are listed after it. The original targets for
 # install (from targets.vc) will remain.
 install: default-pkgindex-tea default-install default-install-docs-html
+
+# Explicit dependency rules
+$(GENERICDIR)\tls.c : $(GENERICDIR)\dh_params.h $(TMP_DIR)\tlsUuid.h
 
 # Test package
 test: default-test
