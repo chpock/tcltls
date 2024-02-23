@@ -41,7 +41,7 @@ static void TlsChannelHandlerTimer(void *clientData);
  *-------------------------------------------------------------------
  */
 static int TlsBlockModeProc(void *instanceData, int mode) {
-    State *statePtr = (State *) instanceData;
+    State *statePtr = (State *)instanceData;
 
     if (mode == TCL_MODE_NONBLOCKING) {
 	statePtr->flags |= TLS_TCL_ASYNC;
@@ -216,7 +216,6 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    dprintf("The connection is good");
 	    *errorCodePtr = 0;
 	    break;
-
 	case SSL_ERROR_ZERO_RETURN:
 	    /* The TLS/SSL peer has closed the connection for writing by sending the close_notify alert */
 	    dprintf("SSL_ERROR_ZERO_RETURN: Connect returned an invalid value...");
@@ -251,8 +250,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    }
 
 	    statePtr->flags |= TLS_TCL_HANDSHAKE_FAILED;
-	    return(-1);
-
+	    return -1;
 	case SSL_ERROR_SSL:
 	    /* A non-recoverable, fatal error in the SSL library occurred, usually a protocol error */
 	    dprintf("SSL_ERROR_SSL: Got permanent fatal SSL error, aborting immediately");
@@ -265,15 +263,6 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    statePtr->flags |= TLS_TCL_HANDSHAKE_FAILED;
 	    *errorCodePtr = ECONNABORTED;
 	    return(-1);
-
-	case SSL_ERROR_WANT_READ:
-	case SSL_ERROR_WANT_WRITE:
-	case SSL_ERROR_WANT_X509_LOOKUP:
-	case SSL_ERROR_WANT_CONNECT:
-	case SSL_ERROR_WANT_ACCEPT:
-	case SSL_ERROR_WANT_ASYNC:
-	case SSL_ERROR_WANT_ASYNC_JOB:
-	case SSL_ERROR_WANT_CLIENT_HELLO_CB:
 	default:
 	    /* The operation did not complete and should be retried later. */
 	    dprintf("Operation did not complete, call function again later: %i", rc);
@@ -316,7 +305,7 @@ static int TlsInputProc(
     int *errorCodePtr)
 {
     unsigned long backingError;
-    State *statePtr = (State *) instanceData;
+    State *statePtr = (State *)instanceData;
     int bytesRead;
     int tlsConnect;
     int err;
@@ -378,7 +367,6 @@ static int TlsInputProc(
 	case SSL_ERROR_NONE:
 	    dprintBuffer(buf, bytesRead);
 	    break;
-
 	case SSL_ERROR_SSL:
 	    /* A non-recoverable, fatal error in the SSL library occurred, usually a protocol error */
 	    dprintf("SSL error, indicating that the connection has been aborted");
@@ -478,7 +466,7 @@ static int TlsOutputProc(
     int *errorCodePtr)
 {
     unsigned long backingError;
-    State *statePtr = (State *) instanceData;
+    State *statePtr = (State *)instanceData;
     int written, err;
     int tlsConnect;
 
@@ -593,7 +581,6 @@ static int TlsOutputProc(
 		Tls_Error(statePtr, (char *) ERR_reason_error_string(backingError));
 	    }
 	    break;
-
 	case SSL_ERROR_SSL:
 	    /* A non-recoverable, fatal error in the SSL library occurred, usually a protocol error */
 	    dprintf("SSL error, indicating that the connection has been aborted");
@@ -640,7 +627,7 @@ TlsSetOptionProc(void *instanceData,    /* Socket state. */
 				 * NULL to get all options and their values. */
     const char *optionValue)	/* Value for option. */
 {
-    State *statePtr = (State *) instanceData;
+    State *statePtr = (State *)instanceData;
 
     Tcl_Channel downChan = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
     Tcl_DriverSetOptionProc *setOptionProc;
@@ -686,7 +673,7 @@ TlsGetOptionProc(
 				 * NULL to get all options and their values. */
     Tcl_DString *optionValue)	/* Where to store the computed value initialized by caller. */
 {
-    State *statePtr = (State *) instanceData;
+    State *statePtr = (State *)instanceData;
 
     Tcl_Channel downChan = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
     Tcl_DriverGetOptionProc *getOptionProc;
@@ -730,7 +717,7 @@ TlsWatchProc(
 				 * TCL_READABLE, TCL_WRITABLE and TCL_EXCEPTION. */
 {
     Tcl_Channel     downChan;
-    State *statePtr = (State *) instanceData;
+    State *statePtr = (State *)instanceData;
     Tcl_DriverWatchProc *watchProc;
 
     dprintf("TlsWatchProc(0x%x)", mask);
