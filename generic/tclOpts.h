@@ -27,7 +27,7 @@
 
 #define OPTSTR(option, var)			\
     OPT_PROLOG(option)				\
-    var = Tcl_GetStringFromObj(objv[idx], (Tcl_Size *)NULL);\
+    var = Tcl_GetString(objv[idx]);\
     OPT_POSTLOG()
 
 #define OPTINT(option, var)			\
@@ -46,7 +46,7 @@
     }						\
     OPT_POSTLOG()
 
-#define OPTBYTE(option, var, lvar)			\
+#define OPTBYTE(option, var, lvar)		\
     OPT_PROLOG(option)				\
     var = Tcl_GetByteArrayFromObj(objv[idx], &(lvar));\
     OPT_POSTLOG()

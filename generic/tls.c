@@ -450,7 +450,7 @@ Tls_Error(State *statePtr, char *msg) {
     if (msg != NULL) {
 	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(msg, -1));
 
-    } else if ((msg = Tcl_GetStringFromObj(Tcl_GetObjResult(interp), (Tcl_Size *) NULL)) != NULL) {
+    } else if ((msg = Tcl_GetString(Tcl_GetObjResult(interp))) != NULL) {
 	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(msg, -1));
 
     } else {
@@ -1178,7 +1178,7 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 
     ERR_clear_error();
 
-    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], (Tcl_Size *) NULL), NULL);
+    chan = Tcl_GetChannel(interp, Tcl_GetString(objv[1]), NULL);
     if (chan == (Tcl_Channel) NULL) {
 	return(TCL_ERROR);
     }
@@ -1302,7 +1302,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
     ERR_clear_error();
 
-    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], (Tcl_Size *) NULL), NULL);
+    chan = Tcl_GetChannel(interp, Tcl_GetString(objv[1]), NULL);
     if (chan == (Tcl_Channel) NULL) {
 	return TCL_ERROR;
     }
@@ -1311,7 +1311,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     chan = Tcl_GetTopChannel(chan);
 
     for (idx = 2; idx < objc; idx++) {
-	char *opt = Tcl_GetStringFromObj(objv[idx], (Tcl_Size *)NULL);
+	char *opt = Tcl_GetString(objv[idx]);
 
 	if (opt[0] != '-')
 	    break;
@@ -2099,7 +2099,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     }
 
     /* Get channel Id */
-    channelName = Tcl_GetStringFromObj(objv[(objc == 2 ? 1 : 2)], (Tcl_Size *) NULL);
+    channelName = Tcl_GetString(objv[(objc == 2 ? 1 : 2)]);
     chan = Tcl_GetChannel(interp, channelName, &mode);
     if (chan == (Tcl_Channel) NULL) {
 	return TCL_ERROR;
@@ -2219,7 +2219,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	return(TCL_ERROR);
     }
 
-    chan = Tcl_GetChannel(interp, Tcl_GetStringFromObj(objv[1], (Tcl_Size *)NULL), NULL);
+    chan = Tcl_GetChannel(interp, Tcl_GetString(objv[1]), NULL);
     if (chan == (Tcl_Channel) NULL) {
 	return(TCL_ERROR);
     }
