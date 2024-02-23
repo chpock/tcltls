@@ -54,7 +54,7 @@ static int TlsBlockModeProc(void *instanceData, int mode) {
 /*
  *-------------------------------------------------------------------
  *
- * TlsCloseProc --
+ * TlsClose2Proc --
  *
  *    This procedure is invoked by the generic IO level to perform
  *    channel-type-specific cleanup when a SSL socket based channel
@@ -70,11 +70,14 @@ static int TlsBlockModeProc(void *instanceData, int mode) {
  *
  *-------------------------------------------------------------------
  */
+#if TCL_MAJOR_VERSION > 8
+#   define TlsCloseProc NULL /* No longer neccessary in Tcl 9 */
+#else
 static int TlsCloseProc(
     void *instanceData,
     TCL_UNUSED(Tcl_Interp *))
 {
-    State *statePtr = (State *) instanceData;
+    State *statePtr = (State *)instanceData;
 
     dprintf("TlsCloseProc(%p)", statePtr);
 
@@ -82,16 +85,23 @@ static int TlsCloseProc(
     Tcl_EventuallyFree(statePtr, Tls_Free);
     return TCL_OK;
 }
+#endif
 
 static int TlsClose2Proc(
     void *instanceData,    /* The socket state. */
     Tcl_Interp *interp,		/* For errors - can be NULL. */
     int flags)			/* Flags to close read and/or write side of channel */
 {
-    if (!(flags&(TCL_CLOSE_READ|TCL_CLOSE_WRITE))) {
-	return TlsCloseProc(instanceData, interp);
+    State *statePtr = (State *)instanceData;
+
+    dprintf("TlsClose2Proc(%p)", statePtr);
+
+    if ((flags&(TCL_CLOSE_READ|TCL_CLOSE_WRITE))) {
+	return EINVAL;
     }
-    return EINVAL;
+    Tls_Clean(statePtr);
+    Tcl_EventuallyFree(statePtr, Tls_Free);
+    return TCL_OK;
 }
 
 /*
@@ -140,8 +150,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	/* Not initialized yet! */
 	if (statePtr->flags & TLS_TCL_SERVER) {
 	    dprintf("Calling SSL_accept()");
-
-		err = SSL_accept(statePtr->ssl);
+	    err = SSL_accept(statePtr->ssl);
 	} else {
 	    dprintf("Calling SSL_connect()");
 	    err = SSL_connect(statePtr->ssl);
@@ -225,7 +234,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 
 		statePtr->flags |= TLS_TCL_HANDSHAKE_FAILED;
 
-		return(-1);
+		return -1;
 	case SSL_ERROR_SSL:
 	    dprintf("Got permanent fatal SSL error, aborting immediately");
 		Tls_Error(statePtr, (char *)ERR_reason_error_string(ERR_get_error()));
@@ -532,7 +541,7 @@ static int TlsOutputProc(
 	    written = -1;
 	    break;
 	default:
-	    dprintf(" unknown err: %d", err);
+	    dprintf("unknown error: %d", err);
 	    break;
     }
 
@@ -564,7 +573,7 @@ TlsGetOptionProc(
     Tcl_Interp *interp,		/* For errors - can be NULL. */
     const char *optionName,	/* Name of the option to retrieve the value for, or
 				 * NULL to get all options and their values. */
-    Tcl_DString *dsPtr)	/* Where to store the computed value initialized by caller. */
+    Tcl_DString *optionValue)	/* Where to store the computed value initialized by caller. */
 {
     State *statePtr = (State *) instanceData;
 
@@ -573,7 +582,7 @@ TlsGetOptionProc(
 
     getOptionProc = Tcl_ChannelGetOptionProc(Tcl_GetChannelType(downChan));
     if (getOptionProc != NULL) {
-	return (*getOptionProc)(Tcl_GetChannelInstanceData(downChan), interp, optionName, dsPtr);
+	return (*getOptionProc)(Tcl_GetChannelInstanceData(downChan), interp, optionName, optionValue);
     } else if (optionName == (char*) NULL) {
 	/*
 	 * Request is query for all options, this is ok.
@@ -757,107 +766,61 @@ static int TlsNotifyProc(
     return(mask);
 }
 
-#if 0
 /*
  *------------------------------------------------------*
  *
- *      TlsChannelHandler --
+ *    TlsChannelHandlerTimer --
  *
- *      ------------------------------------------------*
- *      Handler called by Tcl as a result of
- *      Tcl_CreateChannelHandler - to inform us of activity
- *      on the underlying channel.
- *      ------------------------------------------------*
+ *    ------------------------------------------------*
+ *    Called by the notifier (-> timer) to flush out
+ *    information waiting in channel buffers.
+ *    ------------------------------------------------*
  *
- *      Sideeffects:
- *              May generate subsequent calls to
- *              Tcl_NotifyChannel.
+ *    Side effects:
+ *        As of 'TlsChannelHandler'.
  *
- *      Result:
- *              None.
+ *    Result:
+ *        None.
  *
  *------------------------------------------------------*
  */
+static void TlsChannelHandlerTimer(void *clientData) {
+    State *statePtr = (State *)clientData;
+    int mask = 0;
 
-static void
-TlsChannelHandler (clientData, mask)
-    void *    clientData;
-    int            mask;
-{
-    State *statePtr = (State *) clientData;
+    dprintf("Called");
 
-    dprintf("HANDLER(0x%x)", mask);
-    Tcl_Preserve(statePtr);
+    statePtr->timer = (Tcl_TimerToken) NULL;
 
-    if (mask & TCL_READABLE) {
-	BIO_set_flags(statePtr->p_bio, BIO_FLAGS_READ);
-    } else {
-	BIO_clear_flags(statePtr->p_bio, BIO_FLAGS_READ);
-    }
-
-    if (mask & TCL_WRITABLE) {
-	BIO_set_flags(statePtr->p_bio, BIO_FLAGS_WRITE);
-    } else {
-	BIO_clear_flags(statePtr->p_bio, BIO_FLAGS_WRITE);
-    }
-
-    mask = 0;
     if (BIO_wpending(statePtr->bio)) {
+	dprintf("[chan=%p] BIO writable", statePtr->self);
+
 	mask |= TCL_WRITABLE;
     }
+
     if (BIO_pending(statePtr->bio)) {
+	dprintf("[chan=%p] BIO readable", statePtr->self);
+
 	mask |= TCL_READABLE;
     }
 
-    /*
-     * The following NotifyChannel calls seems to be important, but
-     * we don't know why.  It looks like if the mask is ever non-zero
-     * that it will enter an infinite loop.
-     *
-     * Notify the upper channel of the current BIO state so the event
-     * continues to propagate up the chain.
-     *
-     * stanton: It looks like this could result in an infinite loop if
-     * the upper channel doesn't cause ChannelHandler to be removed
-     * before Tcl_NotifyChannel calls channel handlers on the lower channel.
-     */
-
+    dprintf("Notifying ourselves");
     Tcl_NotifyChannel(statePtr->self, mask);
 
-    if (statePtr->timer != (Tcl_TimerToken)NULL) {
-	Tcl_DeleteTimerHandler(statePtr->timer);
-	statePtr->timer = (Tcl_TimerToken)NULL;
-    }
-    if ((mask & TCL_READABLE) && Tcl_InputBuffered(statePtr->self) > 0) {
-	/*
-	 * Data is waiting, flush it out in short time
-	 */
-	statePtr->timer = Tcl_CreateTimerHandler(TLS_TCL_DELAY,
-		TlsChannelHandlerTimer, statePtr);
-    }
-    Tcl_Release(statePtr);
+    dprintf("Returning");
+
+    return;
 }
-#endif
 
-/*
- *------------------------------------------------------*
- *
- *	TlsChannelHandlerTimer --
- *
- *	------------------------------------------------*
- *	Called by the notifier (-> timer) to flush out
- *	information waiting in channel buffers.
- *	------------------------------------------------*
- *
- *	Sideeffects:
- *		As of 'TlsChannelHandler'.
- *
- *	Result:
- *		None.
- *
- *------------------------------------------------------*
- */
+Tcl_Channel Tls_GetParent(State *statePtr, int maskFlags) {
+    dprintf("Requested to get parent of channel %p", statePtr->self);
 
+    if ((statePtr->flags & ~maskFlags) & TLS_TCL_FASTPATH) {
+	dprintf("Asked to get the parent channel while we are using FastPath -- returning NULL");
+	return(NULL);
+    }
+    return Tcl_GetStackedChannel(statePtr->self);
+}
 
 /*
  *-------------------------------------------------------------------
@@ -896,44 +859,4 @@ static const Tcl_ChannelType tlsChannelType = {
 
 const Tcl_ChannelType *Tls_ChannelType(void) {
     return &tlsChannelType;
-}
-
-
-static void TlsChannelHandlerTimer(void *clientData) {
-	State *statePtr = (State *) clientData;
-	int mask = 0;
-
-	dprintf("Called");
-
-	statePtr->timer = (Tcl_TimerToken) NULL;
-
-	if (BIO_wpending(statePtr->bio)) {
-		dprintf("[chan=%p] BIO writable", statePtr->self);
-
-		mask |= TCL_WRITABLE;
-	}
-
-	if (BIO_pending(statePtr->bio)) {
-		dprintf("[chan=%p] BIO readable", statePtr->self);
-
-		mask |= TCL_READABLE;
-	}
-
-	dprintf("Notifying ourselves");
-	Tcl_NotifyChannel(statePtr->self, mask);
-
-	dprintf("Returning");
-
-	return;
-}
-
-Tcl_Channel Tls_GetParent(State *statePtr, int maskFlags) {
-	dprintf("Requested to get parent of channel %p", statePtr->self);
-
-	if ((statePtr->flags & ~maskFlags) & TLS_TCL_FASTPATH) {
-		dprintf("Asked to get the parent channel while we are using FastPath -- returning NULL");
-		return(NULL);
-	}
-
-	return(Tcl_GetStackedChannel(statePtr->self));
 }
