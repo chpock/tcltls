@@ -44,7 +44,6 @@
 #define F2N(key, dsp) \
 	(((key) == NULL) ? (char *)NULL : \
 		Tcl_TranslateFileName(interp, (key), (dsp)))
-#define REASON()	ERR_reason_error_string(ERR_get_error())
 
 static void	InfoCallback(const SSL *ssl, int where, int ret);
 
@@ -563,12 +562,12 @@ CiphersObjCmd(
 		break;
     }
     if (ctx == NULL) {
-	Tcl_AppendResult(interp, REASON(), (char *)NULL);
+	Tcl_AppendResult(interp, GET_ERR_REASON(), (char *)NULL);
 	return TCL_ERROR;
     }
     ssl = SSL_new(ctx);
     if (ssl == NULL) {
-	Tcl_AppendResult(interp, REASON(), (char *)NULL);
+	Tcl_AppendResult(interp, GET_ERR_REASON(), (char *)NULL);
 	SSL_CTX_free(ctx);
 	return TCL_ERROR;
     }
@@ -928,7 +927,7 @@ ImportObjCmd(
     statePtr->ssl = SSL_new(statePtr->ctx);
     if (!statePtr->ssl) {
 	/* SSL library error */
-	Tcl_AppendResult(interp, "couldn't construct ssl session: ", REASON(), (char *)NULL);
+	Tcl_AppendResult(interp, "couldn't construct ssl session: ", GET_ERR_REASON(), (char *)NULL);
 	Tls_Free((void *)statePtr);
 	return TCL_ERROR;
     }
@@ -1220,7 +1219,7 @@ CTX_Init(
 	} else {
 	    /* Use well known DH parameters that have built-in support in OpenSSL */
 	    if (!SSL_CTX_set_dh_auto(ctx, 1)) {
-		Tcl_AppendResult(interp, "Could not enable set DH auto: ", REASON(), (char *)NULL);
+		Tcl_AppendResult(interp, "Could not enable set DH auto: ", GET_ERR_REASON(), (char *)NULL);
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
@@ -1238,7 +1237,7 @@ CTX_Init(
 	if (SSL_CTX_use_certificate_file(ctx, F2N(certfile, &ds), SSL_FILETYPE_PEM) <= 0) {
 	    Tcl_DStringFree(&ds);
 	    Tcl_AppendResult(interp, "unable to set certificate file ", certfile, ": ",
-		    REASON(), (char *)NULL);
+		    GET_ERR_REASON(), (char *)NULL);
 	    SSL_CTX_free(ctx);
 	    return NULL;
 	}
@@ -1247,7 +1246,7 @@ CTX_Init(
 	if (SSL_CTX_use_certificate_ASN1(ctx, cert_len, cert) <= 0) {
 	    Tcl_DStringFree(&ds);
 	    Tcl_AppendResult(interp, "unable to set certificate: ",
-		    REASON(), (char *)NULL);
+		    GET_ERR_REASON(), (char *)NULL);
 	    SSL_CTX_free(ctx);
 	    return NULL;
 	}
@@ -1258,7 +1257,7 @@ CTX_Init(
 #if 0
 	    Tcl_DStringFree(&ds);
 	    Tcl_AppendResult(interp, "unable to use default certificate file ", certfile, ": ",
-		    REASON(), (char *)NULL);
+		    GET_ERR_REASON(), (char *)NULL);
 	    SSL_CTX_free(ctx);
 	    return NULL;
 #endif
@@ -1282,7 +1281,7 @@ CTX_Init(
 		/* flush the passphrase which might be left in the result */
 		Tcl_SetResult(interp, NULL, TCL_STATIC);
 		Tcl_AppendResult(interp, "unable to set public key file ", keyfile, " ",
-			REASON(), (char *)NULL);
+			GET_ERR_REASON(), (char *)NULL);
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
@@ -1292,7 +1291,7 @@ CTX_Init(
 		Tcl_DStringFree(&ds);
 		/* flush the passphrase which might be left in the result */
 		Tcl_SetResult(interp, NULL, TCL_STATIC);
-		Tcl_AppendResult(interp, "unable to set public key: ", REASON(), (char *)NULL);
+		Tcl_AppendResult(interp, "unable to set public key: ", GET_ERR_REASON(), (char *)NULL);
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
@@ -1318,7 +1317,7 @@ CTX_Init(
 	Tcl_DStringFree(&ds1);
 	/* Don't currently care if this fails */
 	Tcl_AppendResult(interp, "SSL default verify paths: ",
-		REASON(), (char *)NULL);
+		GET_ERR_REASON(), (char *)NULL);
 	SSL_CTX_free(ctx);
 	return NULL;
 #endif

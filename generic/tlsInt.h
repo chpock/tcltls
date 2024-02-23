@@ -100,6 +100,34 @@
 #endif
 
 #define TCLTLS_SSL_ERROR(ssl,err) ((char*)ERR_reason_error_string((unsigned long)SSL_get_error((ssl),(err))))
+#define GET_ERR_REASON()	ERR_reason_error_string(ERR_get_error())
+
+/* Common list append macros */
+#define LAPPEND_BARRAY(interp, obj, text, value, size) {\
+    if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
+    Tcl_ListObjAppendElement(interp, obj, Tcl_NewByteArrayObj(value, size)); \
+}
+#define LAPPEND_STR(interp, obj, text, value, size) {\
+    if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
+    Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(value, size)); \
+}
+#define LAPPEND_INT(interp, obj, text, value) {\
+    if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
+    Tcl_ListObjAppendElement(interp, obj, Tcl_NewIntObj(value)); \
+}
+#define LAPPEND_LONG(interp, obj, text, value) {\
+    if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
+    Tcl_ListObjAppendElement(interp, obj, Tcl_NewLongObj(value)); \
+}
+#define LAPPEND_BOOL(interp, obj, text, value) {\
+    if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
+    Tcl_ListObjAppendElement(interp, obj, Tcl_NewBooleanObj(value)); \
+}
+#define LAPPEND_OBJ(interp, obj, text, listObj) {\
+    if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
+    Tcl_ListObjAppendElement(interp, obj, listObj); \
+}
+
 /*
  * OpenSSL BIO Routines
  */
