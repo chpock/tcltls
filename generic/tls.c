@@ -26,6 +26,7 @@
 #include "tclOpts.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "tlsUuid.h"
 #include <openssl/rsa.h>
 #include <openssl/safestack.h>
 
@@ -2809,13 +2810,20 @@ void Tls_Clean(State *statePtr) {
  *-------------------------------------------------------------------
  */
 
+#ifndef STRINGIFY
+#  define STRINGIFY(x) STRINGIFY1(x)
+#  define STRINGIFY1(x) #x
+#endif
+
+static const char tlsTclInitScript[] = {
+#include "tls.tcl.h"
+    0x00
+};
+
 DLLEXPORT int Tls_Init(
     Tcl_Interp *interp)
 {
-    const char tlsTclInitScript[] = {
-#include "tls.tcl.h"
-	0x00
-    };
+    Tcl_CmdInfo info;
 
     dprintf("Called");
 
@@ -2839,10 +2847,70 @@ DLLEXPORT int Tls_Init(
     Tcl_CreateObjCommand(interp, "tls::protocols", ProtocolsObjCmd, NULL, 0);
 
     if (interp) {
-	Tcl_Eval(interp, tlsTclInitScript);
+	if (Tcl_Eval(interp, tlsTclInitScript) != TCL_OK) {
+	    return TCL_ERROR;
+	}
     }
 
-    return Tcl_PkgProvide(interp, PACKAGE_NAME, PACKAGE_VERSION);
+    if (Tcl_GetCommandInfo(interp, "::tcl::build-info", &info)) {
+	Tcl_CreateObjCommand(interp, "::tls::build-info",
+		info.objProc, (void *)(
+		    PACKAGE_VERSION "+" STRINGIFY(TLS_VERSION_UUID)
+			    ".bohagan"
+#if defined(__clang__) && defined(__clang_major__)
+			    ".clang-" STRINGIFY(__clang_major__)
+#if __clang_minor__ < 10
+			    "0"
+#endif
+			    STRINGIFY(__clang_minor__)
+#endif
+#if defined(__cplusplus) && !defined(__OBJC__)
+			    ".cplusplus"
+#endif
+#ifndef NDEBUG
+			    ".debug"
+#endif
+#if !defined(__clang__) && !defined(__INTEL_COMPILER) && defined(__GNUC__)
+			    ".gcc-" STRINGIFY(__GNUC__)
+#if __GNUC_MINOR__ < 10
+			    "0"
+#endif
+			    STRINGIFY(__GNUC_MINOR__)
+#endif
+#ifdef __INTEL_COMPILER
+			    ".icc-" STRINGIFY(__INTEL_COMPILER)
+#endif
+#ifdef TCL_MEM_DEBUG
+			    ".memdebug"
+#endif
+#if defined(_MSC_VER)
+			    ".msvc-" STRINGIFY(_MSC_VER)
+#endif
+#ifdef USE_NMAKE
+			    ".nmake"
+#endif
+#ifndef TCL_CFG_OPTIMIZED
+			    ".no-optimize"
+#endif
+#ifdef __OBJC__
+			    ".objective-c"
+#if defined(__cplusplus)
+			    "plusplus"
+#endif
+#endif
+#ifdef TCL_CFG_PROFILED
+			    ".profile"
+#endif
+#ifdef PURIFY
+			    ".purify"
+#endif
+#ifdef STATIC_BUILD
+			    ".static"
+#endif
+		), NULL);
+    }
+
+    return Tcl_PkgProvideEx(interp, PACKAGE_NAME, PACKAGE_VERSION, NULL);
 }
 
 /*

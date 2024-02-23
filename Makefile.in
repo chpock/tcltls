@@ -322,6 +322,8 @@ tls.tcl.h: @srcdir@/library/tls.tcl Makefile
 	rm -f tls.tcl.h.new.1
 	mv tls.tcl.h.new.2 @srcdir@/generic/tls.tcl.h
 
+tls.o:	tlsUuid.h
+
 $(srcdir)/manifest.uuid:
 	printf "git-" >$(srcdir)/manifest.uuid
 	(cd $(srcdir); git rev-parse HEAD >>$(srcdir)/manifest.uuid || \
