@@ -1723,7 +1723,6 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     Tcl_Interp *interp = statePtr->interp;
     SSL_CTX *ctx = NULL;
     Tcl_DString ds;
-    Tcl_DString ds1;
     int off = 0, abort = 0;
     int load_private_key;
     const SSL_METHOD *method;
@@ -1904,6 +1903,8 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	DH* dh;
 	if (DHparams != NULL) {
 	    BIO *bio;
+
+	    Tcl_DStringInit(&ds);
 	    bio = BIO_new_file(F2N(DHparams, &ds), "r");
 	    if (!bio) {
 		Tcl_DStringFree(&ds);
@@ -1939,6 +1940,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     if (certfile != NULL) {
 	load_private_key = 1;
 
+	Tcl_DStringInit(&ds);
 	if (SSL_CTX_use_certificate_file(ctx, F2N(certfile, &ds), SSL_FILETYPE_PEM) <= 0) {
 	    Tcl_DStringFree(&ds);
 	    Tcl_AppendResult(interp, "unable to set certificate file ", certfile, ": ",
@@ -1981,6 +1983,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 		keyfile = certfile;
 	    }
 
+	    Tcl_DStringInit(&ds);
 	    if (SSL_CTX_use_PrivateKey_file(ctx, F2N(keyfile, &ds), SSL_FILETYPE_PEM) <= 0) {
 		Tcl_DStringFree(&ds);
 		/* flush the passphrase which might be left in the result */
@@ -2023,6 +2026,9 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
 	if (CApath != NULL || CAfile != NULL) {
 	    Tcl_DString ds1;
+	    Tcl_DStringInit(&ds);
+	    Tcl_DStringInit(&ds1);
+
 	    if (!SSL_CTX_load_verify_locations(ctx, F2N(CAfile, &ds), F2N(CApath, &ds1))) {
 		abort++;
 	    }
@@ -2032,6 +2038,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    /* Set list of CAs to send to client when requesting a client certificate */
 	    /* https://sourceforge.net/p/tls/bugs/57/ */
 	    /* XXX:TODO: Let the user supply values here instead of something that exists on the filesystem */
+	    Tcl_DStringInit(&ds);
 	    STACK_OF(X509_NAME) *certNames = SSL_load_client_CA_file(F2N(CAfile, &ds));
 	    if (certNames != NULL) {
 		SSL_CTX_set_client_CA_list(ctx, certNames);
@@ -2041,18 +2048,21 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 
 #else
 	if (CApath != NULL) {
+	    Tcl_DStringInit(&ds);
 	    if (!SSL_CTX_load_verify_dir(ctx, F2N(CApath, &ds))) {
 		abort++;
 	    }
 	    Tcl_DStringFree(&ds);
 	}
 	if (CAfile != NULL) {
+	    Tcl_DStringInit(&ds);
 	    if (!SSL_CTX_load_verify_file(ctx, F2N(CAfile, &ds))) {
 		abort++;
 	    }
 	    Tcl_DStringFree(&ds);
 
 	    /* Set list of CAs to send to client when requesting a client certificate */
+	    Tcl_DStringInit(&ds);
 	    STACK_OF(X509_NAME) *certNames = SSL_load_client_CA_file(F2N(CAfile, &ds));
 	    if (certNames != NULL) {
 		SSL_CTX_set_client_CA_list(ctx, certNames);
