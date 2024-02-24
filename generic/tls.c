@@ -984,42 +984,42 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
     switch ((enum protocol)index) {
 	case TLS_SSL2:
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L || defined(NO_SSL2) || defined(OPENSSL_NO_SSL2)
-	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
+	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *) NULL);
 	    return TCL_ERROR;
 #else
 	    method = SSLv2_method(); break;
 #endif
 	case TLS_SSL3:
 #if defined(NO_SSL3) || defined(OPENSSL_NO_SSL3) || defined(OPENSSL_NO_SSL3_METHOD)
-	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
+	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *) NULL);
 	    return TCL_ERROR;
 #else
 	    method = SSLv3_method(); break;
 #endif
 	case TLS_TLS1:
 #if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1) || defined(OPENSSL_NO_TLS1_METHOD)
-	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
+	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *) NULL);
 	    return TCL_ERROR;
 #else
 	    method = TLSv1_method(); break;
 #endif
 	case TLS_TLS1_1:
 #if defined(NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1_METHOD)
-	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
+	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *) NULL);
 	    return TCL_ERROR;
 #else
 	    method = TLSv1_1_method(); break;
 #endif
 	case TLS_TLS1_2:
 #if defined(NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2_METHOD)
-	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
+	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *) NULL);
 	    return TCL_ERROR;
 #else
 	    method = TLSv1_2_method(); break;
 #endif
 	case TLS_TLS1_3:
 #if defined(NO_TLS1_3) || defined(OPENSSL_NO_TLS1_3)
-	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", NULL);
+	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *) NULL);
 	    return TCL_ERROR;
 #else
 	    method = TLS_method();
@@ -1034,13 +1034,13 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 
     ctx = SSL_CTX_new(method);
     if (ctx == NULL) {
-	Tcl_AppendResult(interp, GET_ERR_REASON(), NULL);
+	Tcl_AppendResult(interp, GET_ERR_REASON(), (char *) NULL);
 	return TCL_ERROR;
     }
 
     ssl = SSL_new(ctx);
     if (ssl == NULL) {
-	Tcl_AppendResult(interp, GET_ERR_REASON(), NULL);
+	Tcl_AppendResult(interp, GET_ERR_REASON(), (char *) NULL);
 	SSL_CTX_free(ctx);
 	return TCL_ERROR;
     }
@@ -1187,7 +1187,7 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-	    "\": not a TLS channel", NULL);
+	    "\": not a TLS channel", (char *) NULL);
 	Tcl_SetErrorCode(interp, "TLS", "HANDSHAKE", "CHANNEL", "INVALID", (char *) NULL);
 	return(TCL_ERROR);
     }
@@ -1424,7 +1424,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	chan = Tcl_GetTopChannel(chan);
 	if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	    Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-		"\": not a TLS channel", NULL);
+		"\": not a TLS channel", (char *) NULL);
 	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "CHANNEL", "INVALID", (char *) NULL);
 	    Tls_Free((char *) statePtr);
 	    return TCL_ERROR;
@@ -1691,7 +1691,7 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
 
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-		"\": not a TLS channel", NULL);
+		"\": not a TLS channel", (char *) NULL);
 	    Tcl_SetErrorCode(interp, "TLS", "UNIMPORT", "CHANNEL", "INVALID", (char *) NULL);
 	return TCL_ERROR;
     }
@@ -2109,7 +2109,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-		"\": not a TLS channel", NULL);
+		"\": not a TLS channel", (char *) NULL);
 	Tcl_SetErrorCode(interp, "TLS", "STATUS", "CHANNEL", "INVALID", (char *) NULL);
 	return TCL_ERROR;
     }
@@ -2228,7 +2228,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-	    "\": not a TLS channel", NULL);
+	    "\": not a TLS channel", (char *) NULL);
 	Tcl_SetErrorCode(interp, "TLS", "CONNECTION", "CHANNEL", "INVALID", (char *) NULL);
 	return(TCL_ERROR);
     }
