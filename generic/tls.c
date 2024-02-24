@@ -414,7 +414,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
     dprintf("VerifyCallback: command result = %d", ok);
 
     /* statePtr->flags &= ~(TLS_TCL_CALLBACK); */
-    return(ok);	/* By default, leave verification unchanged. */
+    return ok;	/* By default, leave verification unchanged. */
 }
 
 /*
@@ -565,7 +565,7 @@ PasswordCallback(char *buf, int size, int rwflag, void *udata) {
 	strncpy(buf, ret, (size_t) len);
 	buf[len] = '\0';
 	Tcl_Release((ClientData) interp);
-	return((int) len);
+	return (int) len;
     }
     Tcl_Release((ClientData) interp);
     return -1;
@@ -1173,14 +1173,14 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 
     if (objc != 2) {
 	Tcl_WrongNumArgs(interp, 1, objv, "channel");
-	return(TCL_ERROR);
+	return TCL_ERROR;
     }
 
     ERR_clear_error();
 
     chan = Tcl_GetChannel(interp, Tcl_GetString(objv[1]), NULL);
     if (chan == (Tcl_Channel) NULL) {
-	return(TCL_ERROR);
+	return TCL_ERROR;
     }
 
     /* Make sure to operate on the topmost channel */
@@ -1189,7 +1189,7 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
 	    "\": not a TLS channel", (char *) NULL);
 	Tcl_SetErrorCode(interp, "TLS", "HANDSHAKE", "CHANNEL", "INVALID", (char *) NULL);
-	return(TCL_ERROR);
+	return TCL_ERROR;
     }
     statePtr = (State *)Tcl_GetChannelInstanceData(chan);
 
@@ -1216,7 +1216,7 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 	}
 	Tcl_SetErrorCode(interp, "TLS", "HANDSHAKE", "FAILED", (char *) NULL);
 	dprintf("Returning TCL_ERROR with handshake failed: %s", errStr);
-	return(TCL_ERROR);
+	return TCL_ERROR;
     } else {
 	if (err != 0) {
 	    dprintf("Got an error with a completed handshake: err = %i", err);
@@ -1226,7 +1226,7 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 
     dprintf("Returning TCL_OK with data \"%i\"", ret);
     Tcl_SetObjResult(interp, Tcl_NewIntObj(ret));
-    return(TCL_OK);
+    return TCL_OK;
 }
 
 /*
@@ -1838,7 +1838,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 
     ctx = SSL_CTX_new(method);
     if (!ctx) {
-	return(NULL);
+	return NULL;
     }
 
     if (getenv(SSLKEYLOGFILE)) {
@@ -2216,12 +2216,12 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 
     if (objc != 2) {
 	Tcl_WrongNumArgs(interp, 1, objv, "channel");
-	return(TCL_ERROR);
+	return TCL_ERROR;
     }
 
     chan = Tcl_GetChannel(interp, Tcl_GetString(objv[1]), NULL);
     if (chan == (Tcl_Channel) NULL) {
-	return(TCL_ERROR);
+	return TCL_ERROR;
     }
 
     /* Make sure to operate on the topmost channel */
@@ -2230,7 +2230,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
 	    "\": not a TLS channel", (char *) NULL);
 	Tcl_SetErrorCode(interp, "TLS", "CONNECTION", "CHANNEL", "INVALID", (char *) NULL);
-	return(TCL_ERROR);
+	return TCL_ERROR;
     }
 
     objPtr = Tcl_NewListObj(0, NULL);
@@ -2610,7 +2610,7 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
 		    BN_free(bne);
 #endif
-		    return(TCL_ERROR);
+		    return TCL_ERROR;
 		}
 
 		X509_set_version(cert,2);
@@ -2845,7 +2845,7 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
  */
 DLLEXPORT int Tls_SafeInit(Tcl_Interp *interp) {
     dprintf("Called");
-    return(Tls_Init(interp));
+    return Tls_Init(interp);
 }
 
 /*
@@ -2876,7 +2876,7 @@ static int TlsLibInit(int uninitialize) {
 	if (!initialized) {
 	    dprintf("Asked to uninitialize, but we are not initialized");
 
-	    return(TCL_OK);
+	    return TCL_OK;
 	}
 
 	dprintf("Asked to uninitialize");
@@ -2896,12 +2896,12 @@ static int TlsLibInit(int uninitialize) {
 	Tcl_MutexUnlock(&init_mx);
 #endif
 
-	return(TCL_OK);
+	return TCL_OK;
     }
 
     if (initialized) {
 	dprintf("Called, but using cached value");
-	return(status);
+	return status;
     }
 
     dprintf("Called");
@@ -2953,5 +2953,5 @@ static int TlsLibInit(int uninitialize) {
 	Tcl_MutexUnlock(&init_mx);
 #endif
 
-    return(status);
+    return status;
 }

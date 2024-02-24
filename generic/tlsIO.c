@@ -49,7 +49,7 @@ static int TlsBlockModeProc(ClientData instanceData, int mode) {
     } else {
 	statePtr->flags &= ~(TLS_TCL_ASYNC);
     }
-    return(0);
+    return 0;
 }
 
 /*
@@ -78,7 +78,7 @@ static int TlsCloseProc(ClientData instanceData, Tcl_Interp *interp) {
 
     Tls_Clean(statePtr);
     Tcl_EventuallyFree((ClientData)statePtr, Tls_Free);
-    return(0);
+    return 0;
 }
 
 static int TlsClose2Proc(ClientData instanceData,    /* The socket state. */
@@ -119,7 +119,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 
     if (!(statePtr->flags & TLS_TCL_INIT)) {
 	dprintf("Tls_WaitForConnect called on already initialized channel -- returning with immediate success");
-	return(0);
+	return 0;
     }
 
     if (statePtr->flags & TLS_TCL_HANDSHAKE_FAILED) {
@@ -135,7 +135,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    *errorCodePtr = ECONNRESET;
 	}
 	Tls_Error(statePtr, "Wait for failed handshake");
-	return(-1);
+	return -1;
     }
 
     for (;;) {
@@ -191,7 +191,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 		dprintf("Returning EAGAIN so that it can be retried later");
 		*errorCodePtr = EAGAIN;
 		Tls_Error(statePtr, "Handshake not complete, will retry later");
-		return(-1);
+		return -1;
 	    } else {
 		dprintf("Doing so now");
 		continue;
@@ -214,7 +214,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    dprintf("SSL_ERROR_ZERO_RETURN: Connect returned an invalid value...");
 	    *errorCodePtr = EINVAL;
 	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
-	    return(-1);
+	    return -1;
 
 	case SSL_ERROR_SYSCALL:
 	    /* Some non-recoverable, fatal I/O error occurred */
@@ -243,7 +243,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    }
 
 	    statePtr->flags |= TLS_TCL_HANDSHAKE_FAILED;
-	    return(-1);
+	    return -1;
 
 	case SSL_ERROR_SSL:
 	    /* A non-recoverable, fatal error in the SSL library occurred, usually a protocol error */
@@ -256,7 +256,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    }
 	    statePtr->flags |= TLS_TCL_HANDSHAKE_FAILED;
 	    *errorCodePtr = ECONNABORTED;
-	    return(-1);
+	    return -1;
 
 	case SSL_ERROR_WANT_READ:
 	case SSL_ERROR_WANT_WRITE:
@@ -272,7 +272,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    *errorCodePtr = EAGAIN;
 	    dprintf("ERR(%d, %d) ", rc, *errorCodePtr);
 	    Tls_Error(statePtr, "Operation did not complete, call function again later");
-	    return(-1);
+	    return -1;
     }
 
     dprintf("Removing the \"TLS_TCL_INIT\" flag since we have completed the handshake");
@@ -280,7 +280,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 
     dprintf("Returning in success");
     *errorCodePtr = 0;
-    return(0);
+    return 0;
 }
 
 /*
@@ -314,7 +314,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
     if (statePtr->flags & TLS_TCL_CALLBACK) {
 	/* don't process any bytes while verify callback is running */
 	dprintf("Callback is running, reading 0 bytes");
-	return(0);
+	return 0;
     }
 
     dprintf("Calling Tls_WaitForConnect");
@@ -330,7 +330,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    *errorCodePtr = 0;
 	    bytesRead = 0;
 	}
-	return(bytesRead);
+	return bytesRead;
     }
 
     /*
@@ -436,7 +436,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
     }
 
     dprintf("Input(%d) -> %d [%d]", bufSize, bytesRead, *errorCodePtr);
-    return(bytesRead);
+    return bytesRead;
 }
 
 /*
@@ -471,7 +471,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	dprintf("Don't process output while callbacks are running");
 	written = -1;
 	*errorCodePtr = EAGAIN;
-	return(-1);
+	return -1;
     }
 
     dprintf("Calling Tls_WaitForConnect");
@@ -487,7 +487,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    *errorCodePtr = 0;
 	    written = 0;
 	}
-	return(written);
+	return written;
     }
 
     if (toWrite == 0) {
@@ -500,12 +500,12 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 
 	    *errorCodePtr = EIO;
 	    written = 0;
-	    return(-1);
+	    return -1;
 	}
 
 	written = 0;
 	*errorCodePtr = 0;
-	return(0);
+	return 0;
     }
 
     /*
@@ -601,7 +601,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
     }
 
     dprintf("Output(%d) -> %d", toWrite, written);
-    return(written);
+    return written;
 }
 
 /*
@@ -796,7 +796,7 @@ static int TlsGetHandleProc(ClientData instanceData,    /* Socket state. */
 {
     State *statePtr = (State *) instanceData;
 
-    return(Tcl_GetChannelHandle(Tls_GetParent(statePtr, TLS_TCL_FASTPATH), direction, handlePtr));
+    return Tcl_GetChannelHandle(Tls_GetParent(statePtr, TLS_TCL_FASTPATH), direction, handlePtr);
 }
 
 /*
@@ -859,7 +859,7 @@ static int TlsNotifyProc(ClientData instanceData,    /* Socket state. */
 
     dprintf("Returning %i", mask);
 
-    return(mask);
+    return mask;
 }
 
 /*
@@ -913,9 +913,9 @@ Tcl_Channel Tls_GetParent(State *statePtr, int maskFlags) {
 
     if ((statePtr->flags & ~maskFlags) & TLS_TCL_FASTPATH) {
 	dprintf("Asked to get the parent channel while we are using FastPath -- returning NULL");
-	return(NULL);
+	return NULL;
     }
-    return(Tcl_GetStackedChannel(statePtr->self));
+    return Tcl_GetStackedChannel(statePtr->self);
 }
 
 /*
