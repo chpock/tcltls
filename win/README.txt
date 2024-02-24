@@ -36,7 +36,7 @@ set SSLCOMMON=\path\to\common\dir
 
 (1d) Configure Open SSL 1.1.1
 
-  At Visual Studio x86 native prompt:
+  At Visual Studio x64 native prompt:
 
   set Path=%PATH%;C:\Program Files\NASM;C:\Strawberry\perl\bin
   perl ..\Configure VC-WIN64A no-shared no-filenames threads no-ssl2 no-ssl3 --api=1.1.0 --prefix="%SSLINSTALL%" --openssldir="%SSLCOMMON%" -DOPENSSL_NO_DEPRECATED
@@ -44,7 +44,7 @@ set SSLCOMMON=\path\to\common\dir
 
 (1e) Configure Open SSL 3.0+
 
-  At Visual Studio x86 native prompt:
+  At Visual Studio x64 native prompt:
 
   set Path=%PATH%;C:\Program Files\NASM;C:\Strawberry\perl\bin
   perl ..\Configure VC-WIN64A no-shared no-filenames threads no-ssl2 no-ssl3 --prefix="%SSLINSTALL%" --openssldir="%SSLCOMMON%"
@@ -60,24 +60,26 @@ set SSLCOMMON=\path\to\common\dir
 
 2) Build TclTLS
 
-set BUILDDIR=\path\to\build\dir
-set TCLINSTALL=\path\to\tcl\dir
+  set BUILDDIR=\path\to\build\dir
+  set TCLINSTALL=\path\to\tcl\dir
 
 2a) Unzip distribution to %BUILDDIR%
 
 2b) Start BASH shell (MinGW62 Git shell)
 
-cd %BUILDDIR%
-od -A n -v -t xC < 'library/tls.tcl' > tls.tcl.h.new.1
-sed 's@[^0-9A-Fa-f]@@g;s@..@0x&, @g' < tls.tcl.h.new.1 > generic/tls.tcl.h
-rm -f tls.tcl.h.new.1
+  cd %BUILDDIR%
+  od -A n -v -t xC < 'library/tls.tcl' > tls.tcl.h.new.1
+  sed 's@[^0-9A-Fa-f]@@g;s@..@0x&, @g' < tls.tcl.h.new.1 > generic/tls.tcl.h
+  rm -f tls.tcl.h.new.1
 
 2c) Start Visual Studio shell
 
-cd %BUILDDIR%\win
+  At Visual Studio x64 native prompt:
 
-nmake -f makefile.vc TCLDIR=%TCLINSTALL% SSL_INSTALL_FOLDER=%SSLINSTALL%
-nmake -f makefile.vc install TCLDIR=c:\test\tcl8610 INSTALLDIR=%TCLINSTALL% SSL_INSTALL_FOLDER=%SSLINSTALL%
+  cd %BUILDDIR%\win
+
+  nmake -f makefile.vc TCLDIR=%TCLINSTALL% SSL_INSTALL_FOLDER=%SSLINSTALL%
+  nmake -f makefile.vc install TCLDIR=c:\test\tcl8610 INSTALLDIR=%TCLINSTALL% SSL_INSTALL_FOLDER=%SSLINSTALL%
 
 -----------------------------
 
