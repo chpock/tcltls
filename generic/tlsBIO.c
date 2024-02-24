@@ -137,7 +137,6 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
     switch (cmd) {
 	case BIO_CTRL_RESET:
 		dprintf("Got BIO_CTRL_RESET");
-		num = 0;
 		ret = 0;
 		break;
 	case BIO_C_FILE_SEEK:
