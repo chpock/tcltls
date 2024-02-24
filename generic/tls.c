@@ -247,11 +247,6 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
 	return;
 
     switch(version) {
-#if !defined(NO_SSL3) && !defined(OPENSSL_NO_SSL3)
-    case SSL3_VERSION:
-	ver = "SSLv3";
-	break;
-#endif
     case TLS1_VERSION:
 	ver = "TLSv1";
 	break;
@@ -984,12 +979,8 @@ CiphersObjCmd(
 	Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *)NULL);
 	return TCL_ERROR;
     case TLS_SSL3:
-#if defined(NO_SSL3) || defined(OPENSSL_NO_SSL3) || defined(OPENSSL_NO_SSL3_METHOD)
 	Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *)NULL);
 	return TCL_ERROR;
-#else
-	method = SSLv3_method(); break;
-#endif
     case TLS_TLS1:
 #if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1) || defined(OPENSSL_NO_TLS1_METHOD)
 	Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *)NULL);
@@ -1118,9 +1109,6 @@ ProtocolsObjCmd(
 
     objPtr = Tcl_NewListObj(0, NULL);
 
-#if !defined(NO_SSL3) && !defined(OPENSSL_NO_SSL3) && !defined(OPENSSL_NO_SSL3_METHOD)
-    Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(protocols[TLS_SSL3], -1));
-#endif
 #if !defined(NO_TLS1) && !defined(OPENSSL_NO_TLS1) && !defined(OPENSSL_NO_TLS1_METHOD)
     Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(protocols[TLS_TLS1], -1));
 #endif
@@ -1765,12 +1753,10 @@ CTX_Init(
 	Tcl_AppendResult(interp, "SSL2 protocol not supported", (char *)NULL);
 	return NULL;
     }
-#if defined(NO_SSL3) || defined(OPENSSL_NO_SSL3) || defined(OPENSSL_NO_SSL3_METHOD)
     if (ENABLED(proto, TLS_PROTO_SSL3)) {
 	Tcl_AppendResult(interp, "SSL3 protocol not supported", (char *)NULL);
 	return NULL;
     }
-#endif
 #if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1) || defined(OPENSSL_NO_TLS1_METHOD)
     if (ENABLED(proto, TLS_PROTO_TLS1)) {
 	Tcl_AppendResult(interp, "TLS 1.0 protocol not supported", (char *)NULL);
@@ -1802,11 +1788,6 @@ CTX_Init(
     }
 
     switch (proto) {
-#if !defined(NO_SSL3) && !defined(OPENSSL_NO_SSL3) && !defined(OPENSSL_NO_SSL3_METHOD)
-    case TLS_PROTO_SSL3:
-	method = isServer ? SSLv3_server_method() : SSLv3_client_method();
-	break;
-#endif
 #if !defined(NO_TLS1) && !defined(OPENSSL_NO_TLS1) && !defined(OPENSSL_NO_TLS1_METHOD)
     case TLS_PROTO_TLS1:
 	method = isServer ? TLSv1_server_method() : TLSv1_client_method();
@@ -1831,9 +1812,6 @@ CTX_Init(
     default:
 	/* Negotiate highest available SSL/TLS version */
 	method = isServer ? TLS_server_method() : TLS_client_method();
-#if !defined(NO_SSL3) && !defined(OPENSSL_NO_SSL3) && !defined(OPENSSL_NO_SSL3_METHOD)
-	off |= (ENABLED(proto, TLS_PROTO_SSL3)   ? 0 : SSL_OP_NO_SSLv3);
-#endif
 #if !defined(NO_TLS1) && !defined(OPENSSL_NO_TLS1) && !defined(OPENSSL_NO_TLS1_METHOD)
 	off |= (ENABLED(proto, TLS_PROTO_TLS1)   ? 0 : SSL_OP_NO_TLSv1);
 #endif
@@ -2353,10 +2331,10 @@ static int ConnectionInfoObjCmd(
 	LAPPEND_BOOL(interp, objPtr, "resumable", SSL_SESSION_is_resumable(session));
 
 	/* Session start time (seconds since epoch) */
-	LAPPEND_LONG(interp, objPtr, "start_time", SSL_SESSION_get_time(session));
+	LAPPEND_INT(interp, objPtr, "start_time", SSL_SESSION_get_time(session));
 
 	/* Timeout value - SSL_CTX_get_timeout (in seconds) */
-	LAPPEND_LONG(interp, objPtr, "timeout", SSL_SESSION_get_timeout(session));
+	LAPPEND_INT(interp, objPtr, "timeout", SSL_SESSION_get_timeout(session));
 
 	/* Session id - TLSv1.2 and below only */
 	session_id = SSL_SESSION_get_id(session, &ulen);
@@ -2371,7 +2349,7 @@ static int ConnectionInfoObjCmd(
 	LAPPEND_BARRAY(interp, objPtr, "session_ticket", ticket, (Tcl_Size) len2);
 
 	/* Session ticket lifetime hint (in seconds) */
-	LAPPEND_LONG(interp, objPtr, "lifetime", SSL_SESSION_get_ticket_lifetime_hint(session));
+	LAPPEND_INT(interp, objPtr, "lifetime", SSL_SESSION_get_ticket_lifetime_hint(session));
 
 	/* Ticket app data */
 #if OPENSSL_VERSION_NUMBER < 0x30000000L

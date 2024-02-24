@@ -407,7 +407,7 @@ Tls_NewX509Obj(
     }
 
     /* Version of the encoded certificate - RFC 5280 section 4.1.2.1 */
-    LAPPEND_LONG(interp, certPtr, "version", X509_get_version(cert)+1);
+    LAPPEND_INT(interp, certPtr, "version", X509_get_version(cert)+1);
 
     /* Unique number assigned by CA to certificate - RFC 5280 section 4.1.2.2 */
     len = BIO_to_Buffer(i2a_ASN1_INTEGER(bio, X509_get0_serialNumber(cert)), bio, buffer, BUFSIZ);
@@ -552,9 +552,9 @@ Tls_NewX509Obj(
     /* Basic Constraints identifies whether the subject of the cert is a CA and
 	the max depth of valid cert paths for this cert. RFC 5280 section 4.2.1.9, NID_basic_constraints */
     if (!(xflags & EXFLAG_PROXY)) {
-	LAPPEND_LONG(interp, certPtr, "pathLen", X509_get_pathlen(cert));
+	LAPPEND_INT(interp, certPtr, "pathLen", X509_get_pathlen(cert));
     } else {
-	LAPPEND_LONG(interp, certPtr, "pathLen", X509_get_proxy_pathlen(cert));
+	LAPPEND_INT(interp, certPtr, "pathLen", X509_get_proxy_pathlen(cert));
     }
     LAPPEND_BOOL(interp, certPtr, "basicConstraintsCA", xflags & EXFLAG_CA);
 
