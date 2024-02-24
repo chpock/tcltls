@@ -113,11 +113,7 @@
 }
 #define LAPPEND_INT(interp, obj, text, value) {\
     if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
-    Tcl_ListObjAppendElement(interp, obj, Tcl_NewIntObj(value)); \
-}
-#define LAPPEND_LONG(interp, obj, text, value) {\
-    if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
-    Tcl_ListObjAppendElement(interp, obj, Tcl_NewLongObj(value)); \
+    Tcl_ListObjAppendElement(interp, obj, Tcl_NewWideIntObj(value)); \
 }
 #define LAPPEND_BOOL(interp, obj, text, value) {\
     if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
