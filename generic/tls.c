@@ -951,7 +951,6 @@ CiphersObjCmd(
     SSL_CTX *ctx = NULL;
     SSL *ssl = NULL;
     STACK_OF(SSL_CIPHER) *sk;
-    const char *cp;
     char buf[BUFSIZ];
     int index, verbose = 0, use_supported = 0;
     const SSL_METHOD *method;
@@ -1037,6 +1036,7 @@ CiphersObjCmd(
 
     if (sk != NULL) {
 	if (!verbose) {
+	    const char *cp;
 	    objPtr = Tcl_NewListObj(0, NULL);
 	    for (int i = 0; i < sk_SSL_CIPHER_num(sk); i++) {
 		const SSL_CIPHER *c = sk_SSL_CIPHER_value(sk, i);
@@ -1264,7 +1264,7 @@ ImportObjCmd(
     char *DHparams		= NULL;
     char *model			= NULL;
     char *servername		= NULL;	/* hostname for Server Name Indication */
-    const unsigned char *session_id = NULL;
+    char *session_id		= NULL;
     Tcl_Obj *alpn		= NULL;
     int ssl2 = 0, ssl3 = 0;
     int tls1 = 1, tls1_1 = 1, tls1_2 = 1, tls1_3 = 1;
@@ -1506,7 +1506,8 @@ ImportObjCmd(
     /* Resume session id */
     if (session_id && strlen(session_id) <= SSL_MAX_SID_CTX_LENGTH) {
 	/* SSL_set_session() */
-	if (!SSL_SESSION_set1_id_context(SSL_get_session(statePtr->ssl), session_id, (unsigned int) strlen(session_id))) {
+	if (!SSL_SESSION_set1_id_context(SSL_get_session(statePtr->ssl),
+		(const unsigned char *) session_id, (unsigned int) strlen(session_id))) {
 	    Tcl_AppendResult(interp, "Resume session failed: ", GET_ERR_REASON(), (char *)NULL);
 	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "SESSION", "FAILED", (char *)NULL);
 	    Tls_Free((void *)statePtr);
