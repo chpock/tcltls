@@ -34,9 +34,6 @@
 #error "Only OpenSSL v1.1.1 or later is supported"
 #endif
 
-/*
- * External functions
- */
 
 /*
  * Forward declarations
@@ -342,7 +339,7 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
  *	each certificate in the cert chain.
  *
  * Checks:
- *	certificate chain is checked starting with the deepest nesting level
+ *	The certificate chain is checked starting with the deepest nesting level
  *	  (the root CA certificate) and worked upward to the peer's certificate.
  *	All signatures are valid, current time is within first and last validity time.
  *	Check that the certificate is issued by the issuer certificate issuer.
@@ -422,7 +419,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
  *
  * Tls_Error --
  *
- *	Calls callback with list of errors.
+ *	Calls callback with error message.
  *
  * Side effects:
  *	The err field of the currently operative State is set
@@ -497,9 +494,9 @@ void KeyLogCallback(const SSL *ssl, const char *line) {
  *
  * Password Callback --
  *
- *	Called when a password for a private key loading/storing a PEM
- *	certificate with encryption. Evals callback script and returns
- *	the result as the password string in buf.
+ *	Called when a password is needed for a private key when loading
+ *	or storing a PEM certificate with encryption. Evals callback
+ *	script and returns the result as the password string in buf.
  *
  * Results:
  *	None
@@ -518,15 +515,20 @@ PasswordCallback(char *buf, int size, int rwflag, void *udata) {
     Tcl_Interp *interp	= statePtr->interp;
     Tcl_Obj *cmdPtr;
     int code;
+    Tcl_Size len;
 
     dprintf("Called");
 
     /* If no callback, use default callback */
     if (statePtr->password == NULL) {
 	if (Tcl_EvalEx(interp, "tls::password", -1, TCL_EVAL_GLOBAL) == TCL_OK) {
-	    char *ret = (char *) Tcl_GetStringResult(interp);
-	    strncpy(buf, ret, (size_t) size);
-	    return (int)strlen(ret);
+	    char *ret = (char *) Tcl_GetStringFromObj(Tcl_GetObjResult(interp), &len);
+	    if (len > (Tcl_Size) size-1) {
+		len = (Tcl_Size) size-1;
+	    }
+	    strncpy(buf, ret, (size_t) len);
+	    buf[len] = '\0';
+	    return (int) len;
 	} else {
 	    return -1;
 	}
@@ -557,7 +559,6 @@ PasswordCallback(char *buf, int size, int rwflag, void *udata) {
 
     /* If successful, pass back password string and truncate if too long */
     if (code == TCL_OK) {
-	Tcl_Size len;
 	char *ret = (char *) Tcl_GetStringFromObj(Tcl_GetObjResult(interp), &len);
 	if (len > (Tcl_Size) size-1) {
 	    len = (Tcl_Size) size-1;
@@ -633,6 +634,8 @@ SessionCallback(SSL *ssl, SSL_SESSION *session) {
     Tcl_IncrRefCount(cmdPtr);
     EvalCallback(interp, statePtr, cmdPtr);
     Tcl_DecrRefCount(cmdPtr);
+
+    /* Return 0 for now until session handling is complete */
     return 0;
 }
 
@@ -1561,7 +1564,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	}
 
 	/* SSL_set_alpn_protos makes a copy of the protocol-list */
-	/* Note: This functions reverses the return value convention */
+	/* Note: This function reverses the return value convention */
 	if (SSL_set_alpn_protos(statePtr->ssl, protos, protos_len)) {
 	    Tcl_AppendResult(interp, "Set ALPN protocols failed: ", GET_ERR_REASON(), (char *) NULL);
 	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "ALPN", "FAILED", (char *) NULL);
