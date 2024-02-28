@@ -1,4 +1,4 @@
-# Auto generated test cases for ciphers_and_protocols.csv
+# Auto generated test cases for ciphers.csv
 
 # Load Tcl Test package
 if {[lsearch [namespace children] ::tcltest] == -1} {
