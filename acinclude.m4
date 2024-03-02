@@ -16,7 +16,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		if test "${enableval}" = "no"; then
 			AC_DEFINE([NO_TLS1], [1], [Disable TLS1 protocol])
 			AC_MSG_CHECKING([for disable TLS1 protocol])
-			AC_MSG_RESULT('yes')
+			AC_MSG_RESULT([yes])
 		fi
 	])
 
@@ -25,7 +25,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		if test "${enableval}" = "no"; then
 			AC_DEFINE([NO_TLS1_1], [1], [Disable TLS1.1 protocol])
 			AC_MSG_CHECKING([for disable TLS1.1 protocol])
-			AC_MSG_RESULT('yes')
+			AC_MSG_RESULT([yes])
 		fi
 	])
 
@@ -34,7 +34,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		if test "${enableval}" = "no"; then
 			AC_DEFINE([NO_TLS1_2], [1], [Disable TLS1.2 protocol])
 			AC_MSG_CHECKING([for disable TLS1.2 protocol])
-			AC_MSG_RESULT('yes')
+			AC_MSG_RESULT([yes])
 		fi
 	])
 
@@ -43,7 +43,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		if test "${enableval}" = "no"; then
 			AC_DEFINE([NO_TLS1_3], [1], [Disable TLS1.3 protocol])
 			AC_MSG_CHECKING([for disable TLS1.3 protocol])
-			AC_MSG_RESULT('yes')
+			AC_MSG_RESULT([yes])
 		fi
 	])
 
@@ -110,7 +110,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 			opensslincludedir="$withval"
 		], [
 			if test ! -z "$openssldir"; then
-				if test -d "${openssldir}/include/openssl"; then
+				if test -f "${openssldir}/include/openssl/ssl.h"; then
 					opensslincludedir="${openssldir}/include/openssl"
 				else
 					opensslincludedir="${openssldir}/include"
@@ -128,7 +128,11 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		if test -f "$opensslincludedir/ssl.h"; then
 			TCLTLS_SSL_CFLAGS="-I$opensslincludedir"
 			TCLTLS_SSL_INCLUDES="-I$opensslincludedir"
+			AC_MSG_CHECKING([for ssl.h])
+			AC_MSG_RESULT([yes])
 		else
+			AC_MSG_CHECKING([for ssl.h])
+			AC_MSG_RESULT([no])
 			AC_MSG_ERROR([Unable to locate ssl.h])
 		fi
 	else
