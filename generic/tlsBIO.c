@@ -27,6 +27,7 @@
 #define BIO_meth_set_destroy(bio, val)   (bio)->destroy = val;
 #endif
 
+/* Called by SSL_write() */
 static int BioWrite(BIO *bio, const char *buf, int bufLen) {
     Tcl_Channel chan;
     Tcl_Size ret;
@@ -50,10 +51,12 @@ static int BioWrite(BIO *bio, const char *buf, int bufLen) {
 	dprintf("Got EOF while reading, returning a Connection Reset error which maps to Soft EOF");
 	Tcl_SetErrno(ECONNRESET);
 	ret = 0;
+
     } else if (ret == 0) {
 	dprintf("Got 0 from Tcl_WriteRaw, and EOF is not set; ret = 0");
 	dprintf("Setting retry read flag");
 	BIO_set_retry_read(bio);
+
     } else if (ret < 0) {
 	dprintf("We got some kind of I/O error");
 
@@ -62,6 +65,7 @@ static int BioWrite(BIO *bio, const char *buf, int bufLen) {
 	} else {
 	    dprintf("It's an unexpected error: %s/%i", Tcl_ErrnoMsg(tclErrno), tclErrno);
 	}
+
     } else {
 	dprintf("Successfully wrote %" TCL_SIZE_MODIFIER "d bytes of data", ret);
     }
@@ -104,10 +108,12 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
 	dprintf("Got EOF while reading, returning a Connection Reset error which maps to Soft EOF");
 	Tcl_SetErrno(ECONNRESET);
 	ret = 0;
+
     } else if (ret == 0) {
 	dprintf("Got 0 from Tcl_Read or Tcl_ReadRaw, and EOF is not set; ret = 0");
 	dprintf("Setting retry read flag");
 	BIO_set_retry_read(bio);
+
     } else if (ret < 0) {
 	dprintf("We got some kind of I/O error");
 
@@ -116,6 +122,7 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
 	} else {
 	    dprintf("It's an unexpected error: %s/%i", Tcl_ErrnoMsg(tclErrno), tclErrno);
 	}
+
     } else {
 	dprintf("Successfully read %" TCL_SIZE_MODIFIER "d bytes of data", ret);
     }
@@ -240,7 +247,7 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
 #endif
 	default:
 		dprintf("Got unknown control command (%i)", cmd);
-		ret = -2;
+		ret = 0;
 		break;
     }
     return ret;
@@ -257,7 +264,7 @@ static int BioNew(BIO *bio) {
 
 static int BioFree(BIO *bio) {
     if (bio == NULL) {
-	return(0);
+	return 0;
     }
 
     dprintf("BioFree(%p) called", bio);
@@ -304,7 +311,7 @@ BIO *BIO_new_tcl(
     if (statePtr == NULL) {
 	dprintf("Asked to setup a NULL state, just creating the initial configuration");
 
-	return(NULL);
+	return NULL;
     }
 
 #ifdef TCLTLS_SSL_USE_FASTPATH
@@ -335,7 +342,7 @@ BIO *BIO_new_tcl(
 	dprintf("We found a shortcut, this channel is backed by a socket: %i", parentChannelFdIn);
 	bio = BIO_new_socket(parentChannelFd, flags);
 	statePtr->flags |= TLS_TCL_FASTPATH;
-	return(bio);
+	return bio;
     }
 
     dprintf("Falling back to Tcl I/O for this channel");
@@ -345,5 +352,5 @@ BIO *BIO_new_tcl(
     BIO_set_data(bio, statePtr);
     BIO_set_shutdown(bio, flags);
     BIO_set_init(bio, 1);
-    return(bio);
+    return bio;
 }
