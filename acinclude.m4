@@ -16,7 +16,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		if test "${enableval}" = "no"; then
 			AC_DEFINE([NO_TLS1], [1], [Disable TLS1 protocol])
 			AC_MSG_CHECKING([for disable TLS1 protocol])
-			AC_MSG_RESULT('yes')
+			AC_MSG_RESULT([yes])
 		fi
 	])
 
@@ -25,7 +25,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		if test "${enableval}" = "no"; then
 			AC_DEFINE([NO_TLS1_1], [1], [Disable TLS1.1 protocol])
 			AC_MSG_CHECKING([for disable TLS1.1 protocol])
-			AC_MSG_RESULT('yes')
+			AC_MSG_RESULT([yes])
 		fi
 	])
 
@@ -34,7 +34,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		if test "${enableval}" = "no"; then
 			AC_DEFINE([NO_TLS1_2], [1], [Disable TLS1.2 protocol])
 			AC_MSG_CHECKING([for disable TLS1.2 protocol])
-			AC_MSG_RESULT('yes')
+			AC_MSG_RESULT([yes])
 		fi
 	])
 
@@ -43,7 +43,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		if test "${enableval}" = "no"; then
 			AC_DEFINE([NO_TLS1_3], [1], [Disable TLS1.3 protocol])
 			AC_MSG_CHECKING([for disable TLS1.3 protocol])
-			AC_MSG_RESULT('yes')
+			AC_MSG_RESULT([yes])
 		fi
 	])
 
@@ -99,6 +99,8 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 			openssldir=''
 		]
 	)
+	AC_MSG_CHECKING([for OpenSSL directory])
+	AC_MSG_RESULT($openssldir)
 
 	dnl Set SSL include files path
 	AC_ARG_WITH([openssl-includedir],
@@ -107,8 +109,8 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		), [
 			opensslincludedir="$withval"
 		], [
-			if test -n "$openssldir"; then
-				opensslincludedir="$openssldir/include/openssl"
+			if test ! -z "$openssldir"; then
+				opensslincludedir="${openssldir}/include"
 			else
 				opensslincludedir=''
 			fi
@@ -118,16 +120,17 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	AC_MSG_RESULT($opensslincludedir)
 
 	dnl Set SSL include vars
-	if test -n "$opensslincludedir"; then
-		if test -f "$opensslincludedir/ssl.h"; then
+	if test ! -z "$opensslincludedir"; then
+		if test -f "$opensslincludedir/openssl/ssl.h"; then
 			TCLTLS_SSL_CFLAGS="-I$opensslincludedir"
 			TCLTLS_SSL_INCLUDES="-I$opensslincludedir"
+			AC_MSG_CHECKING([for ssl.h])
+			AC_MSG_RESULT([yes])
 		else
+			AC_MSG_CHECKING([for ssl.h])
+			AC_MSG_RESULT([no])
 			AC_MSG_ERROR([Unable to locate ssl.h])
 		fi
-	else
-		TCLTLS_SSL_CFLAGS="-I$(includedir)/openssl"
-		TCLTLS_SSL_INCLUDES="-I$(includedir)/openssl"
 	fi
 
 	dnl Set SSL lib files path
@@ -137,7 +140,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		), [
 			openssllibdir="$withval"
 		], [
-			if test -n "$openssldir"; then
+			if test ! -z "$openssldir"; then
 				if test "$do64bit" == 'yes'; then
 					openssllibdir="$openssldir/lib64"
 				else
@@ -152,38 +155,33 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	AC_MSG_RESULT($openssllibdir)
 
 	dnl Set SSL lib vars
-	if test -n "$openssllibdir"; then
+	if test ! -z "$openssllibdir"; then
 		if test -f "$openssllibdir/libssl${SHLIB_SUFFIX}"; then
 			if test "${TCLEXT_TLS_STATIC_SSL}" == 'no'; then
 				TCLTLS_SSL_LIBS="-L$openssllibdir -lcrypto -lssl"
-			else
+			#else
 				# Linux and Solaris
-				TCLTLS_SSL_LIBS="-Wl,-Bstatic `$PKG_CONFIG --static --libs crypto ssl` -Wl,-Bdynamic"
+				#TCLTLS_SSL_LIBS="-Wl,-Bstatic `$PKG_CONFIG --static --libs crypto ssl` -Wl,-Bdynamic"
 				# HPUX
 				# -Wl,-a,archive ... -Wl,-a,shared_archive
 			fi
 		else
 			AC_MSG_ERROR([Unable to locate libssl${SHLIB_SUFFIX}])
 		fi
-	else
-		TCLTLS_SSL_LIBS="-lcrypto -lssl"
 	fi
-
-
-	dnl Include config variables in --help list and make available to be substituted via AC_SUBST.
-	AC_ARG_VAR([TCLTLS_SSL_CFLAGS], [C compiler flags for OpenSSL or LibreSSL])
-	AC_ARG_VAR([TCLTLS_SSL_INCLUDES], [C compiler include paths for OpenSSL or LibreSSL])
-	AC_ARG_VAR([TCLTLS_SSL_LIBS], [libraries to pass to the linker for OpenSSL or LibreSSL])
-
 
 	dnl Set location of pkgconfig files
 	AC_ARG_WITH([openssl-pkgconfig],
 		AS_HELP_STRING([--with-openssl-pkgconfig=<dir>],
-			[path to root directory of OpenSSL or LibreSSL pkgconfigdir]
+			[path to pkgconfigdir directory for OpenSSL or LibreSSL]
 		), [
 			opensslpkgconfigdir="$withval"
 		], [
-			opensslpkgconfigdir=''
+			if test -d ${libdir}/../pkgconfig; then
+				opensslpkgconfigdir="$libdir/../pkgconfig"
+			else
+				opensslpkgconfigdir=''
+			fi
 		]
 	)
 	AC_MSG_CHECKING([for OpenSSL pkgconfig])
@@ -205,7 +203,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 				AC_MSG_ERROR([Unable to locate ${opensslpkgconfigdir}/openssl.pc])
 			fi
 
-			PKG_CONFIG_PATH="${opensslpkgconfigdir}${PATH_SEPARATOR}${PKG_CONFIG_PATH}"
+			PKG_CONFIG_PATH="${opensslpkgconfigdir}:${PKG_CONFIG_PATH}"
 			export PKG_CONFIG_PATH
 		fi
 		if test -z "$TCLTLS_SSL_LIBS"; then
@@ -219,4 +217,23 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		fi
 		PKG_CONFIG_PATH="${PKG_CONFIG_PATH_SAVE}"
 	fi
+
+
+	dnl Fallback settings for OpenSSL includes and libs
+	if test -z "$TCLTLS_SSL_LIBS"; then
+		TCLTLS_SSL_LIBS="-lcrypto -lssl"
+	fi
+	if test -z "$TCLTLS_SSL_CFLAGS"; then
+		TCLTLS_SSL_CFLAGS=""
+	fi
+	if test -z "$TCLTLS_SSL_INCLUDES"; then
+		if test -f /usr/include/openssl/ssl.h; then
+			TCLTLS_SSL_INCLUDES="-I/usr/include"
+		fi
+	fi
+
+	dnl Include config variables in --help list and make available to be substituted via AC_SUBST.
+	AC_ARG_VAR([TCLTLS_SSL_CFLAGS], [C compiler flags for OpenSSL or LibreSSL])
+	AC_ARG_VAR([TCLTLS_SSL_INCLUDES], [C compiler include paths for OpenSSL or LibreSSL])
+	AC_ARG_VAR([TCLTLS_SSL_LIBS], [libraries to pass to the linker for OpenSSL or LibreSSL])
 ])
