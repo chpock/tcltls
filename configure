@@ -1444,8 +1444,8 @@ Optional Packages:
                           path to lib directory of OpenSSL or LibreSSL
                           installation
   --with-openssl-pkgconfig=<dir>
-                          path to root directory of OpenSSL or LibreSSL
-                          pkgconfigdir
+                          path to pkgconfigdir directory for OpenSSL or
+                          LibreSSL
 
 Some influential environment variables:
   CC          C compiler command
@@ -9289,8 +9289,8 @@ printf "%s\n" "#define NO_TLS1 1" >>confdefs.h
 
 			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for disable TLS1 protocol" >&5
 printf %s "checking for disable TLS1 protocol... " >&6; }
-			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: 'yes'" >&5
-printf "%s\n" "'yes'" >&6; }
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
 		fi
 
 fi
@@ -9306,8 +9306,8 @@ printf "%s\n" "#define NO_TLS1_1 1" >>confdefs.h
 
 			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for disable TLS1.1 protocol" >&5
 printf %s "checking for disable TLS1.1 protocol... " >&6; }
-			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: 'yes'" >&5
-printf "%s\n" "'yes'" >&6; }
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
 		fi
 
 fi
@@ -9323,8 +9323,8 @@ printf "%s\n" "#define NO_TLS1_2 1" >>confdefs.h
 
 			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for disable TLS1.2 protocol" >&5
 printf %s "checking for disable TLS1.2 protocol... " >&6; }
-			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: 'yes'" >&5
-printf "%s\n" "'yes'" >&6; }
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
 		fi
 
 fi
@@ -9340,8 +9340,8 @@ printf "%s\n" "#define NO_TLS1_3 1" >>confdefs.h
 
 			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for disable TLS1.3 protocol" >&5
 printf %s "checking for disable TLS1.3 protocol... " >&6; }
-			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: 'yes'" >&5
-printf "%s\n" "'yes'" >&6; }
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
 		fi
 
 fi
@@ -9440,6 +9440,10 @@ else case e in #(
 esac
 fi
 
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for OpenSSL directory" >&5
+printf %s "checking for OpenSSL directory... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $openssldir" >&5
+printf "%s\n" "$openssldir" >&6; }
 
 
 # Check whether --with-openssl-includedir was given.
@@ -9450,8 +9454,8 @@ then :
 
 else case e in #(
   e)
-			if test -n "$openssldir"; then
-				opensslincludedir="$openssldir/include/openssl"
+			if test ! -z "$openssldir"; then
+				opensslincludedir="${openssldir}/include"
 			else
 				opensslincludedir=''
 			fi
@@ -9465,16 +9469,21 @@ printf %s "checking for OpenSSL include directory... " >&6; }
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $opensslincludedir" >&5
 printf "%s\n" "$opensslincludedir" >&6; }
 
-		if test -n "$opensslincludedir"; then
-		if test -f "$opensslincludedir/ssl.h"; then
+		if test ! -z "$opensslincludedir"; then
+		if test -f "$opensslincludedir/openssl/ssl.h"; then
 			TCLTLS_SSL_CFLAGS="-I$opensslincludedir"
 			TCLTLS_SSL_INCLUDES="-I$opensslincludedir"
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ssl.h" >&5
+printf %s "checking for ssl.h... " >&6; }
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
 		else
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ssl.h" >&5
+printf %s "checking for ssl.h... " >&6; }
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
 			as_fn_error $? "Unable to locate ssl.h" "$LINENO" 5
 		fi
-	else
-		TCLTLS_SSL_CFLAGS="-I$(includedir)/openssl"
-		TCLTLS_SSL_INCLUDES="-I$(includedir)/openssl"
 	fi
 
 
@@ -9486,7 +9495,7 @@ then :
 
 else case e in #(
   e)
-			if test -n "$openssldir"; then
+			if test ! -z "$openssldir"; then
 				if test "$do64bit" == 'yes'; then
 					openssllibdir="$openssldir/lib64"
 				else
@@ -9505,28 +9514,20 @@ printf %s "checking for OpenSSL lib directory... " >&6; }
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $openssllibdir" >&5
 printf "%s\n" "$openssllibdir" >&6; }
 
-		if test -n "$openssllibdir"; then
+		if test ! -z "$openssllibdir"; then
 		if test -f "$openssllibdir/libssl${SHLIB_SUFFIX}"; then
 			if test "${TCLEXT_TLS_STATIC_SSL}" == 'no'; then
 				TCLTLS_SSL_LIBS="-L$openssllibdir -lcrypto -lssl"
-			else
+			#else
 				# Linux and Solaris
-				TCLTLS_SSL_LIBS="-Wl,-Bstatic `$PKG_CONFIG --static --libs crypto ssl` -Wl,-Bdynamic"
+				#TCLTLS_SSL_LIBS="-Wl,-Bstatic `$PKG_CONFIG --static --libs crypto ssl` -Wl,-Bdynamic"
 				# HPUX
 				# -Wl,-a,archive ... -Wl,-a,shared_archive
 			fi
 		else
 			as_fn_error $? "Unable to locate libssl${SHLIB_SUFFIX}" "$LINENO" 5
 		fi
-	else
-		TCLTLS_SSL_LIBS="-lcrypto -lssl"
 	fi
-
-
-
-
-
-
 
 
 # Check whether --with-openssl-pkgconfig was given.
@@ -9537,7 +9538,11 @@ then :
 
 else case e in #(
   e)
-			opensslpkgconfigdir=''
+			if test -d ${libdir}/../pkgconfig; then
+				opensslpkgconfigdir="$libdir/../pkgconfig"
+			else
+				opensslpkgconfigdir=''
+			fi
 
 	 ;;
 esac
@@ -9562,7 +9567,7 @@ printf "%s\n" "$opensslpkgconfigdir" >&6; }
 				as_fn_error $? "Unable to locate ${opensslpkgconfigdir}/openssl.pc" "$LINENO" 5
 			fi
 
-			PKG_CONFIG_PATH="${opensslpkgconfigdir}${PATH_SEPARATOR}${PKG_CONFIG_PATH}"
+			PKG_CONFIG_PATH="${opensslpkgconfigdir}:${PKG_CONFIG_PATH}"
 			export PKG_CONFIG_PATH
 		fi
 		if test -z "$TCLTLS_SSL_LIBS"; then
@@ -9578,6 +9583,23 @@ printf "%s\n" "$opensslpkgconfigdir" >&6; }
 	fi
 
 
+		if test -z "$TCLTLS_SSL_LIBS"; then
+		TCLTLS_SSL_LIBS="-lcrypto -lssl"
+	fi
+	if test -z "$TCLTLS_SSL_CFLAGS"; then
+		TCLTLS_SSL_CFLAGS=""
+	fi
+	if test -z "$TCLTLS_SSL_INCLUDES"; then
+		if test -f /usr/include/openssl/ssl.h; then
+			TCLTLS_SSL_INCLUDES="-I/usr/include"
+		fi
+	fi
+
+
+
+
+
+
 #--------------------------------------------------------------------
 # Shared libraries and static libraries have different names.
 # Also, windows libraries and unix libraries have different names.
@@ -9588,7 +9610,7 @@ printf "%s\n" "$opensslpkgconfigdir" >&6; }
 if test "${TEA_PLATFORM}" = "windows" ; then
     if test "$GCC" = "yes"; then
 
-    PKG_CFLAGS="$PKG_CFLAGS ${TCLTLS_SSL_CFLAGS}"
+    PKG_CFLAGS="$PKG_CFLAGS ${TCLTLS_SSL_CFLAGS} -Wno-deprecated-declarations"
 
 
 
@@ -9612,7 +9634,7 @@ if test "${TEA_PLATFORM}" = "windows" ; then
     fi
 else
 
-    PKG_CFLAGS="$PKG_CFLAGS ${TCLTLS_SSL_CFLAGS}"
+    PKG_CFLAGS="$PKG_CFLAGS ${TCLTLS_SSL_CFLAGS} -Wno-deprecated-declarations"
 
 
 
