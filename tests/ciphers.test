@@ -18,15 +18,18 @@ set protocols [list ssl2 ssl3 tls1 tls1.1 tls1.2 tls1.3]
 foreach protocol $protocols {::tcltest::testConstraint $protocol 0}
 foreach protocol [::tls::protocols] {::tcltest::testConstraint $protocol 1}
 ::tcltest::testConstraint OpenSSL [string match "OpenSSL*" [::tls::version]]
+
 # Helper functions
 proc lcompare {list1 list2} {set m "";set u "";foreach i $list1 {if {$i ni $list2} {lappend m $i}};foreach i $list2 {if {$i ni $list1} {lappend u $i}};return [list "missing" $m "unexpected" $u]}
 proc exec_get {delim args} {return [split [exec openssl {*}$args] $delim]}
+
 # Test protocols
 
 
 test Protocols-1.1 {All} -body {
 	lcompare $protocols [::tls::protocols]
     } -result {missing {ssl2 ssl3} unexpected {}}
+
 # Test ciphers
 
 
@@ -53,6 +56,7 @@ test CiphersAll-2.5 {TLS1.2} -constraints {tls1.2} -body {
 test CiphersAll-2.6 {TLS1.3} -constraints {tls1.3} -body {
 	lcompare [exec_get ":" ciphers -tls1_3] [::tls::ciphers tls1.3]
     } -result {missing {} unexpected {}}
+
 # Test cipher descriptions
 
 
@@ -79,6 +83,7 @@ test CiphersDesc-3.5 {TLS1.2} -constraints {tls1.2} -body {
 test CiphersDesc-3.6 {TLS1.3} -constraints {tls1.3} -body {
 	lcompare [exec_get "\r\n" ciphers -tls1_3 -v] [split [string trim [::tls::ciphers tls1.3 1]] \n]
     } -result {missing {} unexpected {}}
+
 # Test protocol specific ciphers
 
 
@@ -105,6 +110,7 @@ test CiphersSpecific-4.5 {TLS1.2} -constraints {tls1.2} -body {
 test CiphersSpecific-4.6 {TLS1.3} -constraints {tls1.3} -body {
 	lcompare [exec_get ":" ciphers -tls1_3 -s] [::tls::ciphers tls1.3 0 1]
     } -result {missing {} unexpected {}}
+
 # Test version
 
 
