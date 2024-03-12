@@ -48,7 +48,7 @@ static int TlsBlockModeProc(void *instanceData, int mode) {
     } else {
 	statePtr->flags &= ~(TLS_TCL_ASYNC);
     }
-    return(0);
+    return 0;
 }
 
 /*
@@ -128,7 +128,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
     if (!(statePtr->flags & TLS_TCL_INIT)) {
 	dprintf("Tls_WaitForConnect called on already initialized channel -- returning with immediate success");
 	*errorCodePtr = 0;
-	return(0);
+	return 0;
     }
 
     if (statePtr->flags & TLS_TCL_HANDSHAKE_FAILED) {
@@ -143,7 +143,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    dprintf("Asked to wait for a TLS handshake that has already failed.  Returning soft error");
 	    *errorCodePtr = ECONNRESET;
 	}
-	return(-1);
+	return -1;
     }
 
     for (;;) {
@@ -190,7 +190,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    if (statePtr->flags & TLS_TCL_ASYNC) {
 		dprintf("Returning EAGAIN so that it can be retried later");
 		*errorCodePtr = EAGAIN;
-		return(-1);
+		return -1;
 	    } else {
 		dprintf("Doing so now");
 		continue;
@@ -211,7 +211,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    break;
 	case SSL_ERROR_ZERO_RETURN:
 	    dprintf("SSL_ERROR_ZERO_RETURN: Connect returned an invalid value...")
-	    return(-1);
+	    return -1;
 	case SSL_ERROR_SYSCALL:
 	    backingError = ERR_get_error();
 
@@ -239,7 +239,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 		Tls_Error(statePtr, (char *)ERR_reason_error_string(ERR_get_error()));
 	    statePtr->flags |= TLS_TCL_HANDSHAKE_FAILED;
 	    *errorCodePtr = ECONNABORTED;
-	    return(-1);
+	    return -1;
 	default:
 	    dprintf("We got a confusing reply: %i", rc);
 	    *errorCodePtr = Tcl_GetErrno();
@@ -258,7 +258,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 		Tls_Error(statePtr, (char *)X509_verify_cert_error_string(err));
 		statePtr->flags |= TLS_TCL_HANDSHAKE_FAILED;
 		*errorCodePtr = ECONNABORTED;
-		return(-1);
+		return -1;
 	}
     }
 #endif
@@ -308,7 +308,7 @@ static int TlsInputProc(
     if (statePtr->flags & TLS_TCL_CALLBACK) {
 	/* don't process any bytes while verify callback is running */
 	dprintf("Callback is running, reading 0 bytes");
-	return(0);
+	return 0;
     }
 
     dprintf("Calling Tls_WaitForConnect");
@@ -323,7 +323,7 @@ static int TlsInputProc(
 	    *errorCodePtr = 0;
 	    bytesRead = 0;
 	}
-	return(bytesRead);
+	return bytesRead;
     }
 
     /*
@@ -441,7 +441,7 @@ static int TlsOutputProc(
 	dprintf("Don't process output while callbacks are running");
 	written = -1;
 	*errorCodePtr = EAGAIN;
-	return(-1);
+	return -1;
     }
 
     dprintf("Calling Tls_WaitForConnect");
@@ -456,7 +456,7 @@ static int TlsOutputProc(
 	    *errorCodePtr = 0;
 	    written = 0;
 	}
-	return(written);
+	return written;
     }
 
     if (toWrite == 0) {
@@ -468,12 +468,12 @@ static int TlsOutputProc(
 
 	    *errorCodePtr = EIO;
 	    written = 0;
-	    return(-1);
+	    return -1;
 	}
 
 	written = 0;
 	*errorCodePtr = 0;
-	return(0);
+	return 0;
     }
 
     /*
@@ -542,7 +542,7 @@ static int TlsOutputProc(
     }
 
     dprintf("Output(%d) -> %d", toWrite, written);
-    return(written);
+    return written;
 }
 
 /*
@@ -737,7 +737,7 @@ static int TlsGetHandleProc(
 {
     State *statePtr = (State *)instanceData;
 
-    return(Tcl_GetChannelHandle(Tls_GetParent(statePtr, TLS_TCL_FASTPATH), direction, handlePtr));
+    return Tcl_GetChannelHandle(Tls_GetParent(statePtr, TLS_TCL_FASTPATH), direction, handlePtr);
 }
 
 /*
@@ -801,7 +801,7 @@ static int TlsNotifyProc(
 
     dprintf("Returning %i", mask);
 
-    return(mask);
+    return mask;
 }
 
 /*
@@ -855,7 +855,7 @@ Tcl_Channel Tls_GetParent(State *statePtr, int maskFlags) {
 
     if ((statePtr->flags & ~maskFlags) & TLS_TCL_FASTPATH) {
 	dprintf("Asked to get the parent channel while we are using FastPath -- returning NULL");
-	return(NULL);
+	return NULL;
     }
     return Tcl_GetStackedChannel(statePtr->self);
 }
