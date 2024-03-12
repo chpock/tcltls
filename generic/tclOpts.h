@@ -4,6 +4,7 @@
  * Stylized option processing - requires consistent
  * external vars: opt, idx, objc, objv
  */
+
 #ifndef _TCL_OPTS_H
 #define _TCL_OPTS_H
 
@@ -45,7 +46,7 @@
     }						\
     OPT_POSTLOG()
 
-#define OPTBYTE(option, var, lvar)			\
+#define OPTBYTE(option, var, lvar)		\
     OPT_PROLOG(option)				\
     var = Tcl_GetByteArrayFromObj(objv[idx], &(lvar));\
     OPT_POSTLOG()

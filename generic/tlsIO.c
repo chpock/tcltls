@@ -730,7 +730,6 @@ TlsWatchProc(
 {
     Tcl_Channel     downChan;
     State *statePtr = (State *)instanceData;
-    Tcl_DriverWatchProc *watchProc;
 
     dprintf("TlsWatchProc(0x%x)", mask);
 
@@ -749,8 +748,7 @@ TlsWatchProc(
 	dprintf("Asked to watch a socket with a failed handshake -- nothing can happen here");
 	dprintf("Unregistering interest in the lower channel");
 
-	watchProc = Tcl_ChannelWatchProc(Tcl_GetChannelType(downChan));
-	watchProc(Tcl_GetChannelInstanceData(downChan), 0);
+	Tcl_GetChannelType(downChan)->watchProc(Tcl_GetChannelInstanceData(downChan), 0);
 	statePtr->watchMask = 0;
 	return;
     }
@@ -765,8 +763,7 @@ TlsWatchProc(
      * the request down, unchanged.
      */
     dprintf("Registering our interest in the lower channel (chan=%p)", (void *) downChan);
-    watchProc = Tcl_ChannelWatchProc(Tcl_GetChannelType(downChan));
-    watchProc(Tcl_GetChannelInstanceData(downChan), mask);
+    Tcl_GetChannelType(downChan)->watchProc(Tcl_GetChannelInstanceData(downChan), mask);
 
     /*
      * Management of the internal timer.

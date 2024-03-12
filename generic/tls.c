@@ -356,7 +356,8 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
  *-------------------------------------------------------------------
  */
 static int
-VerifyCallback(int ok, X509_STORE_CTX *ctx) {
+VerifyCallback(int ok, X509_STORE_CTX *ctx)
+{
     Tcl_Obj *cmdPtr;
     SSL   *ssl		= (SSL*)X509_STORE_CTX_get_ex_data(ctx, SSL_get_ex_data_X509_STORE_CTX_idx());
     X509  *cert		= X509_STORE_CTX_get_current_cert(ctx);
@@ -1282,13 +1283,13 @@ ImportObjCmd(
 
     dprintf("Called");
 
-#if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1)
+#if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1) || defined(OPENSSL_NO_TLS1_METHOD)
     tls1 = 0;
 #endif
-#if defined(NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1)
+#if defined(NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1_METHOD)
     tls1_1 = 0;
 #endif
-#if defined(NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2)
+#if defined(NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2_METHOD)
     tls1_2 = 0;
 #endif
 #if defined(NO_TLS1_3) || defined(OPENSSL_NO_TLS1_3)
@@ -1431,8 +1432,8 @@ ImportObjCmd(
 	}
 	ctx = ((State *)Tcl_GetChannelInstanceData(chan))->ctx;
     } else {
-	if ((ctx = CTX_Init(statePtr, server, proto, keyfile, certfile, key, cert, (int) key_len,
-	    (int) cert_len, CApath, CAfile, ciphers, ciphersuites, level, DHparams)) == NULL) {
+	if ((ctx = CTX_Init(statePtr, server, proto, keyfile, certfile, key, cert, key_len,
+		cert_len, CApath, CAfile, ciphers, ciphersuites, level, DHparams)) == NULL) {
 	    Tls_Free((void *)statePtr);
 	    return TCL_ERROR;
 	}
@@ -1649,7 +1650,7 @@ ImportObjCmd(
      * End of SSL Init
      */
     dprintf("Returning %s", Tcl_GetChannelName(statePtr->self));
-    Tcl_SetResult(interp, (char *) Tcl_GetChannelName(statePtr->self), TCL_VOLATILE);
+    Tcl_SetResult(interp, (char *)Tcl_GetChannelName(statePtr->self), TCL_VOLATILE);
     return TCL_OK;
 }
 
@@ -1696,7 +1697,7 @@ UnimportObjCmd(
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
 		"\": not a TLS channel", (char *)NULL);
-	    Tcl_SetErrorCode(interp, "TLS", "UNIMPORT", "CHANNEL", "INVALID", (char *)NULL);
+	Tcl_SetErrorCode(interp, "TLS", "UNIMPORT", "CHANNEL", "INVALID", (char *)NULL);
 	return TCL_ERROR;
     }
 
@@ -1762,19 +1763,19 @@ CTX_Init(
 	Tcl_AppendResult(interp, "SSL3 protocol not supported", (char *)NULL);
 	return NULL;
     }
-#if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1)
+#if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1) || defined(OPENSSL_NO_TLS1_METHOD)
     if (ENABLED(proto, TLS_PROTO_TLS1)) {
 	Tcl_AppendResult(interp, "TLS 1.0 protocol not supported", (char *)NULL);
 	return NULL;
     }
 #endif
-#if defined(NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1)
+#if defined(NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1_METHOD)
     if (ENABLED(proto, TLS_PROTO_TLS1_1)) {
 	Tcl_AppendResult(interp, "TLS 1.1 protocol not supported", (char *)NULL);
 	return NULL;
     }
 #endif
-#if defined(NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2)
+#if defined(NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2_METHOD)
     if (ENABLED(proto, TLS_PROTO_TLS1_2)) {
 	Tcl_AppendResult(interp, "TLS 1.2 protocol not supported", (char *)NULL);
 	return NULL;
@@ -1817,13 +1818,13 @@ CTX_Init(
     default:
 	/* Negotiate highest available SSL/TLS version */
 	method = isServer ? TLS_server_method() : TLS_client_method();
-#if !defined(NO_TLS1) && !defined(OPENSSL_NO_TLS1)
+#if !defined(NO_TLS1) && !defined(OPENSSL_NO_TLS1) && !defined(OPENSSL_NO_TLS1_METHOD)
 	off |= (ENABLED(proto, TLS_PROTO_TLS1)   ? 0 : SSL_OP_NO_TLSv1);
 #endif
-#if !defined(NO_TLS1_1) && !defined(OPENSSL_NO_TLS1_1)
+#if !defined(NO_TLS1_1) && !defined(OPENSSL_NO_TLS1_1) && !defined(OPENSSL_NO_TLS1_1_METHOD)
 	off |= (ENABLED(proto, TLS_PROTO_TLS1_1) ? 0 : SSL_OP_NO_TLSv1_1);
 #endif
-#if !defined(NO_TLS1_2) && !defined(OPENSSL_NO_TLS1_2)
+#if !defined(NO_TLS1_2) && !defined(OPENSSL_NO_TLS1_2) && !defined(OPENSSL_NO_TLS1_2_METHOD)
 	off |= (ENABLED(proto, TLS_PROTO_TLS1_2) ? 0 : SSL_OP_NO_TLSv1_2);
 #endif
 #if !defined(NO_TLS1_3) && !defined(OPENSSL_NO_TLS1_3)
@@ -1855,7 +1856,7 @@ CTX_Init(
 	SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
     }
 
-    SSL_CTX_set_app_data(ctx, (void*)interp);	/* remember the interpreter */
+    SSL_CTX_set_app_data(ctx, interp);	/* remember the interpreter */
     SSL_CTX_set_options(ctx, SSL_OP_ALL);	/* all SSL bug workarounds */
     SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);	/* disable compression even if supported */
     SSL_CTX_set_options(ctx, off);		/* disable protocol versions */
@@ -2583,7 +2584,7 @@ MiscObjCmd(
 		/* RSA_free(rsa); freed by EVP_PKEY_free */
 		BN_free(bne);
 #else
-	    pkey = EVP_RSA_gen((unsigned int) keysize);
+	    pkey = EVP_RSA_gen((unsigned int)keysize);
 	    ctx = EVP_PKEY_CTX_new(pkey,NULL);
 	    if (pkey == NULL || ctx == NULL || !EVP_PKEY_keygen_init(ctx) ||
 		!EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, keysize) || !EVP_PKEY_keygen(ctx, &pkey)) {
