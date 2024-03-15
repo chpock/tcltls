@@ -9330,9 +9330,7 @@ printf "%s\n" "$opensslpkgconfigdir" >&6; }
 		TCLTLS_SSL_CFLAGS=""
 	fi
 	if test -z "$TCLTLS_SSL_INCLUDES"; then
-		if test -d /usr/include/openssl; then
-			TCLTLS_SSL_INCLUDES="-I/usr/include/openssl"
-		else
+		if test -f /usr/include/openssl/ssl.h; then
 			TCLTLS_SSL_INCLUDES="-I/usr/include"
 		fi
 	fi
