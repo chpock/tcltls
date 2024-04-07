@@ -85,7 +85,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	], [
 		TCLEXT_TLS_STATIC_SSL='no'
 	])
-	AC_MSG_CHECKING([for static linking of openSSL libraries])
+	AC_MSG_CHECKING([for static linking of SSL libraries])
 	AC_MSG_RESULT([$TCLEXT_TLS_STATIC_SSL])
 
 
@@ -119,8 +119,50 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	AC_MSG_CHECKING([for OpenSSL include directory])
 	AC_MSG_RESULT($opensslincludedir)
 
+	dnl Set SSL files root path
+	AC_ARG_WITH([wolfssl-dir],
+		AS_HELP_STRING([--with-wolfssl-dir=<dir>],
+			[path to root directory of wolfSSL installation]
+		), [
+			wolfssldir="$withval"
+		], [
+			wolfssldir=''
+		]
+	)
+	AC_MSG_CHECKING([for wolfSSL directory])
+	AC_MSG_RESULT($wolfssldir)
+
+	dnl Set SSL include files path
+	AC_ARG_WITH([wolfssl-includedir],
+		AS_HELP_STRING([--with-wolfssl-includedir=<dir>],
+			[path to include directory of wolfSSL installation]
+		), [
+			wolfsslincludedir="$withval"
+		], [
+			if test ! -z "$wolfssldir"; then
+				wolfsslincludedir="${wolfssldir}/include"
+			else
+				wolfsslincludedir=''
+			fi
+		]
+	)
+	AC_MSG_CHECKING([for wolfSSL include directory])
+	AC_MSG_RESULT($wolfsslincludedir)
+
 	dnl Set SSL include vars
-	if test ! -z "$opensslincludedir"; then
+	if test ! -z "$wolfsslincludedir"; then
+		if test -f "$wolfsslincludedir/wolfssl/openssl/ssl.h"; then
+			TCLTLS_SSL_CFLAGS="-I$wolfsslincludedir"
+			TCLTLS_SSL_INCLUDES="-I$wolfsslincludedir"
+			AC_MSG_CHECKING([for ssl.h])
+			AC_MSG_RESULT([yes])
+			use_wolfssl=yes
+		else
+			AC_MSG_CHECKING([for ssl.h])
+			AC_MSG_RESULT([no])
+			AC_MSG_ERROR([Unable to locate ssl.h])
+		fi
+	elif test ! -z "$opensslincludedir"; then
 		if test -f "$opensslincludedir/openssl/ssl.h"; then
 			TCLTLS_SSL_CFLAGS="-I$opensslincludedir"
 			TCLTLS_SSL_INCLUDES="-I$opensslincludedir"
@@ -154,8 +196,43 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	AC_MSG_CHECKING([for OpenSSL lib directory])
 	AC_MSG_RESULT($openssllibdir)
 
+	dnl Set SSL lib files path
+	AC_ARG_WITH([wolfssl-libdir],
+		AS_HELP_STRING([--with-wolfssl-libdir=<dir>],
+			[path to lib directory of wolfSSL installation]
+		), [
+			wolfssllibdir="$withval"
+		], [
+			if test ! -z "$wolfssldir"; then
+				if test "$do64bit" == 'yes'; then
+					woldssllibdir="$wolfssldir/lib64"
+				else
+					wolfssllibdir="$wolfssldir/lib"
+				fi
+			else
+				wolfssllibdir=''
+			fi
+		]
+	)
+	AC_MSG_CHECKING([for wolfSSL lib directory])
+	AC_MSG_RESULT($wolfssllibdir)
+
 	dnl Set SSL lib vars
-	if test ! -z "$openssllibdir"; then
+	if test ! -z "$wolfssllibdir"; then
+		if test "${TCLEXT_TLS_STATIC_SSL}" == 'no'; then
+			if test -f "$wolfssllibdir/libwolfssl${SHLIB_SUFFIX}"; then
+				TCLTLS_SSL_LIBS="-L$wolfssllibdir -lwolfssl"
+			else
+				AC_MSG_ERROR([Unable to locate libwolfssl${SHLIB_SUFFIX}])
+			fi
+		else
+			if test -f "$wolfssllibdir/libwolfssl.a"; then
+				TCLTLS_SSL_LIBS="-L$wolfssllibdir -lwolfssl"
+			else
+				AC_MSG_ERROR([Unable to locate libwolfssl.a])
+			fi
+		fi
+	elif test ! -z "$openssllibdir"; then
 		if test -f "$openssllibdir/libssl${SHLIB_SUFFIX}"; then
 			if test "${TCLEXT_TLS_STATIC_SSL}" == 'no'; then
 				TCLTLS_SSL_LIBS="-L$openssllibdir -lcrypto -lssl"
@@ -187,6 +264,23 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	AC_MSG_CHECKING([for OpenSSL pkgconfig])
 	AC_MSG_RESULT($opensslpkgconfigdir)
 
+	dnl Set location of pkgconfig files
+	AC_ARG_WITH([wolfssl-pkgconfig],
+		AS_HELP_STRING([--with-wolfssl-pkgconfig=<dir>],
+			[path to pkgconfigdir directory for wolfSSL]
+		), [
+			wolfsslpkgconfigdir="$withval"
+		], [
+			if test -d ${libdir}/../pkgconfig; then
+				wolfsslpkgconfigdir="$libdir/../pkgconfig"
+			else
+				wolfsslpkgconfigdir=''
+			fi
+		]
+	)
+	AC_MSG_CHECKING([for wolfSSL pkgconfig])
+	AC_MSG_RESULT($wolfsslpkgconfigdir)
+
 
 	# Use Package Config tool to get config
 	pkgConfigExtraArgs=''
@@ -198,7 +292,15 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	if test -n "${PKG_CONFIG}"; then
 		dnl Temporarily update PKG_CONFIG_PATH
 		PKG_CONFIG_PATH_SAVE="${PKG_CONFIG_PATH}"
-		if test -n "${opensslpkgconfigdir}"; then
+		if test -n "${wolfsslpkgconfigdir}"; then
+			if ! test -f "${wolfsslpkgconfigdir}/wolfssl.pc"; then
+				AC_MSG_ERROR([Unable to locate ${wolfsslpkgconfigdir}/wolfssl.pc])
+			fi
+
+			PKG_CONFIG_PATH="${wolfsslpkgconfigdir}:${PKG_CONFIG_PATH}"
+			export PKG_CONFIG_PATH
+			use_wolfssl=yes
+		elif test -n "${opensslpkgconfigdir}"; then
 			if ! test -f "${opensslpkgconfigdir}/openssl.pc"; then
 				AC_MSG_ERROR([Unable to locate ${opensslpkgconfigdir}/openssl.pc])
 			fi
@@ -206,14 +308,26 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 			PKG_CONFIG_PATH="${opensslpkgconfigdir}:${PKG_CONFIG_PATH}"
 			export PKG_CONFIG_PATH
 		fi
-		if test -z "$TCLTLS_SSL_LIBS"; then
-			TCLTLS_SSL_LIBS="`"${PKG_CONFIG}" openssl --libs $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get OpenSSL Configuration])
-		fi
-		if test -z "$TCLTLS_SSL_CFLAGS"; then
-			TCLTLS_SSL_CFLAGS="`"${PKG_CONFIG}" openssl --cflags-only-other $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get OpenSSL Configuration])
-		fi
-		if test -z "$TCLTLS_SSL_INCLUDES"; then
-			TCLTLS_SSL_INCLUDES="`"${PKG_CONFIG}" openssl --cflags-only-I $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get OpenSSL Configuration])
+		if test -z "$use_wolfssl"; then
+			if test -z "$TCLTLS_SSL_LIBS"; then
+				TCLTLS_SSL_LIBS="`"${PKG_CONFIG}" openssl --libs $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get OpenSSL Configuration])
+			fi
+			if test -z "$TCLTLS_SSL_CFLAGS"; then
+				TCLTLS_SSL_CFLAGS="`"${PKG_CONFIG}" openssl --cflags-only-other $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get OpenSSL Configuration])
+			fi
+			if test -z "$TCLTLS_SSL_INCLUDES"; then
+				TCLTLS_SSL_INCLUDES="`"${PKG_CONFIG}" openssl --cflags-only-I $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get OpenSSL Configuration])
+			fi
+		else
+			if test -z "$TCLTLS_SSL_LIBS"; then
+				TCLTLS_SSL_LIBS="`"${PKG_CONFIG}" wolfssl --libs $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get wolfSSL Configuration])
+			fi
+			if test -z "$TCLTLS_SSL_CFLAGS"; then
+				TCLTLS_SSL_CFLAGS="`"${PKG_CONFIG}" wolfssl --cflags-only-other $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get wolfSSL Configuration])
+			fi
+			if test -z "$TCLTLS_SSL_INCLUDES"; then
+				TCLTLS_SSL_INCLUDES="`"${PKG_CONFIG}" wolfssl --cflags-only-I $pkgConfigExtraArgs`" || AC_MSG_ERROR([Unable to get wolfSSL Configuration])
+			fi
 		fi
 		PKG_CONFIG_PATH="${PKG_CONFIG_PATH_SAVE}"
 	fi
@@ -231,9 +345,14 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 			TCLTLS_SSL_INCLUDES="-I/usr/include"
 		fi
 	fi
+	if test "$use_wolfssl" == "yes"; then
+		TCLTLS_SSL_CFLAGS="${TCLTLS_SSL_CFLAGS} -DUSE_WOLFSSL"
+	else
+		TCLTLS_SSL_CFLAGS="${TCLTLS_SSL_CFLAGS} -DUSE_OPENSSL"
+	fi
 
 	dnl Include config variables in --help list and make available to be substituted via AC_SUBST.
-	AC_ARG_VAR([TCLTLS_SSL_CFLAGS], [C compiler flags for OpenSSL or LibreSSL])
-	AC_ARG_VAR([TCLTLS_SSL_INCLUDES], [C compiler include paths for OpenSSL or LibreSSL])
-	AC_ARG_VAR([TCLTLS_SSL_LIBS], [libraries to pass to the linker for OpenSSL or LibreSSL])
+	AC_ARG_VAR([TCLTLS_SSL_CFLAGS], [C compiler flags for OpenSSL, LibreSSL or wolfSSL])
+	AC_ARG_VAR([TCLTLS_SSL_INCLUDES], [C compiler include paths for OpenSSL, LibreSSL or wolfSSL])
+	AC_ARG_VAR([TCLTLS_SSL_LIBS], [libraries to pass to the linker for OpenSSL, LibreSSL or wolfSSL])
 ])

@@ -3,20 +3,28 @@
  * Matt Newman <matt@sensus.org>
  * Copyright (C) 2023 Brian O'Hagan
  */
-#include <tcl.h>
+#include "tlsInt.h"
 #include <stdio.h>
+#ifdef USE_WOLFSSL
+#include <wolfssl/openssl/bio.h>
+#include <wolfssl/openssl/sha.h>
+#include <wolfssl/openssl/x509.h>
+#include <wolfssl/openssl/x509v3.h>
+#include <wolfssl/openssl/x509_vfy.h>
+#include <wolfssl/openssl/asn1.h>
+#else
 #include <openssl/bio.h>
 #include <openssl/sha.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 #include <openssl/x509_vfy.h>
 #include <openssl/asn1.h>
-#include "tlsInt.h"
+#endif /* USE_WOLFSSL */
 
 /* Define maximum certificate size. Max PEM size 100kB and DER size is 24kB. */
 #define CERT_STR_SIZE 32768
 
-
+
 /*
  * Binary string to hex string
  */
@@ -50,7 +58,7 @@ int BIO_to_Buffer(int result, BIO *bio, void *buffer, int size) {
     }
     return len;
 }
-
+
 /*
  * Get X509 Certificate Extensions
  */
@@ -64,7 +72,11 @@ Tcl_Obj *Tls_x509Extensions(Tcl_Interp *interp, X509 *cert) {
 
     if ((exts = X509_get0_extensions(cert)) != NULL) {
 	for (int i=0; i < X509_get_ext_count(cert); i++) {
+#ifdef USE_OPENSSL
 	    X509_EXTENSION *ex = sk_X509_EXTENSION_value(exts, i);
+#else
+	    X509_EXTENSION *ex = sk_X509_EXTENSION_value((WOLFSSL_STACK *)exts, i);
+#endif /* USE_OPENSSL */
 	    ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
 	    /* ASN1_OCTET_STRING *data = X509_EXTENSION_get_data(ex); */
 	    int critical = X509_EXTENSION_get_critical(ex);
@@ -84,7 +96,12 @@ Tcl_Obj *Tls_x509Identifier(const ASN1_OCTET_STRING *astring) {
 
     if (astring != NULL) {
 	len = String_to_Hex((unsigned char *)ASN1_STRING_get0_data(astring),
-	    ASN1_STRING_length(astring), buffer, 1024);
+#ifdef USE_WOLFSSL
+	    ASN1_STRING_length((ASN1_OCTET_STRING *)astring), buffer, 1024
+#else
+	    ASN1_STRING_length(astring), buffer, 1024
+#endif /* USE_WOLFSSL */
+        );
     }
     resultPtr = Tcl_NewStringObj((char *) &buffer[0], (Tcl_Size) len);
     return resultPtr;
@@ -134,6 +151,8 @@ Tcl_Obj *Tls_x509KeyUsage(Tcl_Interp *interp, X509 *cert, uint32_t xflags) {
     }
     return listPtr;
 }
+
+#ifdef USE_OPENSSL
 
 /*
  * Get Certificate Purpose
@@ -189,6 +208,8 @@ Tcl_Obj *Tls_x509Purposes(Tcl_Interp *interp, X509 *cert) {
     }
     return listPtr;
 }
+
+#endif /* USE_OPENSSL */
 
 /*
  * Get Subject Alternate Names (SAN) and Issuer Alternate Names
@@ -282,13 +303,22 @@ Tcl_Obj *Tls_x509CrlDp(Tcl_Interp *interp, X509 *cert) {
 		/* full-name GENERALIZEDNAME */
 		for (int j = 0; j < sk_GENERAL_NAME_num(distpoint->name.fullname); j++) {
 		    GENERAL_NAME *gen = sk_GENERAL_NAME_value(distpoint->name.fullname, j);
+#ifdef USE_WOLFSSL
+                    if (gen->type == GEN_URI) {
+			ASN1_STRING *uri = gen->d.uniformResourceIdentifier;
+			LAPPEND_STR(interp, listPtr, (char *) NULL, (char *) ASN1_STRING_get0_data(uri), (Tcl_Size) ASN1_STRING_length(uri));
+                    }
+#else
 		    int type;
 		    ASN1_STRING *uri = GENERAL_NAME_get0_value(gen, &type);
 		    if (type == GEN_URI) {
 			LAPPEND_STR(interp, listPtr, (char *) NULL, (char *) ASN1_STRING_get0_data(uri), (Tcl_Size) ASN1_STRING_length(uri));
 		    }
+#endif /* USE_WOLFSSL */
 		}
-	    } else if (distpoint->type == 1) {
+	    }
+#ifndef USE_WOLFSSL /* wolfSSL doesn't support type=1 with relative name. See: RFC 5280 section 4.2.1.13 */
+	    else if (distpoint->type == 1) {
 		/* relative-name X509NAME */
 		STACK_OF(X509_NAME_ENTRY) *sk_relname = distpoint->name.relativename;
 		for (int j = 0; j < sk_X509_NAME_ENTRY_num(sk_relname); j++) {
@@ -297,6 +327,7 @@ Tcl_Obj *Tls_x509CrlDp(Tcl_Interp *interp, X509 *cert) {
 		    LAPPEND_STR(interp, listPtr, (char *) NULL, (char *) ASN1_STRING_data(d), (Tcl_Size) ASN1_STRING_length(d));
 		}
 	    }
+#endif /* USE_WOLFSSL */
 	}
 	CRL_DIST_POINTS_free(crl);
     }
@@ -350,7 +381,7 @@ Tcl_Obj *Tls_x509CaIssuers(Tcl_Interp *interp, X509 *cert) {
     }
     return listPtr;
 }
-
+
 /*
  *------------------------------------------------------*
  *
@@ -374,7 +405,10 @@ Tcl_Obj*
 Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     Tcl_Obj *certPtr = Tcl_NewListObj(0, NULL);
     BIO *bio = BIO_new(BIO_s_mem());
-    int mdnid, pknid, bits, len;
+#ifdef USE_OPENSSL
+    int mdnid, pknid, bits;
+#endif /* USE_OPENSSL */
+    int len;
     unsigned int ulen;
     uint32_t xflags;
     char buffer[BUFSIZ];
@@ -407,8 +441,14 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     LAPPEND_LONG(interp, certPtr, "version", X509_get_version(cert)+1);
 
     /* Unique number assigned by CA to certificate - RFC 5280 section 4.1.2.2 */
+#ifdef USE_WOLFSSL
+    unsigned char wolfssl_serial[EXTERNAL_SERIAL_SIZE];
+    wolfSSL_X509_get_serial_number(cert, wolfssl_serial, &len);
+    LAPPEND_STR(interp, certPtr, "serialNumber", (char *)wolfssl_serial, (Tcl_Size) len);
+#else
     len = BIO_to_Buffer(i2a_ASN1_INTEGER(bio, X509_get0_serialNumber(cert)), bio, buffer, BUFSIZ);
     LAPPEND_STR(interp, certPtr, "serialNumber", buffer, (Tcl_Size) len);
+#endif /* WOLFSSL */
 
     /* Signature algorithm used by the CA to sign the certificate. Must match
 	signatureAlgorithm. RFC 5280 section 4.1.2.3 */
@@ -445,6 +485,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	LAPPEND_STR(interp, certPtr, "sha256_hash", buffer, (Tcl_Size) ulen);
     }
 
+#ifdef USE_OPENSSL
     /* Subject Public Key Info specifies the public key and identifies the
 	algorithm with which the key is used. RFC 5280 section 4.1.2.7 */
     if (X509_get_signature_info(cert, &mdnid, &pknid, &bits, &xflags)) {
@@ -472,22 +513,31 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	}
 	LAPPEND_STR(interp, certPtr, "signatureHash", buffer, (Tcl_Size) len);
     }
+#endif /* USE_OPENSSL */
 
+#ifdef USE_OPENSSL
     /* Certificate Purpose. Call before checking for extensions. */
     LAPPEND_STR(interp, certPtr, "purpose", Tls_x509Purpose(cert), -1);
     LAPPEND_OBJ(interp, certPtr, "certificatePurpose", Tls_x509Purposes(interp, cert));
+#endif /* USE_OPENSSL */
 
     /* Get extensions flags */
     xflags = X509_get_extension_flags(cert);
     LAPPEND_INT(interp, certPtr, "extFlags", xflags);
 
+#ifdef USE_WOLFSSL
+    LAPPEND_BOOL(interp, certPtr, "extFlagKeyUsage", xflags & EXFLAG_KUSAGE);
+    LAPPEND_BOOL(interp, certPtr, "extFlagExtKeyUsage", xflags & EXFLAG_XKUSAGE);
+#else
 	/* Check if cert was issued by CA cert issuer or self signed */
     LAPPEND_BOOL(interp, certPtr, "selfIssued", xflags & EXFLAG_SI);
     LAPPEND_BOOL(interp, certPtr, "selfSigned", xflags & EXFLAG_SS);
     LAPPEND_BOOL(interp, certPtr, "isProxyCert", xflags & EXFLAG_PROXY);
     LAPPEND_BOOL(interp, certPtr, "extInvalid", xflags & EXFLAG_INVALID);
+#endif /* USE_WOLFSSL */
     LAPPEND_BOOL(interp, certPtr, "isCACert", X509_check_ca(cert));
 
+#ifdef USE_OPENSSL
     /* The Unique Ids are used to handle the possibility of reuse of subject
 	and/or issuer names over time. RFC 5280 section 4.1.2.8 */
     {
@@ -508,30 +558,37 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	    Tcl_ListObjAppendElement(interp, certPtr, Tcl_NewStringObj("", -1));
 	}
     }
+#endif /* USE_OPENSSL */
 
     /* X509 v3 Extensions - RFC 5280 section 4.1.2.9 */
     LAPPEND_INT(interp, certPtr, "extCount", X509_get_ext_count(cert));
     LAPPEND_OBJ(interp, certPtr, "extensions", Tls_x509Extensions(interp, cert));
 
+#ifdef USE_OPENSSL
     /* Authority Key Identifier (AKI) is the Subject Key Identifier (SKI) of
 	its signer (the CA). RFC 5280 section 4.2.1.1, NID_authority_key_identifier */
     LAPPEND_OBJ(interp, certPtr, "authorityKeyIdentifier",
 	Tls_x509Identifier(X509_get0_authority_key_id(cert)));
+#endif /* USE_OPENSSL */
 
+#ifdef USE_OPENSSL
     /* Subject Key Identifier (SKI) is used to identify certificates that contain
 	a particular public key. RFC 5280 section 4.2.1.2, NID_subject_key_identifier */
     LAPPEND_OBJ(interp, certPtr, "subjectKeyIdentifier",
 	Tls_x509Identifier(X509_get0_subject_key_id(cert)));
+#endif /* USE_OPENSSL */
 
     /* Key usage extension defines the purpose (e.g., encipherment, signature, certificate
 	signing) of the key in the certificate. RFC 5280 section 4.2.1.3, NID_key_usage */
     LAPPEND_OBJ(interp, certPtr, "keyUsage", Tls_x509KeyUsage(interp, cert, xflags));
 
+#ifdef USE_OPENSSL
     /* Certificate Policies - indicates the issuing CA considers its issuerDomainPolicy
 	equivalent to the subject CA's subjectDomainPolicy. RFC 5280 section 4.2.1.4, NID_certificate_policies */
     if (xflags & EXFLAG_INVALID_POLICY) {
 	/* Reject cert */
     }
+#endif /* USE_OPENSSL */
 
     /* Policy Mappings - RFC 5280 section 4.2.1.5, NID_policy_mappings */
 
@@ -546,6 +603,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     /* Subject Directory Attributes provides identification attributes (e.g., nationality)
 	of the subject. RFC 5280 section 4.2.1.8 (subjectDirectoryAttributes) */
 
+#ifdef USE_OPENSSL
     /* Basic Constraints identifies whether the subject of the cert is a CA and
 	the max depth of valid cert paths for this cert. RFC 5280 section 4.2.1.9, NID_basic_constraints */
     if (!(xflags & EXFLAG_PROXY)) {
@@ -553,7 +611,10 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     } else {
 	LAPPEND_LONG(interp, certPtr, "pathLen", X509_get_proxy_pathlen(cert));
     }
+#endif /* USE_OPENSSL */
+#ifdef USE_OPENSSL
     LAPPEND_BOOL(interp, certPtr, "basicConstraintsCA", xflags & EXFLAG_CA);
+#endif /* USE_OPENSSL */
 
     /* Name Constraints is only used in CA certs to indicate the name space for
 	all subject names in subsequent certificates in a certification path
@@ -570,9 +631,11 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 	RFC 5280 section 4.2.1.13*/
     LAPPEND_OBJ(interp, certPtr, "crlDistributionPoints", Tls_x509CrlDp(interp, cert));
 
+#ifdef USE_OPENSSL
     /* Freshest CRL extension */
     if (xflags & EXFLAG_FRESHEST) {
     }
+#endif /* USE_OPENSSL */
 
     /* Authority Information Access indicates how to access info and services
 	for the certificate issuer. RFC 5280 section 4.2.2.1, NID_info_access */
@@ -585,6 +648,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
 
     /* Subject Information Access - RFC 5280 section 4.2.2.2, NID_sinfo_access */
 
+#ifdef USE_OPENSSL
     /* Certificate Alias. If uses a PKCS#12 structure, alias will reflect the
 	friendlyName attribute (RFC 2985). */
     {
@@ -594,6 +658,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
         string = X509_keyid_get0(cert, &len);
 	LAPPEND_STR(interp, certPtr, "keyId", (char *) string, (Tcl_Size) len);
     }
+#endif /* USE_OPENSSL */
 
     /* Certificate and dump all data */
     {

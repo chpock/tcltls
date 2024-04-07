@@ -27,14 +27,13 @@
 #include "tlsUuid.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <openssl/rsa.h>
-#include <openssl/safestack.h>
 
+#ifdef USE_OPENSSL
 /* Min OpenSSL version */
 #if OPENSSL_VERSION_NUMBER < 0x10101000L
 #error "Only OpenSSL v1.1.1 or later is supported"
 #endif
-
+#endif /* USE_OPENSSL */
 
 /*
  * Forward declarations
@@ -67,11 +66,18 @@ static int	TlsLibInit(int uninitialize);
 
 #ifdef TCL_THREADS
 #define OPENSSL_THREAD_DEFINES
+#ifdef USE_WOLFSSL
+#include <wolfssl/openssl/opensslconf.h>
+#else
 #include <openssl/opensslconf.h>
+#endif /* USE_WOLFSSL */
 
 #ifdef OPENSSL_THREADS
+#ifdef USE_WOLFSSL
+#include <wolfssl/openssl/crypto.h>
+#else
 #include <openssl/crypto.h>
-#include <openssl/ssl.h>
+#endif /* USE_WOLFSSL */
 
 /*
  * Threaded operation requires locking callbacks
@@ -84,7 +90,7 @@ static Tcl_Mutex init_mx;
 #endif /* OPENSSL_THREADS */
 #endif /* TCL_THREADS */
 
-
+
 /********************/
 /* Callbacks        */
 /********************/
@@ -139,7 +145,7 @@ EvalCallback(Tcl_Interp *interp, State *statePtr, Tcl_Obj *cmdPtr) {
     Tcl_Release((ClientData) interp);
     return ok;
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -210,7 +216,7 @@ InfoCallback(const SSL *ssl, int where, int ret) {
     EvalCallback(interp, statePtr, cmdPtr);
     Tcl_DecrRefCount(cmdPtr);
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -233,7 +239,9 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
     Tcl_Interp *interp	= statePtr->interp;
     Tcl_Obj *cmdPtr;
     char *ver, *type;
+#ifdef USE_OPENSSL
     BIO *bio;
+#endif /* USE_OPENSSL */
     char buffer[15000];
     buffer[0] = 0;
 
@@ -274,12 +282,16 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
     }
 
     switch (content_type) {
+#ifdef SSL3_RT_HEADER
     case SSL3_RT_HEADER:
 	type = "Header";
 	break;
+#endif
+#ifdef SSL3_RT_INNER_CONTENT_TYPE
     case SSL3_RT_INNER_CONTENT_TYPE:
 	type = "Inner Content Type";
 	break;
+#endif
     case SSL3_RT_CHANGE_CIPHER_SPEC:
 	type = "Change Cipher";
 	break;
@@ -292,7 +304,7 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
     case SSL3_RT_APPLICATION_DATA:
 	type = "App Data";
 	break;
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
+#ifdef DTLS1_RT_HEARTBEAT
     case DTLS1_RT_HEARTBEAT:
 	type = "Heartbeat";
 	break;
@@ -301,6 +313,7 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
 	type = "unknown";
     }
 
+#ifdef USE_OPENSSL
     /* Needs compile time option "enable-ssl-trace". */
     if ((bio = BIO_new(BIO_s_mem())) != NULL) {
 	int n;
@@ -311,6 +324,7 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
 	(void)BIO_flush(bio);
 	BIO_free(bio);
    }
+#endif /* USE_OPENSSL */
 
     /* Create command to eval with fn, chan, direction, version, type, and message args */
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
@@ -328,11 +342,11 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
     Tcl_DecrRefCount(cmdPtr);
 }
 #endif
-
+
 /*
  *-------------------------------------------------------------------
  *
- * VerifyCallback --
+ * Tcltls_VerifyCallback --
  *
  *	Monitors SSL certificate validation process. Used to control the
  *	behavior when the SSL_VERIFY_PEER flag is set. This is called
@@ -365,7 +379,7 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
  *-------------------------------------------------------------------
  */
 static int
-VerifyCallback(int ok, X509_STORE_CTX *ctx) {
+Tcltls_VerifyCallback(int ok, X509_STORE_CTX *ctx) {
     Tcl_Obj *cmdPtr;
     SSL   *ssl		= (SSL*)X509_STORE_CTX_get_ex_data(ctx, SSL_get_ex_data_X509_STORE_CTX_idx());
     X509  *cert		= X509_STORE_CTX_get_current_cert(ctx);
@@ -414,7 +428,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
     /* statePtr->flags &= ~(TLS_TCL_CALLBACK); */
     return ok;	/* By default, leave verification unchanged. */
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -464,7 +478,7 @@ Tls_Error(State *statePtr, char *msg) {
     EvalCallback(interp, statePtr, cmdPtr);
     Tcl_DecrRefCount(cmdPtr);
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -489,7 +503,7 @@ void KeyLogCallback(const SSL *ssl, const char *line) {
 	fclose(fd);
     }
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -572,7 +586,7 @@ PasswordCallback(char *buf, int size, int rwflag, void *udata) {
     Tcl_Release((ClientData) interp);
     return -1;
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -600,9 +614,14 @@ SessionCallback(SSL *ssl, SSL_SESSION *session) {
     State *statePtr = (State*)SSL_get_app_data((SSL *)ssl);
     Tcl_Interp *interp	= statePtr->interp;
     Tcl_Obj *cmdPtr;
-    const unsigned char *ticket;
     const unsigned char *session_id;
+#ifdef USE_WOLFSSL
+    word32 len2;
+    unsigned char ticket[SESSION_TICKET_LEN];
+#else
     size_t len2;
+    const unsigned char *ticket;
+#endif
     unsigned int ulen;
 
     dprintf("Called");
@@ -624,7 +643,16 @@ SessionCallback(SSL *ssl, SSL_SESSION *session) {
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewByteArrayObj(session_id, (Tcl_Size) ulen));
 
     /* Session ticket */
+#ifdef USE_WOLFSSL
+#ifdef HAVE_SESSION_TICKET
+    wolfSSL_get_SessionTicket(ssl, ticket, &len2);
+#else
+    ticket = NULL;
+    len2 = 0;
+#endif /* HAVE_SESSION_TICKET */
+#else
     SSL_SESSION_get0_ticket(session, &ticket, &len2);
+#endif /* USE_WOLFSSL */
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewByteArrayObj(ticket, (Tcl_Size) len2));
 
     /* Lifetime - number of seconds */
@@ -639,7 +667,7 @@ SessionCallback(SSL *ssl, SSL_SESSION *session) {
     /* Return 0 for now until session handling is complete */
     return 0;
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -712,7 +740,7 @@ ALPNCallback(SSL *ssl, const unsigned char **out, unsigned char *outlen,
     Tcl_DecrRefCount(cmdPtr);
     return res;
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -755,7 +783,7 @@ NPNCallback(const SSL *ssl, const unsigned char **out, unsigned int *outlen, voi
     return SSL_TLSEXT_ERR_OK;
 }
 #endif
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -782,7 +810,11 @@ NPNCallback(const SSL *ssl, const unsigned char **out, unsigned int *outlen, voi
  *-------------------------------------------------------------------
  */
 static int
+#ifdef USE_WOLFSSL
+SNICallback(SSL *ssl, int *alert, void *arg) {
+#else
 SNICallback(const SSL *ssl, int *alert, void *arg) {
+#endif /* USE_WOLFSSL */
     State *statePtr = (State*)arg;
     Tcl_Interp *interp	= statePtr->interp;
     Tcl_Obj *cmdPtr;
@@ -796,7 +828,11 @@ SNICallback(const SSL *ssl, int *alert, void *arg) {
     }
 
     /* Only works for TLS 1.2 and earlier */
+#ifdef USE_WOLFSSL
+    servername = SSL_get_servername((SSL *)ssl, TLSEXT_NAMETYPE_host_name);
+#else
     servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+#endif /* USE_WOLFSSL */
     if (!servername || servername[0] == '\0') {
 	return SSL_TLSEXT_ERR_NOACK;
     }
@@ -826,7 +862,9 @@ SNICallback(const SSL *ssl, int *alert, void *arg) {
     Tcl_DecrRefCount(cmdPtr);
     return res;
 }
-
+
+// TODO: WOLFSSL: enable ClientHello?
+#ifdef USE_OPENSSL
 /*
  *-------------------------------------------------------------------
  *
@@ -928,7 +966,9 @@ HelloCallback(SSL *ssl, int *alert, void *arg) {
     Tcl_DecrRefCount(cmdPtr);
     return res;
 }
-
+
+#endif /* USE_OPENSSL */
+
 /********************/
 /* Commands         */
 /********************/
@@ -956,6 +996,15 @@ enum protocol {
     TLS_SSL2, TLS_SSL3, TLS_TLS1, TLS_TLS1_1, TLS_TLS1_2, TLS_TLS1_3, TLS_NONE
 };
 
+#ifdef USE_WOLFSSL
+#ifndef sk_SSL_CIPHER_num
+#define sk_SSL_CIPHER_num wolfSSL_sk_SSL_CIPHER_num
+#endif /* wolfSSL_sk_SSL_CIPHER_num */
+#ifndef sk_SSL_CIPHER_value
+#define sk_SSL_CIPHER_value wolfSSL_sk_SSL_CIPHER_value
+#endif /* sk_SSL_CIPHER_value */
+#endif /* USE_WOLFSSL */
+
 static int
 CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
     Tcl_Obj *objPtr = NULL;
@@ -964,7 +1013,11 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
     STACK_OF(SSL_CIPHER) *sk;
     char buf[BUFSIZ];
     int index, verbose = 0, use_supported = 0;
+#ifdef USE_WOLFSSL
+    const WOLFSSL_METHOD *method;
+#else
     const SSL_METHOD *method;
+#endif
     (void) clientData;
 
     dprintf("Called");
@@ -1050,11 +1103,15 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
     }
 
     /* Use list and order as would be sent in a ClientHello or all available ciphers */
+#ifdef USE_WOLFSSL
+    sk = wolfSSL_get_ciphers_compat(ssl);
+#else
     if (use_supported) {
 	sk = SSL_get1_supported_ciphers(ssl);
     } else {
 	sk = SSL_get_ciphers(ssl);
     }
+#endif /* USE_WOLFSSL */
 
     if (sk != NULL) {
 	if (!verbose) {
@@ -1084,9 +1141,11 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 		}
 	    }
 	}
+#ifdef USE_OPENSSL
 	if (use_supported) {
 	    sk_SSL_CIPHER_free(sk);
 	}
+#endif
     }
     SSL_free(ssl);
     SSL_CTX_free(ctx);
@@ -1094,7 +1153,7 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -1149,7 +1208,7 @@ ProtocolsObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *co
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -1505,9 +1564,13 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	    return TCL_ERROR;
 	}
 
+#ifdef USE_WOLFSSL
+	if (!SSL_set1_host(statePtr->ssl, servername)) {
+#else
 	/* Set hostname for peer certificate hostname verification in clients.
 	   Don't use SSL_set1_host since it has limitations. */
 	if (!SSL_add1_host(statePtr->ssl, servername)) {
+#endif /* USE_WOLFSSL */
 	    Tcl_AppendResult(interp, "Set DNS hostname failed: ", GET_ERR_REASON(), (char *) NULL);
 	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "HOSTNAME", "FAILED", (char *) NULL);
 	    Tls_Free((tls_free_type *) statePtr);
@@ -1516,7 +1579,11 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     }
 
     /* Resume session id */
+#ifdef USE_WOLFSSL
+    if (session_id && strlen(session_id) <= SSL_MAX_SSL_SESSION_ID_LENGTH) {
+#else
     if (session_id && strlen(session_id) <= SSL_MAX_SID_CTX_LENGTH) {
+#endif /* USE_WOLFSSL */
 	/* SSL_set_session() */
 	if (!SSL_SESSION_set1_id_context(SSL_get_session(statePtr->ssl),
 		(const unsigned char *) session_id, (unsigned int) strlen(session_id))) {
@@ -1586,7 +1653,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
      * SSL Callbacks
      */
     SSL_set_app_data(statePtr->ssl, (void *)statePtr);	/* point back to us */
-    SSL_set_verify(statePtr->ssl, verify, VerifyCallback);
+    SSL_set_verify(statePtr->ssl, verify, Tcltls_VerifyCallback);
     SSL_set_info_callback(statePtr->ssl, InfoCallback);
 
     /* Callback for observing protocol messages */
@@ -1605,7 +1672,10 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	/* Server callbacks */
 	SSL_CTX_set_tlsext_servername_arg(statePtr->ctx, (void *)statePtr);
 	SSL_CTX_set_tlsext_servername_callback(statePtr->ctx, SNICallback);
+#ifdef USE_OPENSSL
+        // TODO: WOLFSSL: enable ClientHello?
 	SSL_CTX_set_client_hello_cb(statePtr->ctx, HelloCallback, (void *)statePtr);
+#endif /* USE_OPENSSL */
 	if (statePtr->protos != NULL) {
 	    SSL_CTX_set_alpn_select_cb(statePtr->ctx, ALPNCallback, (void *)statePtr);
 #ifdef USE_NPN
@@ -1622,8 +1692,14 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	    SSL_verify_client_post_handshake(statePtr->ssl);
 	}
 
+/* openssl doc says:
+ *     SSL_CTX_set_ecdh_auto() and SSL_set_ecdh_auto() are deprecated and have no effect.
+ * Thus, perhaps it should be removed for openssl also.
+ */
+#ifdef USE_OPENSSL
 	/* set automatic curve selection */
 	SSL_set_ecdh_auto(statePtr->ssl, 1);
+#endif /* USE_OPENSSL */
 
 	/* Set server mode */
 	statePtr->flags |= TLS_TCL_SERVER;
@@ -1659,7 +1735,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
     return TCL_OK;
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -1708,7 +1784,13 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
 
     return TCL_OK;
 }
-
+
+#ifdef USE_WOLFSSL
+#ifndef SSL_CTX_set_app_data
+#define SSL_CTX_set_app_data(ctx,arg) wolfSSL_CTX_set_ex_data(ctx,0,(char *)(arg))
+#endif /* SSL_CTX_set_app_data */
+#endif /* USE_WOLFSSL */
+
 /*
  *-------------------------------------------------------------------
  *
@@ -1862,7 +1944,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
     }
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if (defined(USE_OPENSSL) && OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(USE_WOLFSSL)
     OpenSSL_add_all_algorithms(); /* Load ciphers and digests */
 #endif
 
@@ -1870,7 +1952,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     SSL_CTX_set_options(ctx, SSL_OP_ALL);	/* all SSL bug workarounds */
     SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);	/* disable compression even if supported */
     SSL_CTX_set_options(ctx, off);		/* disable protocol versions */
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
+#if (defined(USE_OPENSSL) && OPENSSL_VERSION_NUMBER < 0x10101000L) || defined(USE_WOLFSSL)
     SSL_CTX_set_mode(ctx, SSL_MODE_AUTO_RETRY);	/* handle new handshakes in background. On by default in OpenSSL 1.1.1. */
 #endif
     SSL_CTX_sess_set_cache_size(ctx, 128);
@@ -1931,12 +2013,17 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    DH_free(dh);
 
 	} else {
+/* wolfSSL uses the default parameters automatically:
+ * https://www.wolfssl.com/forums/topic1770-openssl-compatibility-layer-setting-dhparams-automatically.html
+ */
+#ifdef USE_OPENSSL
 	    /* Use well known DH parameters that have built-in support in OpenSSL */
 	    if (!SSL_CTX_set_dh_auto(ctx, 1)) {
 		Tcl_AppendResult(interp, "Could not enable set DH auto: ", GET_ERR_REASON(), (char *) NULL);
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
+#endif /* USE_OPENSSL */
 	}
     }
 #endif
@@ -2027,7 +2114,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 
     /* Overrides for the CA verify path and file */
     {
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
+#if defined(USE_WOLFSSL) || OPENSSL_VERSION_NUMBER < 0x30000000L
 	if (CApath != NULL || CAfile != NULL) {
 	    Tcl_DString ds1;
 	    Tcl_DStringInit(&ds1);
@@ -2073,7 +2160,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 
     return ctx;
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -2142,7 +2229,12 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     }
 
     /* Peer name */
+#ifdef USE_WOLFSSL
+    // TODO: WOLFSSL: how to get peername?
+    LAPPEND_STR(interp, objPtr, "peername", "", -1);
+#else
     LAPPEND_STR(interp, objPtr, "peername", SSL_get0_peername(statePtr->ssl), -1);
+#endif /* USE_WOLFSSL */
     LAPPEND_INT(interp, objPtr, "sbits", SSL_get_cipher_bits(statePtr->ssl, NULL));
 
     ciphers = (char*)SSL_get_cipher(statePtr->ssl);
@@ -2201,7 +2293,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -2220,7 +2312,9 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     const SSL *ssl;
     const SSL_CIPHER *cipher;
     const SSL_SESSION *session;
+#ifdef USE_OPENSSL
     const EVP_MD *md;
+#endif /* USE_OPENSSL */
     (void) clientData;
 
     if (objc != 2) {
@@ -2252,7 +2346,11 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	LAPPEND_STR(interp, objPtr, "state", SSL_state_string_long(ssl), -1);
 
 	/* Get SNI requested server name */
+#ifdef USE_WOLFSSL
+	LAPPEND_STR(interp, objPtr, "servername", SSL_get_servername((SSL *)ssl, TLSEXT_NAMETYPE_host_name), -1);
+#else
 	LAPPEND_STR(interp, objPtr, "servername", SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name), -1);
+#endif /* USE_WOLFSSL */
 
 	/* Get protocol */
 	LAPPEND_STR(interp, objPtr, "protocol", SSL_get_version(ssl), -1);
@@ -2260,21 +2358,39 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	/* Renegotiation allowed */
 	LAPPEND_BOOL(interp, objPtr, "renegotiation_allowed", SSL_get_secure_renegotiation_support((SSL *) ssl));
 
+#ifdef USE_OPENSSL
 	/* Get security level */
 	LAPPEND_INT(interp, objPtr, "security_level", SSL_get_security_level(ssl));
+#endif /* USE_OPENSSL */
 
 	/* Session info */
+#ifdef USE_WOLFSSL
+	LAPPEND_BOOL(interp, objPtr, "session_reused", SSL_session_reused((SSL *)ssl));
+#else
 	LAPPEND_BOOL(interp, objPtr, "session_reused", SSL_session_reused(ssl));
+#endif /* USE_WOLFSSL */
 
 	/* Is server info */
+#ifdef USE_WOLFSSL
+	LAPPEND_BOOL(interp, objPtr, "is_server", SSL_is_server((SSL *)ssl));
+#else
 	LAPPEND_BOOL(interp, objPtr, "is_server", SSL_is_server(ssl));
+#endif /* USE_WOLFSSL */
 
 	/* Is DTLS */
+#ifdef USE_WOLFSSL
+	LAPPEND_BOOL(interp, objPtr, "is_dtls", wolfSSL_dtls((SSL *)ssl));
+#else
 	LAPPEND_BOOL(interp, objPtr, "is_dtls", SSL_is_dtls(ssl));
+#endif /* USE_WOLFSSL */
     }
 
     /* Cipher info */
+#ifdef USE_WOLFSSL
+    cipher = SSL_get_current_cipher((SSL *)ssl);
+#else
     cipher = SSL_get_current_cipher(ssl);
+#endif /* USE_WOLFSSL */
     if (cipher != NULL) {
 	char buf[BUFSIZ] = {0};
 	int bits, alg_bits;
@@ -2285,8 +2401,10 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	/* RFC name of cipher */
 	LAPPEND_STR(interp, objPtr, "standard_name", SSL_CIPHER_standard_name(cipher), -1);
 
+#ifdef USE_OPENSSL
 	/* OpenSSL name of cipher */
 	LAPPEND_STR(interp, objPtr, "openssl_name", OPENSSL_cipher_name(SSL_CIPHER_standard_name(cipher)), -1);
+#endif /* USE_OPENSSL */
 
 	/* number of secret bits used for cipher */
 	bits = SSL_CIPHER_get_bits(cipher, &alg_bits);
@@ -2308,15 +2426,19 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	/* Authenticated Encryption with associated data (AEAD) check */
 	LAPPEND_BOOL(interp, objPtr, "cipher_is_aead", SSL_CIPHER_is_aead(cipher));
 
+#ifdef USE_OPENSSL
 	/* Digest used during the SSL/TLS handshake when using the cipher. */
 	md = SSL_CIPHER_get_handshake_digest(cipher);
 	LAPPEND_STR(interp, objPtr, "handshake_digest", (char *)EVP_MD_name(md), -1);
+#endif /* USE_OPENSSL */
 
 	/* Get OpenSSL-specific ID, not IANA ID */
 	LAPPEND_INT(interp, objPtr, "cipher_id", (int) SSL_CIPHER_get_id(cipher));
 
+#ifdef USE_OPENSSL
 	/* Two-byte ID used in the TLS protocol of the given cipher */
 	LAPPEND_INT(interp, objPtr, "protocol_id", (int) SSL_CIPHER_get_protocol_id(cipher));
+#endif /* USE_OPENSSL */
 
 	/* Textual description of the cipher */
 	if (SSL_CIPHER_description(cipher, buf, sizeof(buf)) != NULL) {
@@ -2327,14 +2449,23 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     /* Session info */
     session = SSL_get_session(ssl);
     if (session != NULL) {
+#ifdef USE_WOLFSSL
+	unsigned char ticket[SESSION_TICKET_LEN];
+	unsigned int len2;
+#else
 	const unsigned char *ticket;
 	size_t len2;
+#endif /* USE_WOLFSSL */
 	unsigned int ulen;
 	const unsigned char *session_id, *proto;
 	unsigned char buffer[SSL_MAX_MASTER_KEY_LENGTH];
 
 	/* Report the selected protocol as a result of the ALPN negotiation */
+#ifdef USE_WOLFSSL
+	SSL_get0_alpn_selected(ssl, &proto, &len2);
+#else
 	SSL_SESSION_get0_alpn_selected(session, &proto, &len2);
+#endif /* USE_WOLFSSL */
 	LAPPEND_STR(interp, objPtr, "alpn", (char *) proto, (Tcl_Size) len2);
 
 	/* Report the selected protocol as a result of the NPN negotiation */
@@ -2361,14 +2492,23 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	LAPPEND_BARRAY(interp, objPtr, "session_context", session_id, (Tcl_Size) ulen);
 
 	/* Session ticket - client only */
+#ifdef USE_WOLFSSL
+#ifdef HAVE_SESSION_TICKET
+	wolfSSL_get_SessionTicket((SSL *)ssl, ticket, &len2);
+#else
+	ticket = NULL;
+	len2 = 0;
+#endif /* HAVE_SESSION_TICKET */
+#else
 	SSL_SESSION_get0_ticket(session, &ticket, &len2);
+#endif /* USE_WOLFSSL */
 	LAPPEND_BARRAY(interp, objPtr, "session_ticket", ticket, (Tcl_Size) len2);
 
 	/* Session ticket lifetime hint (in seconds) */
 	LAPPEND_LONG(interp, objPtr, "lifetime", SSL_SESSION_get_ticket_lifetime_hint(session));
 
 	/* Ticket app data */
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
+#if defined(USE_OPENSSL) && OPENSSL_VERSION_NUMBER < 0x30000000L
 	SSL_SESSION_get0_ticket_appdata((SSL_SESSION *) session, &ticket, &len2);
 	LAPPEND_BARRAY(interp, objPtr, "ticket_app_data", ticket, (Tcl_Size) len2);
 #endif
@@ -2377,11 +2517,14 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	len2 = SSL_SESSION_get_master_key(session, buffer, SSL_MAX_MASTER_KEY_LENGTH);
 	LAPPEND_BARRAY(interp, objPtr, "master_key", buffer, (Tcl_Size) len2);
 
+#ifdef USE_OPENSSL
 	/* Compression id */
 	unsigned int id = SSL_SESSION_get_compress_id(session);
 	LAPPEND_STR(interp, objPtr, "compression_id", id == 1 ? "zlib" : "none", -1);
+#endif /* USE_OPENSSL */
     }
 
+#ifdef USE_OPENSSL
     /* Compression info */
     if (ssl != NULL) {
 #ifdef HAVE_SSL_COMPRESSION
@@ -2396,6 +2539,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 	LAPPEND_STR(interp, objPtr, "expansion", "none", -1);
 #endif
     }
+#endif /* USE_OPENSSL */
 
     /* Server info */
     {
@@ -2436,7 +2580,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -2464,7 +2608,7 @@ VersionObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 
     return TCL_OK;
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -2679,7 +2823,7 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
     }
     return TCL_OK;
 }
-
+
 /********************/
 /* Init             */
 /********************/
@@ -2709,7 +2853,7 @@ Tls_Free(tls_free_type *blockPtr) {
     Tls_Clean(statePtr);
     ckfree(blockPtr);
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -2773,7 +2917,7 @@ void Tls_Clean(State *statePtr) {
 
     dprintf("Returning");
 }
-
+
 /*
  *----------------------------------------------------------------------
  *
@@ -2856,7 +3000,7 @@ BuildInfoCommand(Tcl_Interp* interp) {
     }
     return TCL_OK;
 }
-
+
 /*
  *-------------------------------------------------------------------
  *

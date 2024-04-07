@@ -143,22 +143,28 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
 		dprintf("Got BIO_C_FILE_SEEK");
 		ret = 0;
 		break;
+#ifdef BIO_C_FILE_TELL
 	case BIO_C_FILE_TELL:
 		dprintf("Got BIO_C_FILE_TELL");
 		ret = 0;
 		break;
+#endif /* BIO_C_FILE_TELL */
 	case BIO_CTRL_INFO:
 		dprintf("Got BIO_CTRL_INFO");
 		ret = 1;
 		break;
+#ifdef BIO_C_SET_FD
 	case BIO_C_SET_FD:
 		dprintf("Unsupported call: BIO_C_SET_FD");
 		ret = -1;
 		break;
+#endif /* BIO_C_SET_FD */
+#ifdef BIO_C_GET_FD
 	case BIO_C_GET_FD:
 		dprintf("Unsupported call: BIO_C_GET_FD");
 		ret = -1;
 		break;
+#endif /* BIO_C_GET_FD */
 	case BIO_CTRL_GET_CLOSE:
 		dprintf("Got BIO_CTRL_CLOSE");
 		ret = BIO_get_shutdown(bio);
@@ -241,10 +247,12 @@ static int BioFree(BIO *bio) {
     dprintf("BioFree(%p) called", bio);
 
     if (BIO_get_shutdown(bio)) {
+#ifdef USE_OPENSSL
 	if (BIO_get_init(bio)) {
 	    /*shutdown(bio->num, 2) */
 	    /*closesocket(bio->num) */
 	}
+#endif /* USE_OPENSSL */
 
 	BIO_set_init(bio, 0);
 	BIO_clear_flags(bio, -1);

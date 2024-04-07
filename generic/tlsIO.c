@@ -263,9 +263,15 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	case SSL_ERROR_WANT_X509_LOOKUP:
 	case SSL_ERROR_WANT_CONNECT:
 	case SSL_ERROR_WANT_ACCEPT:
+#ifdef SSL_ERROR_WANT_ASYNC
 	case SSL_ERROR_WANT_ASYNC:
+#endif /* SSL_ERROR_WANT_ASYNC */
+#ifdef SSL_ERROR_WANT_ASYNC_JOB
 	case SSL_ERROR_WANT_ASYNC_JOB:
+#endif /* SSL_ERROR_WANT_ASYNC_JOB */
+#ifdef SSL_ERROR_WANT_CLIENT_HELLO_CB
 	case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+#endif /* SSL_ERROR_WANT_CLIENT_HELLO_CB */
 	default:
 	    /* The operation did not complete and should be retried later. */
 	    dprintf("Operation did not complete, call function again later: %i", rc);
@@ -385,7 +391,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 		*errorCodePtr = 0;
 		bytesRead = 0;
 		Tls_Error(statePtr, "EOF reached");
-	    }    
+	    }
 #endif
 	    break;
 

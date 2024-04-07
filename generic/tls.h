@@ -15,11 +15,25 @@
  *	SSLtcl (Peter Antman)
  *
  */
- 
+
 #ifndef _TLS_H
 #define _TLS_H
 
+/* Types mp_int and mp_digit conflict with wolfSSL math headers.
+ * Let's mask these types for Tcl.
+ */
+#ifdef USE_WOLFSSL
+#define mp_int TCL_mp_int
+#define mp_digit TCL_mp_digit
+#endif
+
 #include <tcl.h>
+
+/* Revert our hack with mp_int and mp_digit types. */
+#ifdef USE_WOLFSSL
+#undef mp_int
+#undef mp_digit
+#endif
 
 /*
  * Initialization routines -- our entire public C API.

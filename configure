@@ -786,8 +786,12 @@ enable_hardening
 enable_static_ssl
 with_openssl_dir
 with_openssl_includedir
+with_wolfssl_dir
+with_wolfssl_includedir
 with_openssl_libdir
+with_wolfssl_libdir
 with_openssl_pkgconfig
+with_wolfssl_pkgconfig
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1449,12 +1453,20 @@ Optional Packages:
   --with-openssl-includedir=<dir>
                           path to include directory of OpenSSL or LibreSSL
                           installation
+  --with-wolfssl-dir=<dir>
+                          path to root directory of wolfSSL installation
+  --with-wolfssl-includedir=<dir>
+                          path to include directory of wolfSSL installation
   --with-openssl-libdir=<dir>
                           path to lib directory of OpenSSL or LibreSSL
                           installation
+  --with-wolfssl-libdir=<dir>
+                          path to lib directory of wolfSSL installation
   --with-openssl-pkgconfig=<dir>
                           path to pkgconfigdir directory for OpenSSL or
                           LibreSSL
+  --with-wolfssl-pkgconfig=<dir>
+                          path to pkgconfigdir directory for wolfSSL
 
 Some influential environment variables:
   CC          C compiler command
@@ -1466,11 +1478,11 @@ Some influential environment variables:
               you have headers in a nonstandard directory <include dir>
   CPP         C preprocessor
   TCLTLS_SSL_CFLAGS
-              C compiler flags for OpenSSL or LibreSSL
+              C compiler flags for OpenSSL, LibreSSL or wolfSSL
   TCLTLS_SSL_INCLUDES
-              C compiler include paths for OpenSSL or LibreSSL
+              C compiler include paths for OpenSSL, LibreSSL or wolfSSL
   TCLTLS_SSL_LIBS
-              libraries to pass to the linker for OpenSSL or LibreSSL
+              libraries to pass to the linker for OpenSSL, LibreSSL or wolfSSL
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -9163,8 +9175,8 @@ else $as_nop
 
 fi
 
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for static linking of openSSL libraries" >&5
-printf %s "checking for static linking of openSSL libraries... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for static linking of SSL libraries" >&5
+printf %s "checking for static linking of SSL libraries... " >&6; }
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $TCLEXT_TLS_STATIC_SSL" >&5
 printf "%s\n" "$TCLEXT_TLS_STATIC_SSL" >&6; }
 
@@ -9211,7 +9223,65 @@ printf %s "checking for OpenSSL include directory... " >&6; }
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $opensslincludedir" >&5
 printf "%s\n" "$opensslincludedir" >&6; }
 
-		if test ! -z "$opensslincludedir"; then
+
+# Check whether --with-wolfssl-dir was given.
+if test ${with_wolfssl_dir+y}
+then :
+  withval=$with_wolfssl_dir;
+			wolfssldir="$withval"
+
+else $as_nop
+
+			wolfssldir=''
+
+
+fi
+
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wolfSSL directory" >&5
+printf %s "checking for wolfSSL directory... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $wolfssldir" >&5
+printf "%s\n" "$wolfssldir" >&6; }
+
+
+# Check whether --with-wolfssl-includedir was given.
+if test ${with_wolfssl_includedir+y}
+then :
+  withval=$with_wolfssl_includedir;
+			wolfsslincludedir="$withval"
+
+else $as_nop
+
+			if test ! -z "$wolfssldir"; then
+				wolfsslincludedir="${wolfssldir}/include"
+			else
+				wolfsslincludedir=''
+			fi
+
+
+fi
+
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wolfSSL include directory" >&5
+printf %s "checking for wolfSSL include directory... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $wolfsslincludedir" >&5
+printf "%s\n" "$wolfsslincludedir" >&6; }
+
+		if test ! -z "$wolfsslincludedir"; then
+		if test -f "$wolfsslincludedir/wolfssl/openssl/ssl.h"; then
+			TCLTLS_SSL_CFLAGS="-I$wolfsslincludedir"
+			TCLTLS_SSL_INCLUDES="-I$wolfsslincludedir"
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ssl.h" >&5
+printf %s "checking for ssl.h... " >&6; }
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+			use_wolfssl=yes
+		else
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ssl.h" >&5
+printf %s "checking for ssl.h... " >&6; }
+			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+			as_fn_error $? "Unable to locate ssl.h" "$LINENO" 5
+		fi
+	elif test ! -z "$opensslincludedir"; then
 		if test -f "$opensslincludedir/openssl/ssl.h"; then
 			TCLTLS_SSL_CFLAGS="-I$opensslincludedir"
 			TCLTLS_SSL_INCLUDES="-I$opensslincludedir"
@@ -9255,7 +9325,48 @@ printf %s "checking for OpenSSL lib directory... " >&6; }
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $openssllibdir" >&5
 printf "%s\n" "$openssllibdir" >&6; }
 
-		if test ! -z "$openssllibdir"; then
+
+# Check whether --with-wolfssl-libdir was given.
+if test ${with_wolfssl_libdir+y}
+then :
+  withval=$with_wolfssl_libdir;
+			wolfssllibdir="$withval"
+
+else $as_nop
+
+			if test ! -z "$wolfssldir"; then
+				if test "$do64bit" == 'yes'; then
+					woldssllibdir="$wolfssldir/lib64"
+				else
+					wolfssllibdir="$wolfssldir/lib"
+				fi
+			else
+				wolfssllibdir=''
+			fi
+
+
+fi
+
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wolfSSL lib directory" >&5
+printf %s "checking for wolfSSL lib directory... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $wolfssllibdir" >&5
+printf "%s\n" "$wolfssllibdir" >&6; }
+
+		if test ! -z "$wolfssllibdir"; then
+		if test "${TCLEXT_TLS_STATIC_SSL}" == 'no'; then
+			if test -f "$wolfssllibdir/libwolfssl${SHLIB_SUFFIX}"; then
+				TCLTLS_SSL_LIBS="-L$wolfssllibdir -lwolfssl"
+			else
+				as_fn_error $? "Unable to locate libwolfssl${SHLIB_SUFFIX}" "$LINENO" 5
+			fi
+		else
+			if test -f "$wolfssllibdir/libwolfssl.a"; then
+				TCLTLS_SSL_LIBS="-L$wolfssllibdir -lwolfssl"
+			else
+				as_fn_error $? "Unable to locate libwolfssl.a" "$LINENO" 5
+			fi
+		fi
+	elif test ! -z "$openssllibdir"; then
 		if test -f "$openssllibdir/libssl${SHLIB_SUFFIX}"; then
 			if test "${TCLEXT_TLS_STATIC_SSL}" == 'no'; then
 				TCLTLS_SSL_LIBS="-L$openssllibdir -lcrypto -lssl"
@@ -9294,6 +9405,29 @@ printf %s "checking for OpenSSL pkgconfig... " >&6; }
 printf "%s\n" "$opensslpkgconfigdir" >&6; }
 
 
+# Check whether --with-wolfssl-pkgconfig was given.
+if test ${with_wolfssl_pkgconfig+y}
+then :
+  withval=$with_wolfssl_pkgconfig;
+			wolfsslpkgconfigdir="$withval"
+
+else $as_nop
+
+			if test -d ${libdir}/../pkgconfig; then
+				wolfsslpkgconfigdir="$libdir/../pkgconfig"
+			else
+				wolfsslpkgconfigdir=''
+			fi
+
+
+fi
+
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for wolfSSL pkgconfig" >&5
+printf %s "checking for wolfSSL pkgconfig... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $wolfsslpkgconfigdir" >&5
+printf "%s\n" "$wolfsslpkgconfigdir" >&6; }
+
+
 	# Use Package Config tool to get config
 	pkgConfigExtraArgs=''
 	if test "${SHARED_BUILD}" == 0 -o "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
@@ -9302,7 +9436,15 @@ printf "%s\n" "$opensslpkgconfigdir" >&6; }
 
 		if test -n "${PKG_CONFIG}"; then
 				PKG_CONFIG_PATH_SAVE="${PKG_CONFIG_PATH}"
-		if test -n "${opensslpkgconfigdir}"; then
+		if test -n "${wolfsslpkgconfigdir}"; then
+			if ! test -f "${wolfsslpkgconfigdir}/wolfssl.pc"; then
+				as_fn_error $? "Unable to locate ${wolfsslpkgconfigdir}/wolfssl.pc" "$LINENO" 5
+			fi
+
+			PKG_CONFIG_PATH="${wolfsslpkgconfigdir}:${PKG_CONFIG_PATH}"
+			export PKG_CONFIG_PATH
+			use_wolfssl=yes
+		elif test -n "${opensslpkgconfigdir}"; then
 			if ! test -f "${opensslpkgconfigdir}/openssl.pc"; then
 				as_fn_error $? "Unable to locate ${opensslpkgconfigdir}/openssl.pc" "$LINENO" 5
 			fi
@@ -9310,14 +9452,26 @@ printf "%s\n" "$opensslpkgconfigdir" >&6; }
 			PKG_CONFIG_PATH="${opensslpkgconfigdir}:${PKG_CONFIG_PATH}"
 			export PKG_CONFIG_PATH
 		fi
-		if test -z "$TCLTLS_SSL_LIBS"; then
-			TCLTLS_SSL_LIBS="`"${PKG_CONFIG}" openssl --libs $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
-		fi
-		if test -z "$TCLTLS_SSL_CFLAGS"; then
-			TCLTLS_SSL_CFLAGS="`"${PKG_CONFIG}" openssl --cflags-only-other $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
-		fi
-		if test -z "$TCLTLS_SSL_INCLUDES"; then
-			TCLTLS_SSL_INCLUDES="`"${PKG_CONFIG}" openssl --cflags-only-I $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
+		if test -z "$use_wolfssl"; then
+			if test -z "$TCLTLS_SSL_LIBS"; then
+				TCLTLS_SSL_LIBS="`"${PKG_CONFIG}" openssl --libs $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
+			fi
+			if test -z "$TCLTLS_SSL_CFLAGS"; then
+				TCLTLS_SSL_CFLAGS="`"${PKG_CONFIG}" openssl --cflags-only-other $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
+			fi
+			if test -z "$TCLTLS_SSL_INCLUDES"; then
+				TCLTLS_SSL_INCLUDES="`"${PKG_CONFIG}" openssl --cflags-only-I $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
+			fi
+		else
+			if test -z "$TCLTLS_SSL_LIBS"; then
+				TCLTLS_SSL_LIBS="`"${PKG_CONFIG}" wolfssl --libs $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get wolfSSL Configuration" "$LINENO" 5
+			fi
+			if test -z "$TCLTLS_SSL_CFLAGS"; then
+				TCLTLS_SSL_CFLAGS="`"${PKG_CONFIG}" wolfssl --cflags-only-other $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get wolfSSL Configuration" "$LINENO" 5
+			fi
+			if test -z "$TCLTLS_SSL_INCLUDES"; then
+				TCLTLS_SSL_INCLUDES="`"${PKG_CONFIG}" wolfssl --cflags-only-I $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get wolfSSL Configuration" "$LINENO" 5
+			fi
 		fi
 		PKG_CONFIG_PATH="${PKG_CONFIG_PATH_SAVE}"
 	fi
@@ -9333,6 +9487,11 @@ printf "%s\n" "$opensslpkgconfigdir" >&6; }
 		if test -f /usr/include/openssl/ssl.h; then
 			TCLTLS_SSL_INCLUDES="-I/usr/include"
 		fi
+	fi
+	if test "$use_wolfssl" == "yes"; then
+		TCLTLS_SSL_CFLAGS="${TCLTLS_SSL_CFLAGS} -DUSE_WOLFSSL"
+	else
+		TCLTLS_SSL_CFLAGS="${TCLTLS_SSL_CFLAGS} -DUSE_OPENSSL"
 	fi
 
 

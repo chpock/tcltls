@@ -49,10 +49,49 @@
     #define TCL_SIZE_MODIFIER ""
 #endif
 
+#ifdef USE_WOLFSSL
+#include <wolfssl/options.h>
+#include <wolfssl/ssl.h>
+#include <wolfssl/openssl/ssl.h>
+#include <wolfssl/openssl/err.h>
+#include <wolfssl/openssl/rand.h>
+#include <wolfssl/openssl/opensslv.h>
+#include <wolfssl/openssl/rsa.h>
+#else
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
 #include <openssl/opensslv.h>
+#include <openssl/rsa.h>
+#include <openssl/safestack.h>
+#endif /* USE_WOLFSSL */
+
+#ifdef USE_WOLFSSL
+
+#define NO_SSL2
+#define NO_SSL3
+
+#if defined(NO_OLD_TLS) || !defined(WOLFSSL_ALLOW_TLSV10)
+#define NO_TLS1
+#endif /* defined(NO_OLD_TLS) || !defined(WOLFSSL_ALLOW_TLSV10) */
+
+#ifdef NO_OLD_TLS
+#define NO_TLS1_1
+#endif /* NO_OLD_TLS */
+
+#ifdef WOLFSSL_NO_TLS12
+#define NO_TLS1_2
+#endif /* WOLFSSL_NO_TLS12 */
+
+#ifndef WOLFSSL_TLS13
+#define NO_TLS1_3
+#endif
+
+#ifndef SESSION_TICKET_LEN
+#define SESSION_TICKET_LEN 256
+#endif
+
+#endif /* USE_WOLFSSL */
 
 #ifndef ECONNABORTED
 #define ECONNABORTED	130	/* Software caused connection abort */
